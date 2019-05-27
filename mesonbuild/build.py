@@ -92,7 +92,7 @@ known_build_target_kwargs = (
 
 known_exe_kwargs = known_build_target_kwargs | {'implib', 'export_dynamic', 'link_language', 'pie'}
 known_shlib_kwargs = known_build_target_kwargs | {'version', 'soversion', 'vs_module_defs', 'darwin_versions'}
-known_shmod_kwargs = known_build_target_kwargs
+known_shmod_kwargs = known_build_target_kwargs | {'link_language'}
 known_stlib_kwargs = known_build_target_kwargs | {'pic'}
 known_jar_kwargs = known_exe_kwargs | {'main_class'}
 
@@ -1196,25 +1196,34 @@ You probably should put it in link_with instead.''')
             all_compilers = self.environment.coredata.cross_compilers
         else:
             all_compilers = self.environment.coredata.compilers
+
         # Languages used by dependencies
         dep_langs = self.get_langs_used_by_deps()
+
+        def provide_linker_and_stdlibs(self, l):
+            try:
+                linker = all_compilers[l]
+            except KeyError:
+                raise MesonException(
+                    'Could not get a dynamic linker for build target {!r}. '
+                    'Requires a linker for language "{}", but that is not '
+                    'a project language.'.format(self.name, l))
+            stdlib_args = []
+            added_languages = set()
+            for dl in itertools.chain(self.compilers, dep_langs):
+                if dl != linker.language:
+                    stdlib_args += all_compilers[dl].language_stdlib_only_link_flags()
+                    added_languages.add(dl)
+            return linker, stdlib_args
+
+        # User specified link_language of target (for multi-language targets)
+        if self.link_language:
+            return provide_linker_and_stdlibs(self, self.link_language)
+
         # Pick a compiler based on the language priority-order
         for l in clink_langs:
             if l in self.compilers or l in dep_langs:
-                try:
-                    linker = all_compilers[l]
-                except KeyError:
-                    raise MesonException(
-                        'Could not get a dynamic linker for build target {!r}. '
-                        'Requires a linker for language "{}", but that is not '
-                        'a project language.'.format(self.name, l))
-                stdlib_args = []
-                added_languages = set()
-                for dl in itertools.chain(self.compilers, dep_langs):
-                    if dl != linker.language:
-                        stdlib_args += all_compilers[dl].language_stdlib_only_link_flags()
-                        added_languages.add(dl)
-                return linker, stdlib_args
+                return provide_linker_and_stdlibs(self, l)
 
         m = 'Could not get a dynamic linker for build target {!r}'
         raise AssertionError(m.format(self.name))
