@@ -20,6 +20,7 @@ import sys
 import configparser
 from . import WrapMode
 from ..mesonlib import MesonException
+import boto3     
 
 try:
     import ssl
@@ -31,6 +32,7 @@ except ImportError:
 
 req_timeout = 600.0
 ssl_warning_printed = False
+client = boto3.client('s3')
 
 def build_ssl_context():
     ctx = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
@@ -251,6 +253,17 @@ class Resolver:
         blocksize = 10 * 1024
         h = hashlib.sha256()
         tmpfile = tempfile.NamedTemporaryFile(mode='wb', dir=self.cachedir, delete=False)
+        if url.startswith("s3://"):
+            path = url[5:]
+            components = path.split('/')
+            client.download_fileobj(components[0], '/'.join(components[1:]), tmpfile)
+            with open(tmpfile.name, 'rb') as f:
+                fb = f.read(blocksize)
+                while len(fb) > 0:
+                    h.update(fb)
+                    fb = f.read(blocksize)
+            hashvalue = h.hexdigest()
+            return hashvalue, tmpfile.name
         if url.startswith('https://wrapdb.mesonbuild.com'):
             resp = open_wrapdburl(url)
         else:
