@@ -230,8 +230,8 @@ class File:
     @staticmethod
     @lru_cache(maxsize=None)
     def from_source_file(source_root: str, subdir: str, fname: str):
-        if not os.path.isfile(os.path.join(source_root, subdir, fname)):
-            raise MesonException('File %s does not exist.' % fname)
+        #if not os.path.isfile(os.path.join(source_root, subdir, fname)):
+        #    raise MesonException('File %s does not exist.' % fname)
         return File(False, subdir, fname)
 
     @staticmethod

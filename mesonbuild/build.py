@@ -1044,6 +1044,8 @@ This will become a hard error in a future Meson release.''')
                     self.external_deps.append(dep)
                     self.process_sourcelist(dep.get_sources())
                 self.add_deps(dep.ext_deps)
+            elif isinstance(dep, CustomTarget):
+                self.generated.append(dep)
             elif isinstance(dep, BuildTarget):
                 raise InvalidArguments('''Tried to use a build target as a dependency.
 You probably should put it in link_with instead.''')
@@ -2024,8 +2026,8 @@ class CustomTarget(Target):
                 raise InvalidArguments('Output must not be empty.')
             if i.strip() == '':
                 raise InvalidArguments('Output must not consist only of whitespace.')
-            if has_path_sep(i):
-                raise InvalidArguments('Output {!r} must not contain a path segment.'.format(i))
+            #if has_path_sep(i):
+            #    raise InvalidArguments('Output {!r} must not contain a path segment.'.format(i))
             if '@INPUT@' in i or '@INPUT0@' in i:
                 m = 'Output cannot contain @INPUT@ or @INPUT0@, did you ' \
                     'mean @PLAINNAME@ or @BASENAME@?'

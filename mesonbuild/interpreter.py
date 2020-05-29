@@ -2165,6 +2165,8 @@ class Interpreter(InterpreterBase):
             return item
         elif isinstance(item, build.Executable):
             return ExecutableHolder(item, self)
+        elif isinstance(item, build.SharedLibrary):
+            return SharedLibraryHolder(item ,self)
         elif isinstance(item, build.GeneratedList):
             return GeneratedListHolder(item)
         elif isinstance(item, build.RunTarget):
