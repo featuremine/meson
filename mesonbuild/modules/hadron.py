@@ -32,8 +32,8 @@ import shutil
 import subprocess
 from pathlib import Path
 import sys
-import platform
 from collections import defaultdict
+from copy import copy
 
 class HadronModule(ExtensionModule):
 
@@ -59,14 +59,12 @@ class HadronModule(ExtensionModule):
         self.subproject = state.subproject
         self.sources = defaultdict(list)
 
-        self.process_bins()
-
         py_targets = self.py_src_targets()
         root_targets = self.root_files_targets()
         [ext_targets, ext_deps] = self.process_extensions()
         wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps)
-        #conda_target = self.make_conda_target(py_targets, root_targets, ext_deps)
-        ret = py_targets + root_targets + [wheel_target] + ext_targets #+ [conda_target] 
+        conda_target = self.make_conda_target(py_targets, root_targets, ext_deps)
+        ret = py_targets + root_targets + [wheel_target] + ext_targets + [conda_target] 
 
         self.make_racket_target()
 
@@ -117,8 +115,9 @@ class HadronModule(ExtensionModule):
             targets.append(self.root_file_target(root_file))
         return targets
 
-    def process_bins(self):
+    def process_bins(self, wheel):
         data_dir = "{0}-{1}.data".format(self.name, self.version)
+        ret = defaultdict(list)
         for bin_file in self.bin_files:
             pos = bin_file.find('/')
             if bin_file[:pos] != 'lib':
@@ -126,7 +125,11 @@ class HadronModule(ExtensionModule):
             path = os.path.join(self.source_dir, bin_file) 
             if not os.path.isfile(path):
                 raise mesonlib.MesonException("Bin file '{0}' doesn't exist".format(path))
-            self.sources[os.path.join(data_dir, os.path.dirname(bin_file[pos+1:]))].append(path)
+            if wheel:
+                ret[os.path.join(data_dir, os.path.dirname(bin_file[pos+1:]))].append(path)
+            else:
+                ret[os.path.join('lib', os.path.basename(bin_file))].append(path)
+        return ret
 
     def make_pkg_dir(self):
         if not os.path.exists(self.pkg_dir):
@@ -150,8 +153,8 @@ class HadronModule(ExtensionModule):
 
     def make_racket_targets(self, tools_dir, mir_gen, dest_dir, mir_header):
         cmd = ['racket', '-S', tools_dir, mir_gen, '-d', dest_dir, '-s', mir_header]
-        sources = self.run_subprocess(cmd + ['-i'])
-        dependencies = self.run_subprocess(cmd + ['-m'])
+        sources = self.run_mir_subprocess(cmd + ['-i'])
+        dependencies = self.run_mir_subprocess(cmd + ['-m'])
         target_deps = []
         res = []
         for dep in dependencies:
@@ -164,10 +167,15 @@ class HadronModule(ExtensionModule):
         target = build.CustomTarget(mir_header.replace('/', '_'), os.path.join(self.build_dir, 'package', self.name), self.subproject, custom_kwargs) 
         return [target, children]
 
-    def run_subprocess(self, cmd):
+    def run_mir_subprocess(self, cmd):
         ps = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         cout, cerr = ps.communicate()
         return self.parse_mir_gen_output(cout)
+
+    def run_subprocess(self, cmd):
+        ps = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        cout, cerr = ps.communicate()
+        return str(cout, 'utf-8').strip()
 
     def parse_mir_gen_output(self, output):
         out = str(output, 'utf-8')
@@ -177,8 +185,9 @@ class HadronModule(ExtensionModule):
         end = find(out, '"')[-1]
         return [path.strip() for path in out[beg+1:end].split(',')]
 
-    def get_sources_as_str(self):
-        ret = str(dict(self.sources)).replace(' ','')
+    def get_dictionary_as_str(self, dictionary):
+        ret = str(dict(dictionary)).replace(' ','')
+        print(ret)
         return ret.replace("'", "\"")
 
     def make_wheel_target(self, py_src_targets, root_files_targets, deps):
@@ -186,11 +195,15 @@ class HadronModule(ExtensionModule):
         major_ver = sys.version_info.major
         minor_ver = sys.version_info.minor
         name = '{0}-{1}-cp{2}{3}-cp{2}{3}m-linux_x86_64.whl'.format(self.name, self.version, major_ver, minor_ver)
+        src_copy = copy(self.sources)
+        for dir, files in self.process_bins(True).items():
+            for file in files:
+                src_copy[dir].append(file)
         cmd = ['python3', py_script,
                 '--module', self.name,
                 '--version', self.version,
                 '--build_dir', self.pkg_dir,
-                '--sources', self.get_sources_as_str()]
+                '--sources', self.get_dictionary_as_str(src_copy)]
         custom_kwargs = {
             'input': py_src_targets + root_files_targets,
             'output': name,
@@ -201,16 +214,25 @@ class HadronModule(ExtensionModule):
         return build.CustomTarget(name, self.subdir, self.subproject, custom_kwargs)
 
     def make_conda_target(self, py_src_targets, root_files_targets, deps):
-        py_script = os.path.join(self.source_dir, 'scripts', 'conda_gen.py')
+        py_script = os.path.join(self.source_dir, 'scripts', 'conda_gen_ex.py')
         major_ver = sys.version_info.major
         minor_ver = sys.version_info.minor
-        distro_name = platform.linux_distribution()[0]
-        distro_ver = platform.linux_distribution()[1]
+        distro_name = self.run_subprocess(['lsb_release', '-is']).lower()
+        distro_ver = self.run_subprocess(['lsb_release', '-rs']).lower()
         name = "{0}_{1}_py{2}{3}".format(distro_name, distro_ver, major_ver, minor_ver)
+        src_copy = copy(self.sources)
+        for dir, files in self.process_bins(False).items():
+            for file in files:
+                src_copy[dir].append(file)
+        cmd = ['python3', py_script,
+                '--module', self.name,
+                '--version', self.version,
+                '--build_dir', self.pkg_dir,
+                '--sources', self.get_dictionary_as_str(src_copy)]
         custom_kwargs = {
             'input': py_src_targets + root_files_targets + deps,
             'output': name,
-            'command': ['python3', py_script, distro_name, distro_ver, self.name, self.version, self.build_dir, str(major_ver), str(minor_ver), '@INPUT@'],
+            'command': cmd,
             'depends': py_src_targets + root_files_targets,
             'build_by_default' : True
         }
