@@ -32,6 +32,7 @@ import subprocess
 from pathlib import Path
 import sys
 import platform
+from collections import defaultdict
 
 class HadronModule(ExtensionModule):
 
@@ -53,6 +54,7 @@ class HadronModule(ExtensionModule):
         self.build_dir = state.environment.build_dir
         self.subdir = state.subdir
         self.subproject = state.subproject
+        self.sources = defaultdict(list)
 
         py_targets = self.py_src_targets()
         root_targets = self.root_files_targets()
@@ -80,6 +82,7 @@ class HadronModule(ExtensionModule):
             'command' : ['cp', '@INPUT@', '@OUTPUT@'],
             'build_by_default' : True
         }
+        self.sources[os.path.join(self.name, os.path.dirname(path))].append(os.path.join(self.pkg_dir, path))
         return build.CustomTarget(path.replace('/', '_'), os.path.join(self.pkg_dir, os.path.dirname(path)), self.subproject, custom_kwargs)
 
     def py_src_targets(self):
@@ -99,6 +102,7 @@ class HadronModule(ExtensionModule):
             'command' : ['cp', '@INPUT@', '@OUTPUT@'],
             'build_by_default' : True
         }
+        self.sources[""].append(os.path.join(self.build_dir, 'package', self.name, os.path.basename(path)))
         return build.CustomTarget(path.replace('/', '_'), os.path.join(self.build_dir, 'package', self.name), self.subproject, custom_kwargs)
 
     def root_files_targets(self):
@@ -157,15 +161,24 @@ class HadronModule(ExtensionModule):
         end = find(out, '"')[-1]
         return [path.strip() for path in out[beg+1:end].split(',')]
 
+    def get_sources_as_str(self):
+        ret = str(dict(self.sources)).replace(' ','')
+        return ret.replace("'", "\"")
+
     def make_wheel_target(self, py_src_targets, root_files_targets, deps):
-        py_script = os.path.join(self.source_dir, 'scripts', 'wheel_gen.py')
+        py_script = os.path.join(self.source_dir, 'scripts', 'wheel_gen_ex.py')
         major_ver = sys.version_info.major
         minor_ver = sys.version_info.minor
         name = '{0}-{1}-cp{2}{3}-cp{2}{3}m-linux_x86_64.whl'.format(self.name, self.version, major_ver, minor_ver)
+        cmd = ['python3', py_script,
+                '--module', self.name,
+                '--version', self.version,
+                '--build_dir', self.build_dir,
+                '--sources', self.get_sources_as_str()]
         custom_kwargs = {
             'input': py_src_targets + root_files_targets,
             'output': name,
-            'command': ['python3', py_script, self.name, self.version, self.build_dir, str(major_ver), str(minor_ver), '@INPUT@'],
+            'command': cmd,
             'depends': py_src_targets + root_files_targets + deps,
             'build_by_default' : True
         }
@@ -201,6 +214,7 @@ class HadronModule(ExtensionModule):
                     'command': ['cp', '@INPUT@', '@OUTPUT@'],
                     'build_by_default': True
                 }
+                self.sources[os.path.join(self.name, os.path.dirname(extension[pos+1:]))].append( os.path.join(self.pkg_dir, os.path.dirname(extension[pos+1:]), os.path.basename(extension)))
                 targets.append(build.CustomTarget(extension.replace('/', '_'), os.path.join(self.pkg_dir, os.path.dirname(extension[pos+1:])), self.subproject, custom_kwargs))
             elif isinstance(extension, build.BuildTarget):
                 deps.append(extension)
