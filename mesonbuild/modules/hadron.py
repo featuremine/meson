@@ -16,6 +16,7 @@ import sysconfig
 from .. import mesonlib, dependencies, build
 
 from . import ExtensionModule
+import mesonbuild
 from mesonbuild.modules import ModuleReturnValue
 from ..interpreterbase import noKwargs, permittedKwargs, FeatureDeprecated
 from ..build import known_shmod_kwargs
@@ -60,8 +61,8 @@ class HadronModule(ExtensionModule):
         root_targets = self.root_files_targets()
         [ext_targets, ext_deps] = self.process_extensions()
         wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps)
-        conda_target = self.make_conda_target(py_targets, root_targets, ext_deps)
-        ret = py_targets + root_targets + [wheel_target] + [conda_target] + ext_targets
+        #conda_target = self.make_conda_target(py_targets, root_targets, ext_deps)
+        ret = py_targets + root_targets + [wheel_target] + ext_targets #+ [conda_target] 
 
         self.make_racket_target()
 
@@ -204,6 +205,8 @@ class HadronModule(ExtensionModule):
         deps = []
         targets = []
         for extension in self.extensions:
+            if hasattr(extension, 'held_object'):
+                extension = extension.held_object
             if isinstance(extension, str):
                 pos = extension.find('/')
                 if extension[:pos] != 'lib':
@@ -217,6 +220,12 @@ class HadronModule(ExtensionModule):
                 self.sources[os.path.join(self.name, os.path.dirname(extension[pos+1:]))].append( os.path.join(self.pkg_dir, os.path.dirname(extension[pos+1:]), os.path.basename(extension)))
                 targets.append(build.CustomTarget(extension.replace('/', '_'), os.path.join(self.pkg_dir, os.path.dirname(extension[pos+1:])), self.subproject, custom_kwargs))
             elif isinstance(extension, build.BuildTarget):
+                subdir = extension.get_subdir()
+                subdir_ = ''
+                if subdir != 'lib':
+                    subdir_ = subdir[subdir.find('/')+1:]
+                for output in extension.get_outputs():
+                    self.sources[os.path.join(self.name, subdir_)].append(os.path.join(self.build_dir, subdir, output))
                 deps.append(extension)
         return [targets, deps]
 
