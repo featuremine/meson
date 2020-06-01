@@ -50,8 +50,9 @@ class HadronModule(ExtensionModule):
         self.root_files = kwargs.get('root_files', [])
         self.extensions = kwargs.get('extensions', [])
         self.bin_files = kwargs.get('bin_files', [])
-        self.pkg_dir = os.path.join(state.environment.build_dir, 'package', self.name, self.version)
-        self.api_gen_dir = os.path.join(state.environment.build_dir, 'api-gen', self.name, self.version)
+        self.suffix = kwargs.get('suffix', '')
+        self.pkg_dir = os.path.join(state.environment.build_dir, 'package', self.name, self.version + self.suffix)
+        self.api_gen_dir = os.path.join(state.environment.build_dir, 'api-gen', self.name, self.version + self.suffix)
         self.source_dir = state.environment.source_dir
         self.build_dir = state.environment.build_dir
         self.subdir = state.subdir
@@ -164,7 +165,7 @@ class HadronModule(ExtensionModule):
         return [target, children]
 
     def run_subprocess(self, cmd):
-        ps = subprocess.Popen(cmd + ['-i'], stdout=subprocess.PIPE)
+        ps = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         cout, cerr = ps.communicate()
         return self.parse_mir_gen_output(cout)
 
@@ -188,7 +189,7 @@ class HadronModule(ExtensionModule):
         cmd = ['python3', py_script,
                 '--module', self.name,
                 '--version', self.version,
-                '--build_dir', self.build_dir,
+                '--build_dir', self.pkg_dir,
                 '--sources', self.get_sources_as_str()]
         custom_kwargs = {
             'input': py_src_targets + root_files_targets,
