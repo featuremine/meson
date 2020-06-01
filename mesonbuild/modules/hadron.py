@@ -49,6 +49,7 @@ class HadronModule(ExtensionModule):
         self.py_sources = kwargs.get('py_sources', [])
         self.root_files = kwargs.get('root_files', [])
         self.extensions = kwargs.get('extensions', [])
+        self.bin_files = kwargs.get('bin_files', [])
         self.pkg_dir = os.path.join(state.environment.build_dir, 'package', self.name, self.version)
         self.api_gen_dir = os.path.join(state.environment.build_dir, 'api-gen', self.name, self.version)
         self.source_dir = state.environment.source_dir
@@ -56,6 +57,8 @@ class HadronModule(ExtensionModule):
         self.subdir = state.subdir
         self.subproject = state.subproject
         self.sources = defaultdict(list)
+
+        self.process_bins()
 
         py_targets = self.py_src_targets()
         root_targets = self.root_files_targets()
@@ -112,6 +115,17 @@ class HadronModule(ExtensionModule):
         for root_file in self.root_files:
             targets.append(self.root_file_target(root_file))
         return targets
+
+    def process_bins(self):
+        data_dir = "{0}-{1}.data".format(self.name, self.version)
+        for bin_file in self.bin_files:
+            pos = bin_file.find('/')
+            if bin_file[:pos] != 'lib':
+                raise mesonlib.MesonException("Invalid path '{0}'. The bin should be under 'lib' directory.".format(bin_file))
+            path = os.path.join(self.source_dir, bin_file) 
+            if not os.path.isfile(path):
+                raise mesonlib.MesonException("Bin file '{0}' doesn't exist".format(path))
+            self.sources[os.path.join(data_dir, os.path.dirname(bin_file[pos+1:]))].append(path)
 
     def make_pkg_dir(self):
         if not os.path.exists(self.pkg_dir):
