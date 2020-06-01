@@ -128,7 +128,7 @@ class HadronModule(ExtensionModule):
             if wheel:
                 ret[os.path.join(data_dir, os.path.dirname(bin_file[pos+1:]))].append(path)
             else:
-                ret[os.path.join('lib', os.path.basename(bin_file))].append(path)
+                ret[bin_file].append(path)
         return ret
 
     def make_pkg_dir(self):
