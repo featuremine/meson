@@ -60,6 +60,7 @@ class HadronModule(ExtensionModule):
         self.subproject = state.subproject
         self.sources = defaultdict(list)
         self.mir_targets_map = defaultdict(list)
+        self.base_path = state.subdir
         py_targets = self.py_src_targets()
         root_targets = self.root_files_targets()
         [ext_targets, ext_deps] = self.process_extensions()
@@ -146,7 +147,7 @@ class HadronModule(ExtensionModule):
         tools_dir = os.path.join(self.source_dir, 'tools')
         mir_gen = os.path.join(tools_dir, 'mir', 'mir-generator.rkt')
         dest_dir = self.api_gen_dir
-        return ['racket', '-S', tools_dir, mir_gen, '-d', dest_dir, '-r', self.source_dir]
+        return ['racket', '-S', tools_dir, mir_gen, '-d', dest_dir, '-r', os.path.join(self.source_dir, self.base_path)]
 
     def run_mir_generation(self):
         self.make_api_gen_dir()
