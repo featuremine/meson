@@ -55,25 +55,25 @@ class HadronModule(ExtensionModule):
         self.api_gen_dir = os.path.join(state.environment.build_dir, 'api-gen', self.name, self.version + self.suffix)
         self.source_dir = state.environment.source_dir
         self.build_dir = state.environment.build_dir
+        self.state = state
         self.subdir = state.subdir
         self.subproject = state.subproject
         self.sources = defaultdict(list)
-
+        self.mir_targets_map = defaultdict(list)
         py_targets = self.py_src_targets()
         root_targets = self.root_files_targets()
         [ext_targets, ext_deps] = self.process_extensions()
+        print(self.name + self.version + self.suffix)
+        mir_targets = self.process_mir_headers()
+
+        shalib_target = self.generate_sharedlib(mir_targets, kwargs)
         wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps)
         conda_target = self.make_conda_target(py_targets, root_targets, ext_deps)
-        ret = py_targets + root_targets + [wheel_target] + ext_targets + [conda_target] 
+        ret = py_targets + root_targets + mir_targets + [shalib_target] + [wheel_target] + [conda_target] + ext_targets
 
         self.make_racket_target()
 
         return ModuleReturnValue(ret, ret)
-        # mir_gen = self._racket_generate(state, self.mir_headers)
-        # self.c_sources.append(mir_gen)
-        # shlib = build.SharedLibrary(self.name, state.subdir, state.subproject, False, self.c_sources, [], state.environment, kwargs)
-        # rv = [mir_gen, shlib]
-        # return ModuleReturnValue(rv, rv)
 
     def py_src_target(self, path):
         py = os.path.join(self.source_dir, 'lib', path)
@@ -142,39 +142,99 @@ class HadronModule(ExtensionModule):
     def make_racket_target(self):
         pass
 
-    def run_mir_generation(self):
-        self.make_api_gen_dir()
+    def get_base_cmd(self):
         tools_dir = os.path.join(self.source_dir, 'tools')
         mir_gen = os.path.join(tools_dir, 'mir', 'mir-generator.rkt')
         dest_dir = self.api_gen_dir
-        target = []
+        return ['racket', '-S', tools_dir, mir_gen, '-d', dest_dir, '-r', self.source_dir]
+
+    def run_mir_generation(self):
+        self.make_api_gen_dir()
+        base_cmd = self.get_base_cmd()
+        print(self.mir_headers)
         for mir_header in self.mir_headers:
-            target += self.make_racket_targets(tools_dir, mir_gen, dest_dir, mir_header)
+            self.make_racket_targets(base_cmd, mir_header)
 
-    def make_racket_targets(self, tools_dir, mir_gen, dest_dir, mir_header):
-        cmd = ['racket', '-S', tools_dir, mir_gen, '-d', dest_dir, '-s', mir_header]
+    def make_abs_path(self, path):
+        val = os.path.join(self.build_dir, path)
+        return os.path.abspath(val)
+
+    def make_relpath(self, path):
+        return os.path.relpath(path, self.source_dir)
+
+    def make_racket_targets(self, base_cmd, mir_header):
+        #mir_path = self.make_abs_path(mir_header)
+        mir_path = os.path.join(self.source_dir, 'lib', mir_header)
+        print('mir_path: {}'.format(mir_path))
+        name = self.make_relpath(mir_path).replace('/', '_')
+        print('name: {}'.format(name))
+        if name in self.mir_targets_map:
+            return None
+        cmd = base_cmd + ['-s', mir_path] #mir_path]
+        print('cmd:{}'.format(cmd + ['-i']))
         sources = self.run_mir_subprocess(cmd + ['-i'])
+        print('sources:{}'.format(sources))
         dependencies = self.run_mir_subprocess(cmd + ['-m'])
-        target_deps = []
-        res = []
+        #dependencies.remove(mir_header) # remove yourself
+        print('dependencies:{}'.format(dependencies))
+        deps = []
         for dep in dependencies:
-            target, children = self.make_racket_targets(tools_dir, mir_gen, dest_dir, dep)
-            target_deps.append(target)
-            res += children
+            target = self.make_racket_targets(base_cmd, dep)
+            if target is not None:
+                deps.append(target)
         custom_kwargs = {
-
+            'input': mir_path,
+            'output': sources,
+            'command': cmd,
+            'build_by_default': True,
+            'depends': deps
         }
-        target = build.CustomTarget(mir_header.replace('/', '_'), os.path.join(self.build_dir, 'package', self.name), self.subproject, custom_kwargs) 
-        return [target, children]
+        print('create_target {}'.format(name))
+        target = build.CustomTarget(name, self.pkg_dir, self.subproject, custom_kwargs)
+        self.mir_targets_map[name] = target
+        return target
+
+    def process_mir_headers(self):
+        if len(self.mir_headers) == 0:
+            return []
+        self.run_mir_generation()
+        targets = []
+        for _, target in self.mir_targets_map.items():
+            targets.append(target)
+        common_mir_target = self.generate_common_mir_target(targets)
+        targets.append(common_mir_target)
+        return targets 
+
+    def generate_sharedlib(self, mir_targets, kwargs):
+        custom_kwargs = copy(kwargs)
+        shlib = build.SharedLibrary(self.name+self.version+self.suffix, self.subdir, self.subproject, False, self.c_sources + mir_targets, [], self.state.environment, custom_kwargs)
+        return shlib
+
+    def generate_common_mir_target(self, mir_targets):
+        cmd = []
+        for header in self.mir_headers:
+            header = os.path.join(self.source_dir, 'lib', header)
+            cmd += ['-s', header]#self.make_abs_path(header)]
+        cmd = self.get_base_cmd() + cmd
+        print(cmd + ['-i', '-c'])
+        sources = self.run_mir_subprocess(cmd + ['-i', '-c'])
+        custom_kwargs = {
+            'input': self.mir_headers,
+            'output': sources,
+            'command': cmd + ['-c'],
+            'build_by_default': True,
+            'depends': mir_targets
+        }
+        return build.CustomTarget('common_mir_target_'+self.name+self.version+self.suffix, self.pkg_dir, self.subproject, custom_kwargs)
 
     def run_mir_subprocess(self, cmd):
         ps = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-        cout, cerr = ps.communicate()
+        cout, _ = ps.communicate()
         return self.parse_mir_gen_output(cout)
 
     def run_subprocess(self, cmd):
         ps = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-        cout, cerr = ps.communicate()
+        cout, _ = ps.communicate()
         return str(cout, 'utf-8').strip()
 
     def parse_mir_gen_output(self, output):
@@ -183,7 +243,10 @@ class HadronModule(ExtensionModule):
             return [i for i, ltr in enumerate(s) if ltr == ch]
         beg = find(out, '"')[-2]
         end = find(out, '"')[-1]
-        return [path.strip() for path in out[beg+1:end].split(',')]
+        data = [path.strip() for path in out[beg+1:end].split(',')]
+        if len(data) > 0 and data[0] == '':
+            return []
+        return data
 
     def get_dictionary_as_str(self, dictionary):
         ret = str(dict(dictionary)).replace(' ','')
@@ -211,7 +274,7 @@ class HadronModule(ExtensionModule):
             'depends': py_src_targets + root_files_targets + deps,
             'build_by_default' : True
         }
-        return build.CustomTarget(name, self.subdir, self.subproject, custom_kwargs)
+        return build.CustomTarget(name + self.suffix, self.pkg_dir, self.subproject, custom_kwargs)
 
     def make_conda_target(self, py_src_targets, root_files_targets, deps):
         py_script = os.path.join(self.source_dir, 'scripts', 'conda_gen_ex.py')
@@ -236,7 +299,7 @@ class HadronModule(ExtensionModule):
             'depends': py_src_targets + root_files_targets,
             'build_by_default' : True
         }
-        return build.CustomTarget(name, self.subdir, self.subproject, custom_kwargs)
+        return build.CustomTarget(name + self.suffix, self.pkg_dir, self.subproject, custom_kwargs)
 
     def process_extensions(self):
         deps = []
