@@ -212,14 +212,16 @@ class HadronModule(ExtensionModule):
 
     def generate_common_mir_target(self, mir_targets):
         cmd = []
+        headers = []
         for header in self.mir_headers:
             header = os.path.join(self.source_dir, 'lib', header)
             cmd += ['-s', header]#self.make_abs_path(header)]
+            headers += [header]
         cmd = self.get_base_cmd() + cmd
         print(cmd + ['-i', '-c'])
         sources = self.run_mir_subprocess(cmd + ['-i', '-c'])
         custom_kwargs = {
-            'input': self.mir_headers,
+            'input': headers,
             'output': sources,
             'command': cmd + ['-c'],
             'build_by_default': True,
