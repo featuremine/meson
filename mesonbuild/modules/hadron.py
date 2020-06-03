@@ -233,22 +233,24 @@ class HadronModule(ExtensionModule):
         return build.CustomTarget('common_mir_target_'+self.name+self.version+self.suffix, '', self.subproject, custom_kwargs)
 
     def run_mir_subprocess(self, cmd):
-        ps = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-        cout, _ = ps.communicate()
-        return self.parse_mir_gen_output(cout)
+        output = self.run_subprocess(cmd)
+        return self.parse_mir_gen_output(output)
 
     def run_subprocess(self, cmd):
         ps = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-        cout, _ = ps.communicate()
+        cout, cerr = ps.communicate()
+        if ps.returncode != 0:
+            cmd_string_view = ''
+            for elem in cmd:
+                cmd_string_view += elem + ' '
+            raise mesonlib.MesonException("Failed to execute '{0}' command line. Error: {1}".format(cmd_string_view, cerr))
         return str(cout, 'utf-8').strip()
 
     def parse_mir_gen_output(self, output):
-        out = str(output, 'utf-8')
         def find(s, ch):
             return [i for i, ltr in enumerate(s) if ltr == ch]
-        beg = find(out, '"')[-2]
-        end = find(out, '"')[-1]
-        data = [path.strip() for path in out[beg+1:end].split(',')]
+        quotes = find(output, '"')
+        data = [path.strip() for path in output[quotes[-2]+1:quotes[-1]].split(',')]
         if len(data) > 0 and data[0] == '':
             return []
         return data
