@@ -242,7 +242,9 @@ class HadronModule(ExtensionModule):
                 custom_kwargs['include_directories'] = [incdirs , build.IncludeDirs(self.api_gen_dir, ['.'], False)]
             else:
                 raise mesonlib.MesonException("Invalid include_directories in target {}{}{}".format(self.name, self.version, self.suffix))
-        shlib = build.SharedLibrary(self.name + self.version + self.suffix, self.pkg_dir, self.subproject, False, self.c_sources + mir_targets, [], self.state.environment, custom_kwargs)
+        name = self.name + self.version + self.suffix
+        shlib = build.SharedLibrary(name, self.pkg_dir, self.subproject, False, self.c_sources + mir_targets, [], self.state.environment, custom_kwargs)
+        self.sources[''].append(os.path.join(self.pkg_dir, '{}.so.{}'.format(name, self.version)))
         return shlib
 
     def generate_common_mir_target(self, mir_targets):
