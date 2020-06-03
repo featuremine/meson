@@ -83,8 +83,7 @@ class HadronModule(ExtensionModule):
         shalib_target = self.generate_sharedlib(mir_targets, kwargs)
         wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps)
         conda_target = self.make_conda_target(py_targets, root_targets, ext_deps)
-        ret = py_targets + root_targets + mir_targets + [shalib_target] + [wheel_target] + [conda_target] + ext_targets
-
+        ret = list(set(py_targets + root_targets + mir_targets + [shalib_target] + [wheel_target] + [conda_target] + ext_targets))
         return ModuleReturnValue(ret, ret)
 
     def py_src_target(self, path):
@@ -98,7 +97,6 @@ class HadronModule(ExtensionModule):
             'build_by_default' : True
         }
         self.sources[os.path.join(self.name, os.path.dirname(path))].append(os.path.join(self.pkg_dir, path))
-        print("Generating in py_src_targets", path.replace('/', '_'))
         return build.CustomTarget(path.replace('/', '_'), os.path.join(self.pkg_dir, os.path.dirname(path)), self.subproject, custom_kwargs)
 
     def py_src_targets(self):
@@ -119,7 +117,6 @@ class HadronModule(ExtensionModule):
             'build_by_default' : True
         }
         self.sources[""].append(os.path.join(self.build_dir, 'package', self.name, os.path.basename(path)))
-        print("Generating in root_files_targets", path.replace('/', '_'))
         return build.CustomTarget(path.replace('/', '_'), os.path.join(self.build_dir, 'package', self.name), self.subproject, custom_kwargs)
 
     def root_files_targets(self):
@@ -197,7 +194,6 @@ class HadronModule(ExtensionModule):
             'build_by_default': True,
             'depends': deps
         }
-        print("Generating in make_racket_targets", name)
         target = build.CustomTarget(name, self.pkg_dir, self.subproject, custom_kwargs)
         self.mir_targets_map[name] = target
         return target
@@ -233,7 +229,6 @@ class HadronModule(ExtensionModule):
             'build_by_default': True,
             'depends': mir_targets
         }
-        print("Generating in common_mir_target_", 'common_mir_target_'+self.name+self.version+self.suffix)
         return build.CustomTarget('common_mir_target_'+self.name+self.version+self.suffix, self.pkg_dir, self.subproject, custom_kwargs)
 
     def run_mir_subprocess(self, cmd):
@@ -282,8 +277,7 @@ class HadronModule(ExtensionModule):
             'depends': py_src_targets + root_files_targets + deps,
             'build_by_default' : True
         }
-        print("Generating in make_wheel_target", name + self.suffix, self.pkg_dir)
-        return build.CustomTarget(name + self.suffix, self.pkg_dir, self.subproject, custom_kwargs)
+        return build.CustomTarget("_".join([name, self.suffix]), self.pkg_dir, self.subproject, custom_kwargs)
 
     def make_conda_target(self, py_src_targets, root_files_targets, deps):
         py_script = os.path.join(self.source_dir, 'scripts', 'conda_gen_ex.py')
@@ -308,8 +302,7 @@ class HadronModule(ExtensionModule):
             'depends': py_src_targets + root_files_targets,
             'build_by_default' : True
         }
-        print("Generating in make_conda_target", name + self.suffix, self.pkg_dir)
-        return build.CustomTarget(name + self.suffix, self.pkg_dir, self.subproject, custom_kwargs)
+        return build.CustomTarget("_".join([self.name, name, self.suffix]), self.pkg_dir, self.subproject, custom_kwargs)
 
     def process_extensions(self):
         deps = []
@@ -328,7 +321,6 @@ class HadronModule(ExtensionModule):
                     'build_by_default': True
                 }
                 self.sources[os.path.join(self.name, os.path.dirname(extension[pos+1:]))].append( os.path.join(self.pkg_dir, os.path.dirname(extension[pos+1:]), os.path.basename(extension)))
-                print("Generating in process_extensions", extension.replace('/', '_'))
                 targets.append(build.CustomTarget(extension.replace('/', '_'), os.path.join(self.pkg_dir, os.path.dirname(extension[pos+1:])), self.subproject, custom_kwargs))
             elif isinstance(extension, build.BuildTarget):
                 subdir = extension.get_subdir()
