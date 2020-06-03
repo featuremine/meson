@@ -34,12 +34,26 @@ from pathlib import Path
 import sys
 from collections import defaultdict
 from copy import copy
+from ..interpreterbase import permittedKwargs
+
+hadron_package_kwargs = set([
+    'version',
+    'mir_headers',
+    'c_sources',
+    'py_sources',
+    'root_files',
+    'extensions',
+    'bin_files',
+    'suffix'
+])
+
 
 class HadronModule(ExtensionModule):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    @permittedKwargs(hadron_package_kwargs)
     def package(self, state, args, kwargs):
         if args:
             self.name = args[0]
@@ -64,15 +78,12 @@ class HadronModule(ExtensionModule):
         py_targets = self.py_src_targets()
         root_targets = self.root_files_targets()
         [ext_targets, ext_deps] = self.process_extensions()
-        print(self.name + self.version + self.suffix)
         mir_targets = self.process_mir_headers()
 
         shalib_target = self.generate_sharedlib(mir_targets, kwargs)
         wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps)
         conda_target = self.make_conda_target(py_targets, root_targets, ext_deps)
         ret = py_targets + root_targets + mir_targets + [shalib_target] + [wheel_target] + [conda_target] + ext_targets
-
-        self.make_racket_target()
 
         return ModuleReturnValue(ret, ret)
 
@@ -140,9 +151,6 @@ class HadronModule(ExtensionModule):
         if not os.path.exists(self.api_gen_dir):
             os.makedirs(self.api_gen_dir)
 
-    def make_racket_target(self):
-        pass
-
     def get_base_cmd(self):
         tools_dir = os.path.join(self.source_dir, 'tools')
         mir_gen = os.path.join(tools_dir, 'mir', 'mir-generator.rkt')
@@ -152,9 +160,7 @@ class HadronModule(ExtensionModule):
     def run_mir_generation(self):
         self.make_api_gen_dir()
         base_cmd = self.get_base_cmd()
-        print(self.mir_headers)
-        for mir_header in self.mir_headers:
-            self.make_racket_targets(base_cmd, mir_header)
+        return [self.make_racket_targets(base_cmd, mir_header) for mir_header in self.mir_headers]
 
     def make_abs_path(self, path):
         val = os.path.join(self.build_dir, path)
@@ -166,23 +172,22 @@ class HadronModule(ExtensionModule):
     def make_racket_targets(self, base_cmd, mir_header):
         #mir_path = self.make_abs_path(mir_header)
         mir_path = os.path.join(self.source_dir, 'lib', mir_header)
-        print('mir_path: {}'.format(mir_path))
         name = self.make_relpath(mir_path).replace('/', '_')
-        print('name: {}'.format(name))
         if name in self.mir_targets_map:
-            return None
+            return self.mir_targets_map[name]
         cmd = base_cmd + ['-s', mir_path] #mir_path]
-        print('cmd:{}'.format(cmd + ['-i']))
         sources = self.run_mir_subprocess(cmd + ['-i'])
-        print('sources:{}'.format(sources))
         dependencies = self.run_mir_subprocess(cmd + ['-m'])
         #dependencies.remove(mir_header) # remove yourself
-        print('dependencies:{}'.format(dependencies))
         deps = []
         for dep in dependencies:
             target = self.make_racket_targets(base_cmd, dep)
             if target is not None:
                 deps.append(target)
+            else:
+                dep_mir_path = os.path.join(self.source_dir, 'lib', dep)
+                dep_name = self.make_relpath(dep_mir_path).replace('/', '_')
+                deps.append(self.mir_targets_map[dep_name])
         custom_kwargs = {
             'input': mir_path,
             'output': sources,
@@ -190,7 +195,6 @@ class HadronModule(ExtensionModule):
             'build_by_default': True,
             'depends': deps
         }
-        print('create_target {}'.format(name))
         target = build.CustomTarget(name, self.pkg_dir, self.subproject, custom_kwargs)
         self.mir_targets_map[name] = target
         return target
@@ -198,8 +202,7 @@ class HadronModule(ExtensionModule):
     def process_mir_headers(self):
         if len(self.mir_headers) == 0:
             return []
-        self.run_mir_generation()
-        targets = []
+        targets = self.run_mir_generation()
         for _, target in self.mir_targets_map.items():
             targets.append(target)
         common_mir_target = self.generate_common_mir_target(targets)
@@ -219,7 +222,6 @@ class HadronModule(ExtensionModule):
             cmd += ['-s', header]#self.make_abs_path(header)]
             headers += [header]
         cmd = self.get_base_cmd() + cmd
-        print(cmd + ['-i', '-c'])
         sources = self.run_mir_subprocess(cmd + ['-i', '-c'])
         custom_kwargs = {
             'input': headers,
@@ -253,7 +255,6 @@ class HadronModule(ExtensionModule):
 
     def get_dictionary_as_str(self, dictionary):
         ret = str(dict(dictionary)).replace(' ','')
-        print(ret)
         return ret.replace("'", "\"")
 
     def make_wheel_target(self, py_src_targets, root_files_targets, deps):
