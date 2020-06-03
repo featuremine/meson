@@ -18,9 +18,9 @@ from .. import mesonlib, dependencies, build
 from . import ExtensionModule
 import mesonbuild
 from mesonbuild.modules import ModuleReturnValue
-from ..interpreterbase import noKwargs, permittedKwargs, FeatureDeprecated
+from ..interpreterbase import noKwargs, permittedKwargs, FeatureDeprecated, permittedKwargs
 from ..build import known_shmod_kwargs
-
+from .. import interpreter
 import hashlib
 import base64
 import os
@@ -34,7 +34,6 @@ from pathlib import Path
 import sys
 from collections import defaultdict
 from copy import copy
-from ..interpreterbase import permittedKwargs
 
 hadron_package_kwargs = set([
     'version',
@@ -54,9 +53,10 @@ class HadronModule(ExtensionModule):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.snippets.add('package')
 
     @permittedKwargs(hadron_package_kwargs)
-    def package(self, state, args, kwargs):
+    def package(self, interpr, state, args, kwargs):
         if args:
             self.name = args[0]
         self.version = kwargs.get('version', '')
@@ -80,9 +80,8 @@ class HadronModule(ExtensionModule):
         root_targets = self.root_files_targets()
         [ext_targets, ext_deps] = self.process_extensions()
         mir_targets = self.process_mir_headers()
-
         ret = py_targets + root_targets + mir_targets + ext_targets
-        shalib_target = self.generate_sharedlib(mir_targets, kwargs)
+        shalib_target = self.generate_sharedlib(mir_targets, kwargs, interpr)
         if shalib_target is not None:
             wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps + [shalib_target])
             conda_target = self.make_conda_target(py_targets, root_targets, ext_deps + [shalib_target])
@@ -91,8 +90,11 @@ class HadronModule(ExtensionModule):
             wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps)
             conda_target = self.make_conda_target(py_targets, root_targets, ext_deps)
             ret += [wheel_target, conda_target]
-
-        return ModuleReturnValue(ret, ret)
+        for target in ret:
+            if isinstance(target, interpreter.SharedModuleHolder):
+                continue
+            interpr.add_target(target.name, target)
+        return interpr.holderify(ret)
 
     def py_src_target(self, path):
         py = os.path.join(self.source_dir, 'lib', path)
@@ -217,7 +219,7 @@ class HadronModule(ExtensionModule):
         targets.append(common_mir_target)
         return targets 
 
-    def generate_sharedlib(self, mir_targets, kwargs):
+    def generate_sharedlib(self, mir_targets, kwargs, interpr):
         if not mir_targets:
             return None
         custom_kwargs = copy(kwargs)
@@ -242,9 +244,12 @@ class HadronModule(ExtensionModule):
                 custom_kwargs['include_directories'] = [incdirs , build.IncludeDirs(self.api_gen_dir, ['.'], False)]
             else:
                 raise mesonlib.MesonException("Invalid include_directories in target {}{}{}".format(self.name, self.version, self.suffix))
+        pymod = interpr.func_import(None, ['python'], {})
+        python3 = pymod.method_call('find_installation', [], {})
         name = self.name + self.version + self.suffix
-        shlib = build.SharedLibrary(name, self.pkg_dir, self.subproject, False, self.c_sources + mir_targets, [], self.state.environment, custom_kwargs)
-        self.sources[''].append(os.path.join(self.pkg_dir, '{}.so.{}'.format(name, self.version)))
+        holders = [interpreter.TargetHolder(target, interpr) for target in mir_targets]
+        shlib = python3.extension_module_method([name] + self.c_sources + holders, custom_kwargs)
+        self.sources[''].append(os.path.join(self.pkg_dir, shlib.held_object.filename))
         return shlib
 
     def generate_common_mir_target(self, mir_targets):
