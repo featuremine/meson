@@ -79,10 +79,17 @@ class HadronModule(ExtensionModule):
         [ext_targets, ext_deps] = self.process_extensions()
         mir_targets = self.process_mir_headers()
 
+        ret = py_targets + root_targets + mir_targets + ext_targets
         shalib_target = self.generate_sharedlib(mir_targets, kwargs)
-        wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps)
-        conda_target = self.make_conda_target(py_targets, root_targets, ext_deps)
-        ret = py_targets + root_targets + mir_targets + [shalib_target] + [wheel_target] + [conda_target] + ext_targets
+        if shalib_target is not None:
+            wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps + [shalib_target])
+            conda_target = self.make_conda_target(py_targets, root_targets, ext_deps + [shalib_target])
+            ret += [wheel_target, conda_target, shalib_target]
+        else:
+            wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps)
+            conda_target = self.make_conda_target(py_targets, root_targets, ext_deps)
+            ret += [wheel_target, conda_target]
+
         return ModuleReturnValue(ret, ret)
 
     def py_src_target(self, path):
@@ -198,7 +205,7 @@ class HadronModule(ExtensionModule):
         return target
 
     def process_mir_headers(self):
-        if len(self.mir_headers) == 0:
+        if not self.mir_headers:
             return []
         self.run_mir_generation()
         targets = []
@@ -209,6 +216,8 @@ class HadronModule(ExtensionModule):
         return targets 
 
     def generate_sharedlib(self, mir_targets, kwargs):
+        if not mir_targets:
+            return None
         custom_kwargs = copy(kwargs)
         def remove_key(key):
             if custom_kwargs.get(key):
@@ -231,7 +240,7 @@ class HadronModule(ExtensionModule):
                 custom_kwargs['include_directories'] = [incdirs , build.IncludeDirs(self.api_gen_dir, ['.'], False)]
             else:
                 raise mesonlib.MesonException("Invalid include_directories in target {}{}{}".format(self.name, self.version, self.suffix))
-        shlib = build.SharedLibrary(self.name+self.version+self.suffix, self.subdir, self.subproject, False, self.c_sources + mir_targets, [], self.state.environment, custom_kwargs)
+        shlib = build.SharedLibrary(self.name + self.version + self.suffix, self.pkg_dir, self.subproject, False, self.c_sources + mir_targets, [], self.state.environment, custom_kwargs)
         return shlib
 
     def generate_common_mir_target(self, mir_targets):
@@ -272,7 +281,7 @@ class HadronModule(ExtensionModule):
             return [i for i, ltr in enumerate(s) if ltr == ch]
         quotes = find(output, '"')
         data = [path.strip() for path in output[quotes[-2]+1:quotes[-1]].split(',')]
-        if len(data) > 0 and data[0] == '':
+        if data and data[0] == '':
             return []
         return data
 
