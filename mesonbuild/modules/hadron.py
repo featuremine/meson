@@ -83,7 +83,7 @@ class HadronModule(ExtensionModule):
         shalib_target = self.generate_sharedlib(mir_targets, kwargs)
         wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps)
         conda_target = self.make_conda_target(py_targets, root_targets, ext_deps)
-        ret = list(set(py_targets + root_targets + mir_targets + [shalib_target] + [wheel_target] + [conda_target] + ext_targets))
+        ret = py_targets + root_targets + mir_targets + [shalib_target] + [wheel_target] + [conda_target] + ext_targets
         return ModuleReturnValue(ret, ret)
 
     def py_src_target(self, path):
@@ -159,7 +159,8 @@ class HadronModule(ExtensionModule):
     def run_mir_generation(self):
         self.make_api_gen_dir()
         base_cmd = self.get_base_cmd()
-        return [self.make_racket_targets(base_cmd, mir_header) for mir_header in self.mir_headers]
+        for mir_header in self.mir_headers:
+            self.make_racket_targets(base_cmd, mir_header)
 
     def make_abs_path(self, path):
         val = os.path.join(self.build_dir, path)
@@ -201,7 +202,8 @@ class HadronModule(ExtensionModule):
     def process_mir_headers(self):
         if len(self.mir_headers) == 0:
             return []
-        targets = self.run_mir_generation()
+        self.run_mir_generation()
+        targets = []
         for _, target in self.mir_targets_map.items():
             targets.append(target)
         common_mir_target = self.generate_common_mir_target(targets)
