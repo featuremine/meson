@@ -249,7 +249,7 @@ class HadronModule(ExtensionModule):
         name = self.name + self.version + self.suffix
         holders = [interpreter.TargetHolder(target, interpr) for target in mir_targets]
         shlib = python3.extension_module_method([name] + self.c_sources + holders, custom_kwargs)
-        self.sources[''].append(os.path.join(self.pkg_dir, shlib.held_object.filename))
+        self.sources[self.name].append(os.path.join(self.build_dir, self.subdir, shlib.held_object.filename))
         return shlib
 
     def generate_common_mir_target(self, mir_targets):
