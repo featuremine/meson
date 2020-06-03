@@ -44,7 +44,9 @@ hadron_package_kwargs = set([
     'root_files',
     'extensions',
     'bin_files',
-    'suffix'
+    'suffix',
+    'dependencies',
+    'include_directories'
 ])
 
 
