@@ -244,12 +244,14 @@ class HadronModule(ExtensionModule):
                 custom_kwargs['include_directories'] = [incdirs , build.IncludeDirs(self.api_gen_dir, ['.'], False)]
             else:
                 raise mesonlib.MesonException("Invalid include_directories in target {}{}{}".format(self.name, self.version, self.suffix))
+        subdir = interpr.subdir
+        interpr.subdir = os.path.join('package', self.name, "".join([self.version, self.suffix]))
         pymod = interpr.func_import(None, ['python'], {})
         python3 = pymod.method_call('find_installation', [], {})
-        name = self.name + self.version + self.suffix
         holders = [interpreter.TargetHolder(target, interpr) for target in mir_targets]
-        shlib = python3.extension_module_method([name] + self.c_sources + holders, custom_kwargs)
-        self.sources[self.name].append(os.path.join(self.build_dir, self.subdir, shlib.held_object.filename))
+        shlib = python3.extension_module_method([self.name] + self.c_sources + holders, custom_kwargs)
+        self.sources[self.name].append(os.path.join(self.build_dir, interpr.subdir, shlib.held_object.filename))
+        interpr.subdir = subdir
         return shlib
 
     def generate_common_mir_target(self, mir_targets):
@@ -372,6 +374,14 @@ class HadronModule(ExtensionModule):
                     subdir_ = subdir[subdir.find('/')+1:]
                 for output in extension.get_outputs():
                     self.sources[os.path.join(self.name, subdir_)].append(os.path.join(self.build_dir, subdir, output))
+                    custom_kwargs = {
+                        'input': os.path.join(self.build_dir, subdir, output),
+                        'output': output,
+                        'command': ['cp', '@INPUT@', '@OUTPUT@'],
+                        'depends': extension,
+                        'build_by_default' : True
+                    }
+                    targets.append(build.CustomTarget("_".join(['copy', extension.name, output]), self.pkg_dir, self.subproject, custom_kwargs))
                 deps.append(extension)
         return [targets, deps]
 
