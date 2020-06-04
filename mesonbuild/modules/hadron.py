@@ -374,15 +374,15 @@ class HadronModule(ExtensionModule):
                     subdir_ = subdir[subdir.find('/')+1:]
                 for output in extension.get_outputs():
                     self.sources[os.path.join(self.name, subdir_)].append(os.path.join(self.build_dir, subdir, output))
-                    custom_kwargs = {
-                        'input': os.path.join(self.build_dir, subdir, output),
-                        'output': output,
-                        'command': ['cp', '@INPUT@', '@OUTPUT@'],
-                        'depends': extension,
-                        'build_by_default' : True
-                    }
-                    targets.append(build.CustomTarget("_".join(['copy', extension.name, output]), self.pkg_dir, self.subproject, custom_kwargs))
                 deps.append(extension)
+                custom_kwargs = {
+                    'input': extension,
+                    'output': extension.get_outputs(),
+                    'command': ['cp', '@INPUT@', self.pkg_dir],
+                    'depends': extension,
+                    'build_by_default' : True
+                }
+                targets.append(build.CustomTarget("_".join(['copy', extension.name, output]), self.pkg_dir, self.subproject, custom_kwargs))
         return [targets, deps]
 
 def initialize(*args, **kwargs):
