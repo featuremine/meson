@@ -302,15 +302,15 @@ class HadronModule(ExtensionModule):
         py_script = os.path.join(self.source_dir, 'scripts', 'wheel_gen_ex.py')
         major_ver = sys.version_info.major
         minor_ver = sys.version_info.minor
-        name = '{0}-{1}-cp{2}{3}-cp{2}{3}m-linux_x86_64.whl'.format(self.name, self.version, major_ver, minor_ver)
+        name = '{0}-{1}-cp{2}{3}-cp{2}{3}m-linux_x86_64.whl'.format(self.name, "".join([self.version, self.suffix]), major_ver, minor_ver)
         src_copy = copy(self.sources)
         for dir, files in self.process_bins(True).items():
             for file in files:
                 src_copy[dir].append(file)
         cmd = ['python3', py_script,
                 '--module', self.name,
-                '--version', self.version,
-                '--build_dir', self.pkg_dir,
+                '--version', "".join([self.version, self.suffix]),
+                '--build_dir', os.path.join(self.build_dir, 'package'),
                 '--sources', self.get_dictionary_as_str(src_copy)]
         custom_kwargs = {
             'input': py_src_targets + root_files_targets,
@@ -319,7 +319,7 @@ class HadronModule(ExtensionModule):
             'depends': py_src_targets + root_files_targets + deps,
             'build_by_default' : True
         }
-        return build.CustomTarget("_".join([name, self.suffix]), self.pkg_dir, self.subproject, custom_kwargs)
+        return build.CustomTarget(name, os.path.join(self.build_dir, 'package'), self.subproject, custom_kwargs)
 
     def make_conda_target(self, py_src_targets, root_files_targets, deps):
         py_script = os.path.join(self.source_dir, 'scripts', 'conda_gen_ex.py')
@@ -327,15 +327,16 @@ class HadronModule(ExtensionModule):
         minor_ver = sys.version_info.minor
         distro_name = self.run_subprocess(['lsb_release', '-is']).lower()
         distro_ver = self.run_subprocess(['lsb_release', '-rs']).lower()
-        name = "{0}_{1}_py{2}{3}".format(distro_name, distro_ver, major_ver, minor_ver)
+        build_name = "{}_{}_py{}{}".format(distro_name, distro_ver, major_ver, minor_ver)
+        name = '{}-{}-{}.tar.bz2'.format(self.name, "".join([self.version, self.suffix]), build_name)
         src_copy = copy(self.sources)
         for dir, files in self.process_bins(False).items():
             for file in files:
                 src_copy[dir].append(file)
         cmd = ['python3', py_script,
                 '--module', self.name,
-                '--version', self.version,
-                '--build_dir', self.pkg_dir,
+                '--version', "".join([self.version, self.suffix]),
+                '--build_dir', os.path.join(self.build_dir, 'package'),
                 '--sources', self.get_dictionary_as_str(src_copy)]
         custom_kwargs = {
             'input': py_src_targets + root_files_targets + deps,
@@ -344,7 +345,7 @@ class HadronModule(ExtensionModule):
             'depends': py_src_targets + root_files_targets,
             'build_by_default' : True
         }
-        return build.CustomTarget("_".join([self.name, name, self.suffix]), self.pkg_dir, self.subproject, custom_kwargs)
+        return build.CustomTarget(name, os.path.join(self.build_dir, 'package'), self.subproject, custom_kwargs)
 
     def process_extensions(self):
         deps = []
