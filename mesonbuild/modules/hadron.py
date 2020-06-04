@@ -67,7 +67,7 @@ class HadronModule(ExtensionModule):
         self.extensions = kwargs.get('extensions', [])
         self.bin_files = kwargs.get('bin_files', [])
         self.suffix = kwargs.get('suffix', '')
-        self.pkg_dir = os.path.join(state.environment.build_dir, 'package', self.name, self.version + self.suffix)
+        self.pkg_dir = os.path.join(state.environment.build_dir, 'package', self.version + self.suffix, self.name)
         self.api_gen_dir = os.path.join(state.environment.build_dir, 'api-gen', self.name, self.version + self.suffix)
         self.source_dir = state.environment.source_dir
         self.build_dir = state.environment.build_dir
@@ -78,23 +78,25 @@ class HadronModule(ExtensionModule):
         self.mir_targets_map = defaultdict(list)
         py_targets = self.py_src_targets()
         root_targets = self.root_files_targets()
-        [ext_targets, ext_deps] = self.process_extensions()
+        [ext_targets, ext_deps] = self.process_extensions(self.extensions)
         mir_targets = self.process_mir_headers()
         ret = py_targets + root_targets + mir_targets + ext_targets
         shalib_target = self.generate_sharedlib(mir_targets, kwargs, interpr)
         if shalib_target is not None:
-            wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps + [shalib_target])
-            conda_target = self.make_conda_target(py_targets, root_targets, ext_deps + [shalib_target])
-            ret += [wheel_target, conda_target, shalib_target]
+            init_target = self.create_init_target(py_targets, root_targets, ext_deps, shalib_target)
+            wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps + [shalib_target, init_target])
+            conda_target = self.make_conda_target(py_targets, root_targets, ext_deps + [shalib_target, init_target])
+            ret += [wheel_target, conda_target, shalib_target, init_target]
         else:
-            wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps)
-            conda_target = self.make_conda_target(py_targets, root_targets, ext_deps)
-            ret += [wheel_target, conda_target]
+            init_target = self.create_init_target(py_targets, root_targets, ext_deps)
+            wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps + [init_target])
+            conda_target = self.make_conda_target(py_targets, root_targets, ext_deps + [init_target])
+            ret += [wheel_target, conda_target, init_target]
         for target in ret:
             if isinstance(target, interpreter.SharedModuleHolder):
                 continue
             interpr.add_target(target.name, target)
-        return interpr.holderify(ret)
+        return interpr.holderify([init_target])
 
     def py_src_target(self, path):
         py = os.path.join(self.source_dir, 'lib', path)
@@ -126,8 +128,8 @@ class HadronModule(ExtensionModule):
             'command' : ['cp', '@INPUT@', '@OUTPUT@'],
             'build_by_default' : True
         }
-        self.sources[""].append(os.path.join(self.build_dir, 'package', self.name, os.path.basename(path)))
-        return build.CustomTarget(path.replace('/', '_'), os.path.join(self.build_dir, 'package', self.name), self.subproject, custom_kwargs)
+        self.sources[""].append(os.path.join(self.build_dir, 'package', self.version + self.suffix, os.path.basename(path)))
+        return build.CustomTarget(path.replace('/', '_'), os.path.join(self.build_dir, 'package', self.version + self.suffix), self.subproject, custom_kwargs)
 
     def root_files_targets(self):
         self.make_pkg_dir()
@@ -245,11 +247,11 @@ class HadronModule(ExtensionModule):
             else:
                 raise mesonlib.MesonException("Invalid include_directories in target {}{}{}".format(self.name, self.version, self.suffix))
         subdir = interpr.subdir
-        interpr.subdir = os.path.join('package', self.name, "".join([self.version, self.suffix]))
+        interpr.subdir = self.pkg_dir
         pymod = interpr.func_import(None, ['python'], {})
         python3 = pymod.method_call('find_installation', [], {})
         holders = [interpreter.TargetHolder(target, interpr) for target in mir_targets]
-        shlib = python3.extension_module_method([self.name] + self.c_sources + holders, custom_kwargs)
+        shlib = python3.extension_module_method(['_mir_wrapper'] + self.c_sources + holders, custom_kwargs)
         self.sources[self.name].append(os.path.join(self.build_dir, interpr.subdir, shlib.held_object.filename))
         interpr.subdir = subdir
         return shlib
@@ -315,7 +317,7 @@ class HadronModule(ExtensionModule):
                 '--build_dir', os.path.join(self.build_dir, 'package'),
                 '--sources', self.get_dictionary_as_str(src_copy)]
         custom_kwargs = {
-            'input': py_src_targets + root_files_targets,
+            'input': py_src_targets + root_files_targets + deps,
             'output': name,
             'command': cmd,
             'depends': py_src_targets + root_files_targets + deps,
@@ -344,29 +346,28 @@ class HadronModule(ExtensionModule):
             'input': py_src_targets + root_files_targets + deps,
             'output': name,
             'command': cmd,
-            'depends': py_src_targets + root_files_targets,
+            'depends': py_src_targets + root_files_targets + deps,
             'build_by_default' : True
         }
         return build.CustomTarget(name, os.path.join(self.build_dir, 'package'), self.subproject, custom_kwargs)
 
-    def process_extensions(self):
+    def process_extensions(self, extensions):
         deps = []
         targets = []
-        for extension in self.extensions:
+        for extension in extensions:
             if hasattr(extension, 'held_object'):
                 extension = extension.held_object
-            if isinstance(extension, str):
-                pos = extension.find('/')
-                if extension[:pos] != 'lib':
-                    raise mesonlib.MesonException("Invalid path '{0}'. The file should be under 'lib' directory.".format(extension))
+            print(type(extension))
+            if isinstance(extension, mesonlib.File):
+                path = os.path.join(self.source_dir, extension.subdir, extension.fname)
                 custom_kwargs = {
-                    'input': os.path.join(self.build_dir, extension),
-                    'output': os.path.basename(extension),
+                    'input': path,
+                    'output': extension.fname,
                     'command': ['cp', '@INPUT@', '@OUTPUT@'],
                     'build_by_default': True
                 }
-                self.sources[os.path.join(self.name, os.path.dirname(extension[pos+1:]))].append( os.path.join(self.pkg_dir, os.path.dirname(extension[pos+1:]), os.path.basename(extension)))
-                targets.append(build.CustomTarget(extension.replace('/', '_'), os.path.join(self.pkg_dir, os.path.dirname(extension[pos+1:])), self.subproject, custom_kwargs))
+                self.sources[os.path.join(self.name)].append( os.path.join(self.pkg_dir, extension.fname))
+                targets.append(build.CustomTarget(path.replace('/', '_'), os.path.join(self.pkg_dir), self.subproject, custom_kwargs))
             elif isinstance(extension, build.BuildTarget):
                 subdir = extension.get_subdir()
                 subdir_ = ''
@@ -383,7 +384,30 @@ class HadronModule(ExtensionModule):
                     'build_by_default' : True
                 }
                 targets.append(build.CustomTarget("_".join(['copy', extension.name, output]), self.pkg_dir, self.subproject, custom_kwargs))
+            elif isinstance(extension, list):
+                t, d = self.process_extensions(extension)
+                deps += d
+                targets += t
         return [targets, deps]
+
+    def create_init_target(self, py_src_targets, root_files_targets, deps, shlib = None):
+        name = '__init__.py'
+        gen_script = os.path.join(self.source_dir, 'scripts', 'gen_init.sh')
+        depends = py_src_targets + root_files_targets + deps
+        if shlib is not None:
+            depends += [shlib]
+            cmd = ['bash', gen_script, '@OUTPUT@']
+        else:
+            cmd = ['touch', '@OUTPUT@']
+        custom_kwargs = {
+            'input': depends,
+            'output': name,
+            'command': cmd,
+            'depends': depends,
+            'build_by_default' : True
+        }
+        self.sources[self.name].append(os.path.join(self.pkg_dir, name))
+        return build.CustomTarget('gen__init__.py', self.pkg_dir, self.subproject, custom_kwargs)
 
 def initialize(*args, **kwargs):
   return HadronModule(*args, **kwargs)
