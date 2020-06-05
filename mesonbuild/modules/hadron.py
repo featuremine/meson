@@ -45,7 +45,8 @@ hadron_package_kwargs = set([
     'bin_files',
     'suffix',
     'dependencies',
-    'include_directories'
+    'include_directories',
+    'install'
 ])
 
 
@@ -67,6 +68,7 @@ class HadronModule(ExtensionModule):
         self.extensions = kwargs.get('extensions', [])
         self.bin_files = kwargs.get('bin_files', [])
         self.suffix = kwargs.get('suffix', '')
+        self.install = kwargs.get('install', False)
         self.pkg_dir = os.path.join(state.environment.build_dir, 'package', self.version + self.suffix, self.name)
         self.api_gen_dir = os.path.join(state.environment.build_dir, 'api-gen', self.name, self.version + self.suffix)
         self.source_dir = state.environment.source_dir
@@ -84,14 +86,18 @@ class HadronModule(ExtensionModule):
         shalib_target = self.generate_sharedlib(mir_targets, kwargs, interpr)
         if shalib_target is not None:
             init_target = self.create_init_target(py_targets, root_targets, ext_deps, shalib_target)
-            wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps + [shalib_target, init_target])
-            conda_target = self.make_conda_target(py_targets, root_targets, ext_deps + [shalib_target, init_target])
-            ret += [wheel_target, conda_target, shalib_target, init_target]
+            ret += [init_target, shalib_target]
+            if self.install:
+                wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps + [shalib_target, init_target])
+                conda_target = self.make_conda_target(py_targets, root_targets, ext_deps + [shalib_target, init_target])
+                ret += [wheel_target, conda_target]
         else:
             init_target = self.create_init_target(py_targets, root_targets, ext_deps)
-            wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps + [init_target])
-            conda_target = self.make_conda_target(py_targets, root_targets, ext_deps + [init_target])
-            ret += [wheel_target, conda_target, init_target]
+            ret += [init_target]
+            if self.install:
+                wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps + [init_target])
+                conda_target = self.make_conda_target(py_targets, root_targets, ext_deps + [init_target])
+                ret += [wheel_target, conda_target]
         for target in ret:
             if isinstance(target, interpreter.SharedModuleHolder):
                 continue
@@ -321,8 +327,11 @@ class HadronModule(ExtensionModule):
             'output': name,
             'command': cmd,
             'depends': py_src_targets + root_files_targets + deps,
-            'build_by_default' : True
+            'build_by_default': True
         }
+        if self.install:
+            custom_kwargs['install'] = self.install
+            custom_kwargs['install_dir'] = '.'
         return build.CustomTarget(name, os.path.join(self.build_dir, 'package'), self.subproject, custom_kwargs)
 
     def make_conda_target(self, py_src_targets, root_files_targets, deps):
@@ -349,6 +358,9 @@ class HadronModule(ExtensionModule):
             'depends': py_src_targets + root_files_targets + deps,
             'build_by_default' : True
         }
+        if self.install:
+            custom_kwargs['install'] = self.install
+            custom_kwargs['install_dir'] = '.'
         return build.CustomTarget(name, os.path.join(self.build_dir, 'package'), self.subproject, custom_kwargs)
 
     def process_extensions(self, extensions):
