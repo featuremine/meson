@@ -357,7 +357,6 @@ class HadronModule(ExtensionModule):
         for extension in extensions:
             if hasattr(extension, 'held_object'):
                 extension = extension.held_object
-            print(type(extension))
             if isinstance(extension, mesonlib.File):
                 path = os.path.join(self.source_dir, extension.subdir, extension.fname)
                 custom_kwargs = {
