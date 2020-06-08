@@ -407,7 +407,7 @@ class HadronModule(ExtensionModule):
         depends = py_src_targets + root_files_targets + deps
         if shlib is not None:
             depends += [shlib]
-            cmd = ['bash', gen_script, '@OUTPUT@']
+            cmd = ['bash', gen_script, '_mir_wrapper', '@OUTPUT@']
         else:
             cmd = ['touch', '@OUTPUT@']
         custom_kwargs = {
