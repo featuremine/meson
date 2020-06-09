@@ -395,6 +395,17 @@ class HadronModule(ExtensionModule):
                     'build_by_default' : True
                 }
                 targets.append(build.CustomTarget("_".join(['copy', extension.name, output]), self.pkg_dir, self.subproject, custom_kwargs))
+            elif isinstance(extension, str):
+                if os.path.isabs(extension):
+                    name = os.path.basename(extension)
+                    custom_kwargs = {
+                        'input': extension,
+                        'output': name,
+                        'command': ['cp', '@INPUT@', self.pkg_dir],
+                        'build_by_default' : True
+                    }
+                    self.sources[os.path.join(self.name)].append(os.path.join(self.pkg_dir, name))
+                    targets.append(build.CustomTarget("_".join(['copy', name]), self.pkg_dir, self.subproject, custom_kwargs))
             elif isinstance(extension, list):
                 t, d = self.process_extensions(extension)
                 deps += d
