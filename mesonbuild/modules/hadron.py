@@ -46,7 +46,8 @@ hadron_package_kwargs = set([
     'suffix',
     'dependencies',
     'include_directories',
-    'install'
+    'install',
+    'verify'
 ])
 
 
@@ -69,6 +70,7 @@ class HadronModule(ExtensionModule):
         self.bin_files = kwargs.get('bin_files', [])
         self.suffix = kwargs.get('suffix', '')
         self.install = kwargs.get('install', False)
+        self.verify = kwargs.get('verify', False)
         self.pkg_dir = os.path.join(state.environment.build_dir, 'package', self.version + self.suffix, self.name)
         self.api_gen_dir = os.path.join(state.environment.build_dir, 'api-gen', self.name, self.version + self.suffix)
         self.source_dir = state.environment.source_dir
@@ -78,12 +80,15 @@ class HadronModule(ExtensionModule):
         self.subproject = state.subproject
         self.sources = defaultdict(list)
         self.mir_targets_map = defaultdict(list)
-        py_targets = self.py_src_targets()
+        self.interpreter = interpr
+        self.pymod = self.interpreter.func_import(None, ['python'], {})
+        self.python3 = self.pymod.method_call('find_installation', [], {})
+        verification_targets, py_targets = self.py_src_targets()
         root_targets = self.root_files_targets()
         [ext_targets, ext_deps] = self.process_extensions(self.extensions)
         mir_targets = self.process_mir_headers()
-        ret = py_targets + root_targets + mir_targets + ext_targets
-        shalib_target = self.generate_sharedlib(mir_targets, kwargs, interpr)
+        ret = py_targets + verification_targets + root_targets + mir_targets + ext_targets
+        shalib_target = self.generate_sharedlib(mir_targets, kwargs)
         if shalib_target is not None:
             init_target = self.create_init_target(py_targets, root_targets, ext_deps, shalib_target)
             ret += [init_target, shalib_target]
@@ -104,7 +109,7 @@ class HadronModule(ExtensionModule):
             interpr.add_target(target.name, target)
         return interpr.holderify([init_target])
 
-    def py_src_target(self, path):
+    def py_src_target(self, path, verification_targets = None):
         py = os.path.join(self.source_dir, 'lib', path)
         if not os.path.isfile(py):
             raise mesonlib.MesonException("Python source file '{0}' doesn't exist".format(py))
@@ -114,15 +119,66 @@ class HadronModule(ExtensionModule):
             'command' : ['cp', '@INPUT@', '@OUTPUT@'],
             'build_by_default' : True
         }
+        if verification_targets is not None:
+            custom_kwargs['depends'] = verification_targets
         self.sources[os.path.join(self.name, os.path.dirname(path))].append(os.path.join(self.pkg_dir, path))
         return build.CustomTarget(path.replace('/', '_'), os.path.join(self.pkg_dir, os.path.dirname(path)), self.subproject, custom_kwargs)
 
+    def add_doctest_test(self, path, deps):
+        py = os.path.join(self.pkg_dir, path)
+        test_name = 'doctest_' + os.path.splitext(path)[0].replace('/', '_')
+        custom_kwargs = {
+            'args': ['-m', 'doctest', '-v', py],
+            'depends': deps
+        }
+        args = [test_name, self.python3]
+        self.interpreter.add_test(None, args, custom_kwargs, True)
+
+    def py_typing_target(self, path, deps):
+        run_mypy_script = os.path.join(self.source_dir, 'scripts', 'run_mypy.sh')
+        config = os.path.join(self.source_dir, 'config', 'mypy.pythonlinter.cfg')
+        py = os.path.join(self.source_dir, 'lib', path)
+        basename = os.path.basename(py)
+        custom_kwargs = {
+            'input' : py,
+            'output' : basename + '.typing',
+            'command' : ['bash', run_mypy_script, '@INPUT@', '@OUTPUT@', '@DEPFILE@', '@PLAINNAME@', deps, config],
+            'depfile': basename + '.typing.d',
+            'build_by_default' : True
+        }
+        return build.CustomTarget('mypy_' + path.replace('/', '_'), os.path.join(self.pkg_dir, os.path.dirname(path)), self.subproject, custom_kwargs)
+
+    def py_docstring_target(self, path, deps):
+        run_mypy_script = os.path.join(self.source_dir, 'scripts', 'run_docstring.sh')
+        py = os.path.join(self.source_dir, 'lib', path)
+        basename = os.path.basename(py)
+        custom_kwargs = {
+            'input' : py,
+            'output' : basename + '.docstring',
+            'command' : ['bash', run_mypy_script, '@INPUT@', '@OUTPUT@', '@DEPFILE@', '@PLAINNAME@', deps],
+            'depfile': basename + '.docstring.d',
+            'build_by_default' : True
+        }
+        return build.CustomTarget('docstring_' + path.replace('/', '_'), os.path.join(self.pkg_dir, os.path.dirname(path)), self.subproject, custom_kwargs)
+
     def py_src_targets(self):
         self.make_pkg_dir()
-        targets = []
+        copy_targets = []
+        verification_targets = []
+        deps = " ".join([os.path.join(self.source_dir, 'lib', path) for path in self.py_sources])
         for py in self.py_sources:
-            targets.append(self.py_src_target(py))
-        return targets
+            if self.verify:
+                targets = [
+                    self.py_typing_target(py, deps),
+                    self.py_docstring_target(py, deps)
+                ]
+                copy = self.py_src_target(py, targets)
+                copy_targets.append(copy)
+                self.add_doctest_test(py, copy)
+                verification_targets += targets
+            else:
+                copy_targets.append(self.py_src_target(py))
+        return [verification_targets, copy_targets]
 
     def root_file_target(self, path):
         absolute_path = os.path.join(self.source_dir, 'lib', path)
@@ -227,7 +283,7 @@ class HadronModule(ExtensionModule):
         targets.append(common_mir_target)
         return targets 
 
-    def generate_sharedlib(self, mir_targets, kwargs, interpr):
+    def generate_sharedlib(self, mir_targets, kwargs):
         if not mir_targets:
             return None
         custom_kwargs = copy(kwargs)
@@ -252,14 +308,12 @@ class HadronModule(ExtensionModule):
                 custom_kwargs['include_directories'] = [incdirs , build.IncludeDirs(self.api_gen_dir, ['.'], False)]
             else:
                 raise mesonlib.MesonException("Invalid include_directories in target {}{}{}".format(self.name, self.version, self.suffix))
-        subdir = interpr.subdir
-        interpr.subdir = self.pkg_dir
-        pymod = interpr.func_import(None, ['python'], {})
-        python3 = pymod.method_call('find_installation', [], {})
-        holders = [interpreter.TargetHolder(target, interpr) for target in mir_targets]
-        shlib = python3.extension_module_method(['_mir_wrapper'] + self.c_sources + holders, custom_kwargs)
-        self.sources[self.name].append(os.path.join(self.build_dir, interpr.subdir, shlib.held_object.filename))
-        interpr.subdir = subdir
+        subdir = self.interpreter.subdir
+        self.interpreter.subdir = self.pkg_dir
+        holders = [interpreter.TargetHolder(target, self.interpreter) for target in mir_targets]
+        shlib = self.python3.extension_module_method(['_mir_wrapper'] + self.c_sources + holders, custom_kwargs)
+        self.sources[self.name].append(os.path.join(self.build_dir, self.interpreter.subdir, shlib.held_object.filename))
+        self.interpreter.subdir = subdir
         return shlib
 
     def generate_common_mir_target(self, mir_targets):
