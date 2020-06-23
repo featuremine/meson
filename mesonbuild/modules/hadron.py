@@ -35,6 +35,8 @@ import sys
 from collections import defaultdict
 from copy import copy
 import textwrap
+import mesonbuild.scripts.conda_gen
+import mesonbuild.scripts.wheel_gen
 
 hadron_package_kwargs = set([
     'version',
@@ -96,17 +98,14 @@ class HadronModule(ExtensionModule):
         if shalib_target is not None:
             init_target = self.gen_init_trgt(py_targets, root_targets, ext_deps, shalib_target)
             ret += [init_target, shalib_target]
-            if self.install:
-                wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps + [shalib_target, init_target])
-                conda_target = self.make_conda_target(py_targets, root_targets, ext_deps + [shalib_target, init_target])
-                ret += [wheel_target, conda_target]
         else:
             init_target = self.gen_init_trgt(py_targets, root_targets, ext_deps)
             ret += [init_target]
-            if self.install:
-                wheel_target = self.make_wheel_target(py_targets, root_targets, ext_deps + [init_target])
-                conda_target = self.make_conda_target(py_targets, root_targets, ext_deps + [init_target])
-                ret += [wheel_target, conda_target]
+
+        if self.install:
+            self.gen_wheel()
+            self.gen_conda()
+
         for target in ret:
             if isinstance(target, interpreter.SharedModuleHolder):
                 continue
@@ -470,60 +469,31 @@ class HadronModule(ExtensionModule):
         ret = str(dict(dictionary)).replace(' ','')
         return ret.replace("'", "\"")
 
-    def make_wheel_target(self, py_src_targets, root_files_targets, deps):
-        py_script = os.path.join(self.source_dir, 'scripts', 'wheel_gen_ex.py')
-        major_ver = sys.version_info.major
-        minor_ver = sys.version_info.minor
-        name = '{0}-{1}-cp{2}{3}-cp{2}{3}m-linux_x86_64.whl'.format(self.name, "".join([self.version, self.suffix]), major_ver, minor_ver)
+    def gen_wheel(self):
         src_copy = copy(self.sources)
         for dir, files in self.process_bins(True).items():
             for file in files:
                 src_copy[dir].append(file)
-        cmd = ['python3', py_script,
+        cmd = ['python3', mesonbuild.scripts.wheel_gen.__file__,
                 '--module', self.name,
                 '--version', "".join([self.version, self.suffix]),
-                '--build_dir', os.path.join(self.build_dir, 'package'),
+                '--build_dir', self.build_dir,
                 '--sources', self.get_dictionary_as_str(src_copy)]
-        custom_kwargs = {
-            'input': py_src_targets + root_files_targets + deps,
-            'output': name,
-            'command': cmd,
-            'depends': py_src_targets + root_files_targets + deps,
-            'build_by_default': True
-        }
-        if self.install:
-            custom_kwargs['install'] = self.install
-            custom_kwargs['install_dir'] = '.'
-        return build.CustomTarget(name, os.path.join(self.build_dir, 'package'), self.subproject, custom_kwargs)
 
-    def make_conda_target(self, py_src_targets, root_files_targets, deps):
-        py_script = os.path.join(self.source_dir, 'scripts', 'conda_gen_ex.py')
-        major_ver = sys.version_info.major
-        minor_ver = sys.version_info.minor
-        distro_name = self.run_subprocess(['lsb_release', '-is']).lower()
-        distro_ver = self.run_subprocess(['lsb_release', '-rs']).lower()
-        build_name = "{}_{}_py{}{}".format(distro_name, distro_ver, major_ver, minor_ver)
-        name = '{}-{}-{}.tar.bz2'.format(self.name, "".join([self.version, self.suffix]), build_name)
+        self.interpreter.builtin['meson'].add_install_script_method(cmd, None)
+
+    def gen_conda(self):
         src_copy = copy(self.sources)
         for dir, files in self.process_bins(False).items():
             for file in files:
                 src_copy[dir].append(file)
-        cmd = ['python3', py_script,
+        cmd = ["python3", mesonbuild.scripts.conda_gen.__file__,
                 '--module', self.name,
                 '--version', "".join([self.version, self.suffix]),
-                '--build_dir', os.path.join(self.build_dir, 'package'),
+                '--build_dir', self.build_dir,
                 '--sources', self.get_dictionary_as_str(src_copy)]
-        custom_kwargs = {
-            'input': py_src_targets + root_files_targets + deps,
-            'output': name,
-            'command': cmd,
-            'depends': py_src_targets + root_files_targets + deps,
-            'build_by_default': True
-        }
-        if self.install:
-            custom_kwargs['install'] = self.install
-            custom_kwargs['install_dir'] = '.'
-        return build.CustomTarget(name, os.path.join(self.build_dir, 'package'), self.subproject, custom_kwargs)
+
+        self.interpreter.builtin['meson'].add_install_script_method(cmd, None)
 
     def process_extensions(self, extensions):
         deps = []
