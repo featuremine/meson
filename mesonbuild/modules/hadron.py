@@ -37,6 +37,7 @@ from copy import copy
 import textwrap
 import mesonbuild.scripts.conda_gen
 import mesonbuild.scripts.wheel_gen
+import findimports
 
 hadron_package_kwargs = set([
     'version',
@@ -56,6 +57,25 @@ hadron_package_kwargs = set([
 class colors:
     RED = '\033[1;31m'
     NC = '\033[0m' 
+
+class Imports:
+    def __init__(self):
+        pass
+    def get_imports(self, path):
+        graph = findimports.ModuleGraph()
+        graph.parsePathname(path)
+        res = {}
+        for module in graph.listModules():
+          if graph.external_dependencies:
+              imports = list(module.imports)
+          else:
+              imports = [modname for modname in module.imports
+                          if modname in graph.modules]
+          imports.sort()
+          res[module.modname] = imports
+        assert len(res) == 1
+        return list(res.values())[0]
+
 
 class HadronModule(ExtensionModule):
 
@@ -89,45 +109,36 @@ class HadronModule(ExtensionModule):
         self.interpreter = interpr
         self.pymod = self.interpreter.func_import(None, ['python'], {})
         self.python3 = self.pymod.method_call('find_installation', [], {})
-        verification_targets, py_targets = self.py_src_targets()
+
+        py_copy_targets = self.gen_copy_trgts()
+        cpy_trgts_list = [trgt for _, trgt in py_copy_targets.items()]
         root_targets = self.root_files_targets()
         [ext_targets, ext_deps] = self.process_extensions(self.extensions)
         mir_targets = self.process_mir_headers()
-        ret = py_targets + verification_targets + root_targets + mir_targets + ext_targets
+        ret = cpy_trgts_list + root_targets + mir_targets + ext_targets
+
         shalib_target = self.generate_sharedlib(mir_targets, kwargs)
+
         if shalib_target is not None:
-            init_target = self.gen_init_trgt(py_targets, root_targets, ext_deps, shalib_target)
+            init_target = self.gen_init_trgt(cpy_trgts_list + root_targets + ext_deps + ext_targets, shalib_target)
             ret += [init_target, shalib_target]
         else:
-            init_target = self.gen_init_trgt(py_targets, root_targets, ext_deps)
+            init_target = self.gen_init_trgt(cpy_trgts_list + root_targets + ext_deps + ext_targets)
             ret += [init_target]
 
         if self.install:
             self.gen_wheel()
             self.gen_conda()
 
+        if self.verify:
+            ext_deps = [shalib_target] if shalib_target is not None else []
+            ret += self.gen_verification_trgts(py_copy_targets, ext_deps)
+
         for target in ret:
             if isinstance(target, interpreter.SharedModuleHolder):
                 continue
             interpr.add_target(target.name, target)
-        return interpr.holderify([init_target])
-
-    def py_src_target(self, path, verification_targets = None):
-        if not isinstance(path, mesonlib.File):
-            raise mesonlib.MesonException("Expecting python source file '{}' to be File object".format(path))
-        py = os.path.join(self.source_dir, path.subdir, path.fname)
-        if not os.path.isfile(py):
-            raise mesonlib.MesonException("Python source file '{0}' doesn't exist".format(py))
-        custom_kwargs = {
-            'input' : py,
-            'output' : os.path.basename(path.fname),
-            'command' : ['cp', '@INPUT@', '@OUTPUT@'],
-            'build_by_default' : True
-        }
-        if verification_targets is not None:
-            custom_kwargs['depends'] = verification_targets
-        self.sources[os.path.join(self.name, os.path.dirname(path.fname))].append(os.path.join(self.pkg_dir, path.fname))
-        return build.CustomTarget(py.replace('/', '_'), os.path.join(self.pkg_dir, os.path.dirname(path.fname)), self.subproject, custom_kwargs)
+        return interpr.holderify(init_target)
 
     def add_doctest_test(self, path, deps):
         """
@@ -159,11 +170,47 @@ class HadronModule(ExtensionModule):
         args = [test_name, self.python3]
         self.interpreter.add_test(None, args, custom_kwargs, True)
 
-    def target_name(self, prefix, path):
+    def target_name(self, prefix: str, path: mesonlib.File) -> str:
+        """
+        Creates target name by prefix and path.
+        E.g. 'mypy_lib_core_utils' or 'pylint_lib_core_utils'.
+        """
+
         if isinstance(path, mesonlib.File):
             path = os.path.join(path.subdir, path.fname)
         root, _ = os.path.splitext(path)
         return f"{prefix}_{root.replace('/', '_')}"
+
+    def path_to_module(self, path: mesonlib.File) -> str:
+        """
+        Converts path to module name.
+        E.g. 'core/utils.py' -> core.utils
+        """
+
+        assert isinstance(path, mesonlib.File)
+        filename, _ = os.path.splitext(path.fname)
+        return filename.replace('/', '.')
+
+    def gen_copy_trgt(self, path):
+        """
+        Generate custom target to copy python source file.
+        """
+
+        if not isinstance(path, mesonlib.File):
+            raise mesonlib.MesonException("Expecting python source file '{}' to be File object".format(path))
+
+        out_subdir = os.path.join(self.pkg_dir, os.path.dirname(path.fname))
+        basename = os.path.basename(path.fname)
+        in_path = os.path.join(self.source_dir, path.subdir, path.fname)
+
+        custom_kwargs = {
+            'input' : in_path,
+            'output' : basename,
+            'command' : ['cp', '@INPUT@', '@OUTPUT@'],
+            'build_by_default' : True
+        }
+        self.sources[os.path.join(self.name, os.path.dirname(path.fname))].append(os.path.join(self.pkg_dir, path.fname))
+        return (self.path_to_module(path), build.CustomTarget(self.target_name('copy', path), out_subdir, self.subproject, custom_kwargs))
 
     def gen_mypy_trgt(self, path: mesonlib.File, deps) -> build.CustomTarget:
         """
@@ -178,13 +225,9 @@ class HadronModule(ExtensionModule):
         in_path = os.path.join(self.source_dir, path.subdir, path.fname)
         out_path = os.path.join(out_subdir, basename + '.mypy')
 
-        depfile_path = os.path.join(self.pkg_dir, os.path.dirname(path.fname), basename + '.mypy.d')
-
         gen_script = textwrap.dedent(f"""\
         import os
         import subprocess
-        with open('{depfile_path}', 'w') as f:
-            f.write('{os.path.basename(path.fname)}: {deps}')
         ps = subprocess.Popen(['mypy', '--disallow-untyped-defs', '--disallow-incomplete-defs', '--ignore-missing-imports', '{in_path}'],
                               stdout=subprocess.PIPE)
         cout, cerr = ps.communicate()
@@ -207,9 +250,8 @@ class HadronModule(ExtensionModule):
             'input': in_path,
             'output': basename + '.mypy',
             'command': ['python3', '-c', gen_script],
-            'depfile': basename + '.mypy.d',
             'build_by_default': True,
-            'depends': []
+            'depends': deps
         }
         return build.CustomTarget(self.target_name('mypy', path), out_subdir, self.subproject, custom_kwargs)
 
@@ -226,13 +268,9 @@ class HadronModule(ExtensionModule):
         in_path = os.path.join(self.source_dir, path.subdir, path.fname)
         out_path = os.path.join(out_subdir, basename + '.pylint')
 
-        depfile_path = os.path.join(self.pkg_dir, os.path.dirname(path.fname), basename + '.pylint.d')
-
         gen_script = textwrap.dedent(f"""\
         import os
         import subprocess
-        with open('{depfile_path}', 'w') as f:
-            f.write('{os.path.basename(path.fname)}: {deps}')
         ps = subprocess.Popen(['pylint', '--disable=all', '--enable=missing-docstring', '{in_path}'],
                               stdout=subprocess.PIPE)
         cout, cerr = ps.communicate()
@@ -255,30 +293,33 @@ class HadronModule(ExtensionModule):
             'input' : in_path,
             'output' : basename + '.pylint',
             'command' : ['python3', '-c', gen_script],
-            'depfile': basename + '.pylint.d',
             'build_by_default' : True,
-            'depends': []
+            'depends': deps
         }
         return build.CustomTarget(self.target_name('pylint', path), out_subdir, self.subproject, custom_kwargs)
 
-    def py_src_targets(self):
+    def gen_copy_trgts(self):
         self.make_pkg_dir()
-        copy_targets = []
-        verification_targets = []
-        deps = " ".join([os.path.join(self.source_dir, path.subdir, path.fname) for path in self.py_sources])
+        copy_targets = {}
         for py in self.py_sources:
-            if self.verify:
-                targets = [
-                    self.gen_mypy_trgt(py, deps),
-                    self.gen_pylint_trgt(py, deps)
-                ]
-                copy = self.py_src_target(py, targets)
-                copy_targets.append(copy)
-                self.add_doctest_test(py, copy)
-                verification_targets += targets
-            else:
-                copy_targets.append(self.py_src_target(py))
-        return [verification_targets, copy_targets]
+            mod, trgt = self.gen_copy_trgt(py)
+            copy_targets[mod] = trgt
+        return copy_targets
+
+    def gen_verification_trgts(self, cpy_trgts, ext_deps = []):
+        trgts = []
+        graph = Imports()
+        for py in self.py_sources:
+            if os.path.basename(py.fname) != "__init__.py":
+                imports = graph.get_imports(os.path.join(self.source_dir, py.subdir, py.fname))
+                deps = []
+                for imprt in imports:
+                    if imprt in cpy_trgts:
+                        deps.append(cpy_trgts[imprt])
+                trgts.append(self.gen_mypy_trgt(py, deps + ext_deps))
+                trgts.append(self.gen_pylint_trgt(py, deps + ext_deps))
+                self.add_doctest_test(py, deps)
+        return trgts
 
     def root_file_target(self, path):
         if not isinstance(path, mesonlib.File):
@@ -470,6 +511,10 @@ class HadronModule(ExtensionModule):
         return ret.replace("'", "\"")
 
     def gen_wheel(self):
+        """
+        Add install script to generate wheel package.
+        """
+
         src_copy = copy(self.sources)
         for dir, files in self.process_bins(True).items():
             for file in files:
@@ -483,6 +528,10 @@ class HadronModule(ExtensionModule):
         self.interpreter.builtin['meson'].add_install_script_method(cmd, None)
 
     def gen_conda(self):
+        """
+        Add install script to generate conda package.
+        """
+
         src_copy = copy(self.sources)
         for dir, files in self.process_bins(False).items():
             for file in files:
@@ -544,13 +593,12 @@ class HadronModule(ExtensionModule):
                 targets += t
         return [targets, deps]
 
-    def gen_init_trgt(self, py_src_targets, root_files_targets, deps, shlib = None):
+    def gen_init_trgt(self, deps, shlib = None):
         """
         Generates custom target to create __init__.py in package folder.
         """
 
         out_path = os.path.join(self.pkg_dir, '__init__.py')
-        depends = py_src_targets + root_files_targets + deps
 
         gen_script = textwrap.dedent(f"""\
         import os
@@ -559,15 +607,15 @@ class HadronModule(ExtensionModule):
                 f.write('from ._mir_wrapper import *')""")
 
         if shlib is not None:
-            depends += [shlib]
-            cmd = ['python3', '-c',gen_script ]
+            deps += [shlib]
+            cmd = ['python3', '-c', gen_script]
         else:
             cmd = ['touch', '@OUTPUT@']
         custom_kwargs = {
-            'input': depends,
+            'input': deps,
             'output': '__init__.py',
             'command': cmd,
-            'depends': depends,
+            'depends': deps,
             'build_by_default' : True
         }
         self.sources[self.name].append(out_path)
