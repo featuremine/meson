@@ -1,6 +1,6 @@
 project('gettext example', 'c')
 
-gettext = find_program('gettext', required: false)
+gettext = find_program('gettext_ex', required: false)
 if not gettext.found()
   error('MESON_SKIP_TEST gettext not found.')
 endif
