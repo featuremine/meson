@@ -19,7 +19,7 @@ import argparse
 from .. import mlog
 from ..mesonlib import has_path_sep
 from . import destdir_join
-from .gettext import read_linguas
+from .gettext_ex import read_linguas
 
 parser = argparse.ArgumentParser()
 parser.add_argument('command')
