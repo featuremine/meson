@@ -51,7 +51,8 @@ hadron_package_kwargs = set([
     'dependencies',
     'include_directories',
     'install',
-    'verify'
+    'verify',
+    'python'
 ])
 
 class colors:
@@ -94,9 +95,11 @@ class HadronModule(ExtensionModule):
         self.root_files = kwargs.get('root_files', [])
         self.extensions = kwargs.get('extensions', [])
         self.bin_files = kwargs.get('bin_files', [])
+        self.python3_inst = kwargs.get('python', interpr.func_import(None, ['python'], {}).method_call('find_installation', [], {}))
         self.suffix = kwargs.get('suffix', '')
         self.install = kwargs.get('install', False)
         self.verify = kwargs.get('verify', False)
+        self.environment = state.environment
         self.pkg_dir = os.path.join(state.environment.build_dir, 'package', self.version + self.suffix, self.name)
         self.api_gen_dir = os.path.join(state.environment.build_dir, 'api-gen', self.name, self.version + self.suffix)
         self.source_dir = state.environment.source_dir
@@ -107,8 +110,7 @@ class HadronModule(ExtensionModule):
         self.sources = defaultdict(list)
         self.mir_targets_map = defaultdict(list)
         self.interpreter = interpr
-        self.pymod = self.interpreter.func_import(None, ['python'], {})
-        self.python3 = self.pymod.method_call('find_installation', [], {})
+        self.python3 = self.python3_inst.method_call('path', [], {})
 
         py_copy_targets = self.gen_copy_trgts()
         cpy_trgts_list = [trgt for _, trgt in py_copy_targets.items()]
@@ -167,7 +169,7 @@ class HadronModule(ExtensionModule):
             'timeout': 600,
             'is_parallel': True
         }
-        args = [test_name, self.python3]
+        args = [test_name, self.python3_inst]
         self.interpreter.add_test(None, args, custom_kwargs, True)
 
     def target_name(self, prefix: str, path: mesonlib.File) -> str:
@@ -249,7 +251,7 @@ class HadronModule(ExtensionModule):
         custom_kwargs = {
             'input': in_path,
             'output': basename + '.mypy',
-            'command': ['python3', '-c', gen_script],
+            'command': [self.python3, '-c', gen_script],
             'build_by_default': True,
             'depends': deps
         }
@@ -292,7 +294,7 @@ class HadronModule(ExtensionModule):
         custom_kwargs = {
             'input' : in_path,
             'output' : basename + '.pylint',
-            'command' : ['python3', '-c', gen_script],
+            'command' : [self.python3, '-c', gen_script],
             'build_by_default' : True,
             'depends': deps
         }
@@ -459,7 +461,7 @@ class HadronModule(ExtensionModule):
         subdir = self.interpreter.subdir
         self.interpreter.subdir = self.pkg_dir
         holders = [interpreter.TargetHolder(target, self.interpreter) for target in mir_targets]
-        shlib = self.python3.extension_module_method(['_mir_wrapper'] + self.c_sources + holders, custom_kwargs)
+        shlib = self.python3_inst.extension_module_method(['_mir_wrapper'] + self.c_sources + holders, custom_kwargs)
         self.sources[self.name].append(os.path.join(self.build_dir, self.interpreter.subdir, shlib.held_object.filename))
         self.interpreter.subdir = subdir
         return shlib
@@ -519,7 +521,7 @@ class HadronModule(ExtensionModule):
         for dir, files in self.process_bins(True).items():
             for file in files:
                 src_copy[dir].append(file)
-        cmd = ['python3', mesonbuild.scripts.wheel_gen.__file__,
+        cmd = [self.python3, mesonbuild.scripts.wheel_gen.__file__,
                 '--module', self.name,
                 '--version', "".join([self.version, self.suffix]),
                 '--build_dir', self.build_dir,
@@ -536,7 +538,7 @@ class HadronModule(ExtensionModule):
         for dir, files in self.process_bins(False).items():
             for file in files:
                 src_copy[dir].append(file)
-        cmd = ["python3", mesonbuild.scripts.conda_gen.__file__,
+        cmd = [self.python3, mesonbuild.scripts.conda_gen.__file__,
                 '--module', self.name,
                 '--version', "".join([self.version, self.suffix]),
                 '--build_dir', self.build_dir,
@@ -608,7 +610,7 @@ class HadronModule(ExtensionModule):
 
         if shlib is not None:
             deps += [shlib]
-            cmd = ['python3', '-c', gen_script]
+            cmd = [self.python3, '-c', gen_script]
         else:
             cmd = ['touch', '@OUTPUT@']
         custom_kwargs = {
