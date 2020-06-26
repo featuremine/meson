@@ -228,24 +228,21 @@ class HadronModule(ExtensionModule):
         out_path = os.path.join(out_subdir, basename + '.mypy')
 
         gen_script = textwrap.dedent(f"""\
+        from mypy import api
+        from pathlib import Path
         import os
-        import subprocess
-        ps = subprocess.Popen(['mypy', '--disallow-untyped-defs', '--disallow-incomplete-defs', '--ignore-missing-imports', '{in_path}'],
-                              stdout=subprocess.PIPE)
-        cout, cerr = ps.communicate()
-        cout = str(cout, 'utf-8').strip()
-        if ps.returncode != 0:
+        import sys
+
+        try:
+            api.run(['--disallow-untyped-defs', '--disallow-incomplete-defs', '--ignore-missing-imports', '{in_path}'])
+        except Exception as e:
+            print("Exception failed: ", e)
             print("{colors.RED}ERROR: Invalid type verification for '{in_path}'.{colors.NC}")
-            if cout:
-                print(cout)
-            print()
             if os.path.exists('{out_path}'):
                 os.remove('{out_path}')
             exit(1)
         else:
-            with open('{out_path}', 'w') as f:
-                if cout:
-                    f.write(cout)
+            Path('{out_path}').touch()
         """)
 
         custom_kwargs = {
