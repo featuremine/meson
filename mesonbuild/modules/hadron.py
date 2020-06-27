@@ -236,6 +236,7 @@ class HadronModule(ExtensionModule):
         try:
             api.run(['--disallow-untyped-defs', '--disallow-incomplete-defs', '--ignore-missing-imports', '{in_path}'])
         except Exception as e:
+            print("Exception: ", e)
             print("{colors.RED}ERROR: Invalid type verification for '{in_path}'.{colors.NC}")
             if os.path.exists('{out_path}'):
                 os.remove('{out_path}')
