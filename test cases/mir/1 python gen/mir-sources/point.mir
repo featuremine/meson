@@ -1,0 +1,52 @@
+;; COPYRIGHT (c) 2020 by Featuremine Corporation.
+;; This software has been provided pursuant to a License Agreement
+;; containing restrictions on its use.  This software contains
+;; valuable trade secrets and proprietary information of
+;; Featuremine Corporation and is protected by law.  It may not be
+;; copied or distributed in any form or medium, disclosed to third
+;; parties, reverse engineered or used in any manner not provided
+;; for in said License Agreement except with the prior written
+;; authorization from Featuremine Corporation.
+
+#lang s-exp mir
+
+(def-module point
+    [brief "Point module."]
+    [doc "Contains Defenition of point 2d."]
+    [namespace graph]
+    [require])
+
+(def-class Point
+    [brief "Point 2d."]
+    [doc "Structure which represents 2d point with x y coordinates and methods."]
+    [def-constructor
+        [def-arg x
+            [brief "x value"]
+            [type double ]]
+        [def-arg y
+            [brief "y value"]
+            [type double]]]
+    [def-member x
+        [brief "x value"]
+        [type double ]]
+    [def-member y
+        [brief "y value"]
+        [type double]]
+    [def-method dist 
+        [brief "Distance"]
+        [doc  "Calculate distance from current point to selected."]
+        [def-arg point
+            [brief "point"]
+            [type Point] #:ref]
+        [def-return 
+            [brief "Distance."]
+            [type double]]]
+    [def-method norm 
+        [brief "Norm"]
+        [doc  "Calculate the norm value of point."]
+        [def-return 
+            [brief "Norm."]
+            [type double]]])
+
+
+

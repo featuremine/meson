@@ -42,6 +42,18 @@ if sys.platform != 'win32':
     data_files = [('share/man/man1', ['man/meson.1']),
                   ('share/polkit-1/actions', ['data/com.mesonbuild.install.policy'])]
 
+# include mir staff
+data_files +=  [('tools/mir/', ['tools/mir/utils.rkt',
+                                'tools/mir/c-generator.rkt',
+                                'tools/mir/mir-generator.rkt',
+                                'tools/mir/main.rkt',
+                                'tools/mir/common-c.rkt',
+                                'tools/mir/core.rkt',
+                                'tools/mir/python-generator.rkt']),
+                ('tools/mir/pythongen', ['tools/mir/pythongen/common_c.h',
+                                         'tools/mir/pythongen/utils.h',
+                                         'tools/mir/pythongen/utils.c'])]
+
 if __name__ == '__main__':
     setup(name='meson',
           version=version,

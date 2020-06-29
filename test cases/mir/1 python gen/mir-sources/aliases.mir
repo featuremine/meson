@@ -1,0 +1,157 @@
+;; COPYRIGHT (c) 2020 by Featuremine Corporation.
+;; This software has been provided pursuant to a License Agreement
+;; containing restrictions on its use.  This software contains
+;; valuable trade secrets and proprietary information of
+;; Featuremine Corporation and is protected by law.  It may not be
+;; copied or distributed in any form or medium, disclosed to third
+;; parties, reverse engineered or used in any manner not provided
+;; for in said License Agreement except with the prior written
+;; authorization from Featuremine Corporation.
+
+#lang s-exp mir
+
+(def-module aliases
+    [brief "Module for aliases testing"]
+    [doc "Test aliases"]
+    [namespace graph aliases]
+    [require "mir-sources/point.mir" "mir-sources/utility.mir"] )
+
+(def-alias Vector 
+    [brief "Vector."]
+    [doc  "Alias of Point object."]
+    [type graph.Point])
+
+(def-alias Vector2d 
+    [brief "Vector."]
+    [doc  "Alias of Point object."]
+    [type Vector])
+
+(def-alias VectorCallable
+    [brief "Vector."]
+    [doc  "Alias of Point object."]
+    [type (def-callable
+        [def-arg point
+            [brief "point"]
+            [type Vector2d]
+            #:ref]
+        [def-return 
+            [brief "Result."]
+            [type Vector2d]
+            #:ref])])
+
+(def-alias CallbackCallable
+    [brief "Vector."]
+    [doc  "Alias of Point object."]
+    [type (def-callable
+        [def-arg point
+            [brief "point"]
+            [type VectorCallable]
+            #:ref]
+        [def-return 
+            [brief "Result."]
+            [type VectorCallable]
+            #:ref])])
+
+(def-class ClassWithRef
+    [brief "Class with ref"]
+    [doc "Class with ref"]
+    [def-constructor     
+        [def-arg ref
+            [brief "ref"]
+            [type graph.Point ] 
+            #:ref]
+        [def-arg obj
+            [brief "obj"]
+            [type graph.Point ]]]
+    [def-member ref
+        [brief "ref"]
+        [type graph.Point ] 
+        #:ref]
+    [def-member obj
+        [brief "obj"]
+        [type graph.Point ]])
+
+(def-struct StructWithRef
+    [brief "Struct with ref"]
+    [doc "Struct with ref"]
+    [def-member ref
+        [brief "ref"]
+        [type graph.Point ] 
+        #:ref]
+    [def-member obj
+        [brief "obj"]
+        [type graph.Point ]])
+
+(def-struct AliasStruct
+    [brief "Alias struct"]
+    [doc "Alias struct"]
+    [def-member ref
+        [brief "ref"]
+        [type graph.Point ] 
+        #:ref]
+    [def-member obj
+        [brief "obj"]
+        [type Vector2d ]])
+
+(def-class AliasClass
+    [brief "Alias struct"]
+    [doc "Alias struct"]
+    [def-constructor     
+        [def-arg obj
+            [brief "obj"]
+            [type Vector2d ]]]
+    [def-member obj
+        [brief "obj"]
+        [type Vector2d ]]
+    [def-member aliasCallable
+            [brief "obj"]  
+            [type VectorCallable ]
+            #:ref]
+    [def-member boolVal
+            [brief "bool val"]  
+            [type bool ]]
+
+     [def-method setAliasCallable
+            [brief "setAliasCallable" ]
+            [doc  "setAliasCallable" ]
+            [def-arg aCallable
+                [brief "callable"]
+                [type VectorCallable]
+                #:ref]
+            [def-return 
+                [brief "Distance."]
+                [type VectorCallable]
+                #:ref]]     
+
+    
+    [def-method setCallable
+        [brief "setCallable" ]
+        [doc  "setCallable" ]
+        [def-arg callable
+            [brief "callable"]
+            [type (def-callable
+                [def-arg point
+                    [brief "point"]
+                    [type Vector2d]
+                    #:ref]
+                [def-return 
+                    [brief "Result."]
+                    [type Vector2d]
+                    #:ref])]
+            #:ref]
+        [def-return 
+            [brief "Distance."]
+            [type Vector2d]
+            #:ref]]
+
+
+
+    [def-method dist 
+        [brief "Distance"]
+        [doc  "Calculate distance from current point to selected."]
+        [def-arg point
+            [brief "point"]
+            [type Vector2d]]
+        [def-return 
+            [brief "Distance."]
+            [type double]]])

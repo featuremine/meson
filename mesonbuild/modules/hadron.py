@@ -38,6 +38,7 @@ import textwrap
 import mesonbuild.scripts.conda_gen
 import mesonbuild.scripts.wheel_gen
 import findimports
+from typing import List
 
 hadron_package_kwargs = set([
     'version',
@@ -51,6 +52,20 @@ hadron_package_kwargs = set([
     'dependencies',
     'include_directories',
     'install',
+    'verify',
+    'python'
+])
+
+# these will be removed if not require for shlib
+hadron_special_kwargs = set([
+    'mir_headers',
+    'c_sources',
+    'py_sources',
+    'root_files',
+    'extensions',
+    'bin_files',
+    'suffix',
+    'version',
     'verify',
     'python'
 ])
@@ -120,6 +135,7 @@ class HadronModule(ExtensionModule):
         ret = cpy_trgts_list + root_targets + mir_targets + ext_targets
 
         shalib_target = self.generate_sharedlib(mir_targets, kwargs)
+
 
         if shalib_target is not None:
             init_target = self.gen_init_trgt(cpy_trgts_list + root_targets + ext_deps + ext_targets, shalib_target)
@@ -366,15 +382,20 @@ class HadronModule(ExtensionModule):
         if not os.path.exists(self.api_gen_dir):
             os.makedirs(self.api_gen_dir)
 
-    def get_base_cmd(self):
-        tools_dir = os.path.join(self.source_dir, 'tools')
+    def get_racket_base_cmd(self) -> List[str]:
+        """
+        Return common command line for mir generator.
+        """
+
+        root_module_path = Path(os.path.dirname(mesonbuild.__file__)).parent
+        tools_dir = os.path.join(root_module_path, 'tools')
         mir_gen = os.path.join(tools_dir, 'mir', 'mir-generator.rkt')
         dest_dir = self.api_gen_dir
         return ['racket', '-S', tools_dir, mir_gen, '-d', dest_dir, '-r', os.path.join(self.source_dir, self.subdir)]
 
     def run_mir_generation(self):
         self.make_api_gen_dir()
-        base_cmd = self.get_base_cmd()
+        base_cmd = self.get_racket_base_cmd()
         for mir_header in self.mir_headers:
             self.make_racket_targets(base_cmd, mir_header)
 
@@ -437,28 +458,36 @@ class HadronModule(ExtensionModule):
         def remove_key(key):
             if custom_kwargs.get(key):
                 del custom_kwargs[key]
-        remove_key('mir_headers')
-        remove_key('c_sources')
-        remove_key('py_sources')
-        remove_key('root_files')
-        remove_key('extensions')
-        remove_key('bin_files')
-        remove_key('suffix')
-        incdirs = custom_kwargs.get('include_directories')
-        if incdirs:
-            if hasattr(incdirs, 'held_object'):
-                incdirs = incdirs.held_object
-            if isinstance(incdirs, list):
-                incdirs.append(build.IncludeDirs(self.api_gen_dir, ['.'], False))
-                custom_kwargs['include_directories'] = incdirs
-            elif isinstance(incdirs, build.IncludeDirs):
-                custom_kwargs['include_directories'] = [incdirs , build.IncludeDirs(self.api_gen_dir, ['.'], False)]
-            else:
-                raise mesonlib.MesonException("Invalid include_directories in target {}{}{}".format(self.name, self.version, self.suffix))
+
+        for key in hadron_special_kwargs:
+            remove_key(key)
+
+        root_module_path = Path(os.path.dirname(mesonbuild.__file__)).parent
+        tools_path = os.path.join(root_module_path, 'tools')
+        utils_file = mesonlib.File.from_absolute_file(os.path.join(tools_path, 'mir/pythongen/utils.c'))
+
+        incdirs = custom_kwargs.get('include_directories', [])
+
+        if not incdirs:
+            custom_kwargs['include_directories'] = incdirs
+
+        if hasattr(incdirs, 'held_object'):
+            incdirs = incdirs.held_object
+
+        if isinstance(incdirs, list):
+            incdirs += [build.IncludeDirs(self.api_gen_dir, ['.'], False),
+                        build.IncludeDirs(tools_path, ['.'], False)]
+        elif isinstance(incdirs, build.IncludeDirs):
+            custom_kwargs['include_directories'] = [incdirs,
+                                                    build.IncludeDirs(self.api_gen_dir, ['.'], False),
+                                                    build.IncludeDirs(tools_path, ['.'], False)]
+        else:
+            raise mesonlib.MesonException("Invalid include_directories in target {}{}{}".format(self.name, self.version, self.suffix))
+
         subdir = self.interpreter.subdir
         self.interpreter.subdir = self.pkg_dir
         holders = [interpreter.TargetHolder(target, self.interpreter) for target in mir_targets]
-        shlib = self.python3_inst.extension_module_method(['_mir_wrapper'] + self.c_sources + holders, custom_kwargs)
+        shlib = self.python3_inst.extension_module_method(['_mir_wrapper'] + self.c_sources + holders + [utils_file], custom_kwargs)
         self.sources[self.name].append(os.path.join(self.build_dir, self.interpreter.subdir, shlib.held_object.filename))
         self.interpreter.subdir = subdir
         return shlib
@@ -470,7 +499,7 @@ class HadronModule(ExtensionModule):
             header = os.path.join(self.source_dir, header.subdir, header.fname)
             cmd += ['-s', header]
             headers += [header]
-        cmd = self.get_base_cmd() + cmd
+        cmd = self.get_racket_base_cmd() + cmd
         sources = self.run_mir_subprocess(cmd + ['-i', '-c'])
         relative_sources = [os.path.relpath(source, self.build_dir) for source in sources]
         custom_kwargs = {

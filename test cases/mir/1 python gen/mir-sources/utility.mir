@@ -1,0 +1,424 @@
+;; COPYRIGHT (c) 2020 by Featuremine Corporation.
+;; This software has been provided pursuant to a License Agreement
+;; containing restrictions on its use.  This software contains
+;; valuable trade secrets and proprietary information of
+;; Featuremine Corporation and is protected by law.  It may not be
+;; copied or distributed in any form or medium, disclosed to third
+;; parties, reverse engineered or used in any manner not provided
+;; for in said License Agreement except with the prior written
+;; authorization from Featuremine Corporation.
+
+#lang s-exp mir
+
+(def-module utility
+    [brief "Point module."]
+    [doc "Contains Defenition of point 2d."]
+    [namespace graph utility]
+    [require "mir-sources/point.mir"])
+
+(def-template V
+    (lambda (mod ~name ~type)
+        (begin
+            ((def-alias ~name 
+                [brief "Vector."]
+                [doc   "Vector doc."]
+                [type ~type])mod))))
+
+
+(def-alias V2 
+    [brief "Vector."]
+    [doc  "Alias of Point object."]
+    [type V(int32)])
+
+(def-class Utility
+    [brief "Graphic Utility"]
+    [doc "Class which contains several helpers for graphic"]
+    [def-constructor]
+    [def-method multiply_points 
+        [brief "Scalar multiplication"]
+        [doc  "Make multiplication of point and salar coeficient."]
+        [def-arg point
+            [brief "point"]
+            [type graph.Point] 
+            #:ref]
+        [def-arg K
+            [brief "mult coefficient"]
+            [type double]]
+        [def-return 
+            [brief "Result."]
+            [type graph.Point]]]
+
+    [def-method add_callable
+        [brief "Scalar multiplication"]
+        [doc  "Make multiplication of point and salar coeficient."]
+        [def-arg point
+            [brief "point"]
+            [type graph.Point]
+             #:ref]
+        [def-arg callable
+            [brief "callable"]
+            [type (def-callable
+                [def-arg K
+                    [brief "mult coefficient"]
+                    [type double]]
+                [def-arg point
+                    [brief "point"]
+                    [type graph.Point]
+                    #:ref]
+                [def-return 
+                    [brief "Result."]
+                    [type int32]])]
+                    #:ref]
+            
+        [def-return 
+            [brief "Result."]
+            [type int32]]]
+
+    [def-member calwithoutret
+        [brief "asdf"]
+        [type (def-callable
+            [def-arg K
+                [brief "mult coefficient"]
+                [type double]]
+            [def-arg point
+                [brief "point"]
+                [type graph.Point]
+                #:ref]
+            [def-return 
+                [brief "Result."]
+                [type int32]])]
+                #:ref]
+    
+    [def-method add_callable2
+        [brief "Scalar multiplication"]
+        [doc  "Make multiplication of point and salar coeficient."]
+        [def-arg callableWithoutRet
+            [brief "callable without return"]
+            [type (def-callable
+                [def-arg K
+                    [brief "mult coefficient"]
+                    [type double]]
+                [def-arg point
+                    [brief "point"]
+                    [type graph.Point]
+                    #:ref])]
+                #:ref]
+        [def-return 
+            [brief "Result."]
+            [type int32]]]
+
+    [def-method get_callable
+        [brief "Scalar multiplication"]
+        [doc  "Make multiplication of point and salar coeficient."]
+        [def-arg point
+            [brief "point"]
+            [type graph.Point] 
+            #:ref]
+        [def-arg int16
+            [brief "int16"]
+            [type int16]]
+        [def-return 
+            [brief "callable"]
+            [type (def-callable
+                [def-arg K
+                    [brief "mult coefficient"]
+                    [type double]]
+                [def-arg point
+                    [brief "point"]
+                    [type graph.Point]
+                    #:ref]
+                [def-return 
+                    [brief "Result."]
+                    [type int32]])]]]
+
+    [def-method get_another_callable
+        [brief "Scalar multiplication"]
+        [doc  "Make multiplication of point and salar coeficient."]
+        [def-return 
+            [brief "callable"]
+            [type (def-callable
+                [def-arg K
+                    [brief "mult coefficient"]
+                    [type double]]
+                [def-return 
+                    [brief "Result."]
+                    [type int32]])]]]
+
+    [def-method get_callable_with_ref
+        [brief "Scalar multiplication"]
+        [doc  "Make multiplication of point and salar coeficient."]
+        [def-return 
+            [brief "callable"]
+            [type (def-callable
+                [def-arg K
+                    [brief "mult coefficient"]
+                    [type double]]
+                [def-return 
+                    [brief "Result."]
+                    [type graph.Point] 
+                    #:ref])]
+            #:ref]]
+
+    [def-method get_point_ref
+        [brief "Return reference to point"]
+        [doc  "Return reference to point"]
+        [def-return 
+            [brief "point"]
+            [type graph.Point] 
+            #:ref
+            ]]
+
+    [def-method divide 
+        [brief "Divide numbers"]
+        [doc  "Divide numbers"]
+        [def-arg num1
+            [brief "num1"]
+            [type double]]
+        [def-arg num2
+            [brief "num2"]
+            [type double]]
+        [def-return 
+            [brief "Result."]
+            [type double]]]
+
+    [def-method multiply 
+        [brief "Multiply numbers"]
+        [doc  "Multiply numbers"]
+        [def-arg num1
+            [brief "num1"]
+            [type double]]
+        [def-arg num2
+            [brief "num2"]
+            [type double]]
+        [def-return 
+            [brief "Result."]
+            [type double]]]
+
+    [def-method concat_strings 
+        [brief "Concat two strings"]
+        [doc  "Concat two strings"]
+        [def-arg s1
+            [brief "s1"]
+            [type string]]
+        [def-arg s2
+            [brief "s2"]
+            [type string]]
+        [def-return 
+            [brief "Result."]
+            [type string]]] 
+ 
+    [def-method add 
+        [brief "Add a to b and return result"]
+        [doc  "Add a to b and return result"]
+        [def-arg a
+            [brief "a value"]
+            [type int32]]
+        [def-arg b
+            [brief "b value"]
+            [type int32]] 
+        [def-return 
+            [brief "sum"]
+            [type int32]]]
+
+    [def-method pointSum 
+        [brief "Add a to b and return result"]
+        [doc  "Add a to b and return result"]
+        [def-arg a
+            [brief "a value"]
+            [type graph.Point]
+            #:ref]
+        [def-arg b
+            [brief "b value"]
+            [type graph.Point]
+            #:ref] 
+        [def-return 
+            [brief "sum point"]
+            [type graph.Point]]])
+
+(def-class EmptyClass
+    [brief "Empty class"]
+    [doc "Empty class without members"]
+    [def-constructor])
+
+(def-struct EmptyStruct
+    [brief "Empty struct"]
+    [doc "Empty struct without members"])
+
+(def-class Point
+    [brief "Empty class"]
+    [doc "Empty class without members"]
+    [def-constructor])
+
+(def-alias OrderId
+    [brief "The OrderId"]
+    [doc "The OrderId"]
+    [type int64])
+
+
+(def-const Pi 
+    [brief "The Pi"]
+    [doc "The Pi"]
+    [type double] 
+    [val 3.14])
+
+(def-const HelloWorld 
+    [brief "Hello World"]
+    [doc "Hello World"]
+    [type string] 
+    [val "\"Hello World\""])
+
+
+(def-class Checker
+    [brief "Empty class"]
+    [doc "Empty class without members"]
+    [def-constructor]
+    [def-method check_int8 
+        [brief "check_int8"]
+        [doc  "check_int8"]
+        [def-arg a
+            [brief "a value"]
+            [type int8]]
+        [def-return 
+            [brief "result"]
+            [type int8]]]
+
+    [def-method check_int16 
+        [brief "check_int16"]
+        [doc  "check_int16"]
+        [def-arg a
+            [brief "a value"]
+            [type int16]]
+        [def-return 
+            [brief "result"]
+            [type int16]]]
+
+    [def-method  check_int32 
+        [brief "check_int32"]
+        [doc  "check_int32"]
+        [def-arg a
+            [brief "a value"]
+            [type int32]]
+        [def-return 
+            [brief "result"]
+            [type int32]]]
+
+    [def-method check_int64
+        [brief "check_int64"]
+        [doc  "check_int64"]
+        [def-arg a
+            [brief "a value"]
+            [type int64]]
+        [def-return 
+            [brief "result"]
+            [type int64]]]
+
+    [def-method  check_uint8 
+        [brief "check_uint8"]
+        [doc  "check_uint8"]
+        [def-arg a
+            [brief "a value"]
+            [type uint8]]
+        [def-return 
+            [brief "result"]
+            [type uint8]]]
+
+    [def-method  check_uint16 
+        [brief "check_uint16"]
+        [doc  "check_uint16"]
+        [def-arg a
+            [brief "a value"]
+            [type uint16]]
+        [def-return 
+            [brief "result"]
+            [type uint16]]]
+
+    [def-method  check_uint32
+        [brief "check_uint32"]
+        [doc  "check_uint32"]
+        [def-arg a
+            [brief "a value"]
+            [type uint32]]
+        [def-return 
+            [brief "result"]
+            [type uint32]]]
+
+    [def-method check_uint64 
+        [brief "check_uint64"]
+        [doc  "check_uint64"]
+        [def-arg a
+            [brief "a value"]
+            [type uint64]]
+        [def-return 
+            [brief "result"]
+            [type uint64]]]
+
+    [def-method  check_double
+        [brief "check_double"]
+        [doc  "check_double"]
+        [def-arg a
+            [brief "a value"]
+            [type double]]
+        [def-return 
+            [brief "result"]
+            [type double]]]
+
+    [def-method  check_bool
+        [brief "check_bool"]
+        [doc  "check_bool"]
+        [def-arg a
+            [brief "a bool"]
+            [type bool]]
+        [def-return 
+            [brief "result"]
+            [type bool]]]
+
+    [def-method  check_char
+        [brief "check_char"]
+        [doc  "check_char"]
+        [def-arg a
+            [brief "a value"]
+            [type char]]
+        [def-return 
+            [brief "result"]
+            [type char]]]
+
+    [def-method  check_string
+        [brief "check_string"]
+        [doc  "check_string"]
+        [def-arg a
+            [brief "a value"]
+            [type string]]
+        [def-return 
+            [brief "result"]
+            [type string]]])
+
+
+
+(def-class pointerHolder
+    [brief "pointer holder"]
+    [doc "Class which contains pointer"]
+    [def-constructor]
+
+    [def-member array
+        [brief "asdf"]
+        [type pointer]]
+
+    [def-method  get_int
+        [brief "get_int"]
+        [doc  "get_int"]
+        [def-return 
+            [brief "result"]
+            [type int32]]])
+
+(def-class NoneTester
+    [brief "test none"]
+    [doc "Class for testing nullptr return"]
+    [def-constructor]
+
+    [def-method  get_none
+        [brief "get_int"]
+        [doc  "get_int"]
+        [def-return 
+            [brief "result"]
+            [type graph.Point]
+            #:ref]])

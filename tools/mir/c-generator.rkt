@@ -1,0 +1,495 @@
+;; COPYRIGHT (c) 2020 by Featuremine Corporation.
+;; This software has been provided pursuant to a License Agreement
+;; containing restrictions on its use.  This software contains
+;; valuable trade secrets and proprietary information of
+;; FeatureMine LLC and is protected by law.  It may not be
+;; copied or distributed in any form or medium, disclosed to third
+;; parties, reverse engineered or used in any manner not provided
+;; for in said License Agreement except with the prior written
+;; authorization from Featuremine Corporation.
+
+#lang racket
+(require racket/provide-syntax)
+(require "core.rkt")
+(require "utils.rkt")
+(require "common-c.rkt")
+(provide
+  get-c-source-info
+  generate-c-source)
+
+;get struct word if struct as string
+(define (get-if-struct type)
+  (if (or (struct-def? type) (class-def? type)) "struct " ""))
+
+;access to module environment as hash table and find out selected id
+(define (id-find mod id)
+  (let ([env (module-def-env mod)])
+    (let ([ref (hash-ref env (symbol->string id) #f)])
+      (if ref ref (hash-ref env (format "~a.~a" (string-join (module-def-ns mod) ".") id) #f)))))
+      
+;save string data to .h file
+(define (save-header data module )
+    (begin
+    (make-directory*  (get-include-directory-name-full module))
+    (display-to-file	data  (get-include-filename-full module) #:exists 'replace)))
+
+
+;return relative path to directory of module
+(define (get-src-directory-name module)
+    (apply build-path (append (list "src"  (path-only (get-module-relative-path module))) )))
+
+;return full path to directory of module
+(define (get-src-directory-name-full module)
+    (build-path (get-destination-folder-name) (get-src-directory-name module) ))
+
+;return .h relative path with filename of module
+(define (get-src-filename module)
+    (apply build-path (list (get-src-directory-name module)  (path-replace-extension (file-name-from-path (get-module-relative-path module)) ".c"))))
+
+;return .h relative path with filename of module
+(define (get-src-filename-full module)
+    (build-path (get-destination-folder-name)  (get-src-filename module)))
+
+;save string data to .c file
+(define (save-src data module )
+    (begin
+    (make-directory*  (get-src-directory-name-full module))
+    (display-to-file	data  (get-src-filename-full module) #:exists 'replace)))
+
+;return guard name as string
+(define (get-guard-name module)
+  (format "H_~a" (string-upcase  (string-join(append (module-def-ns module) (list (module-def-name module))) "_"))))
+
+;return guard block as string
+(define (get-guard module)
+  (let ([guard (get-guard-name module)])
+    (format "#ifndef ~a\n#define ~a\n" guard guard)))
+
+;return callable guard name as string
+(define (get-callable-guard-name module)
+  (format "H_~a" (string-upcase  (string-join(append (module-def-ns module) (list "Callable")) "_"))))
+
+;return callable guard block as string
+(define (get-callable-guard module)
+  (let ([guard (get-callable-guard-name module)])
+    (format "#ifndef ~a\n#define ~a\n" guard guard)))
+
+;return includes block for module as string
+(define (get-includes module module-map)
+  (string-append
+  "#include \"stdint.h\"\n" 
+  "#include \"stdbool.h\"\n" 
+  "#include \"mir/pythongen/common_c.h\"\n" 
+  (apply string-append  (map (lambda (ns)( format "#include \"~a\"\n" (get-include-filename (hash-ref module-map ns) )))(module-def-requires module)))))
+
+;return forward declaration block for module as string
+(define (get-forward-declarations module)
+  (apply 
+    string-append
+    (map (lambda (memb) 
+            (cond
+              [(or (class-def? memb) (struct-def? memb))  
+                (format "typedef struct ~a ~a;\n"  (get-c-type-name memb module) (get-c-type-name memb module))]
+              [else ""]))
+      (module-def-defs module))))
+
+;create commented block from list of strings
+(define (comment vars)
+  (string-append 
+    "/**\n"
+      (apply string-append 
+        (map 
+          (lambda (var) 
+            (format "* ~a\n" var))
+          vars))
+    "*/\n"))
+
+;get member-def as string
+(define (get-member-def memb module) 
+  (string-append
+  (comment (list (member-def-brief memb)))
+  (format "~a~a " (get-if-struct (member-def-type memb)) (get-c-type-name (member-def-type memb) module))
+  (if (member-def-ref memb) "* " " ")
+  (format "~a;\n"  (member-def-name memb))))
+
+;create members block as string
+(define (get-members module )
+  (apply 
+    string-append
+    (map (lambda (memb) 
+            (cond
+              [(alias-def? memb)  
+                (string-append
+                  (comment (list (alias-def-brief memb)  (alias-def-doc memb)))
+                  (format "typedef ~a~a " (get-if-struct (alias-def-type memb)) (get-c-type-name (alias-def-type memb) module))
+                  (if (alias-def-ref memb) "* " "")
+                  (format "~a;\n\n" (get-c-type-name memb module)))]
+              [(variable-def? memb)  
+                (string-append
+                  (comment (list (variable-def-brief memb) (variable-def-doc memb)))
+                  (format "extern ~a~a" (get-if-struct (variable-def-type memb)) (get-c-type-name (variable-def-type memb) module))
+                  (if (variable-def-ref memb) "* " " ")
+                  (format "~a;\n\n"  (get-c-type-name-from-string (variable-def-name memb))))]
+              [(const-def? memb)  
+                (string-append
+                  (comment (list (const-def-brief memb) (const-def-doc memb)))
+                  (format "#define ~a ~a\n\n" 
+                    (get-c-type-name-from-string (const-def-name memb)) 
+                    (const-def-val memb)))]
+
+              [(struct-def? memb)  
+                (string-append
+                  (comment (list (struct-def-brief memb) (struct-def-doc memb)))
+                  (format "struct ~a {\n" 
+                    (get-c-type-name memb module))
+                  (string-join  
+                  (map 
+                    (lambda (memb)
+                      (get-member-def memb module))
+                    (struct-def-members memb))
+                  "")  
+                  "};\n")]
+              [(class-def? memb)  
+                (string-append
+                  (comment (list (class-def-brief memb) (class-def-doc memb)))
+                  (format "struct ~a {\n" 
+                    (get-c-type-name memb module))
+                  "void *_owner_;\n"
+                  (apply string-append  
+                    (map 
+                      (lambda (memb)
+                        (cond 
+                          [(member-def? memb)  
+                          (get-member-def memb module)]
+                          [else ""]
+                          ))
+                      (class-def-members memb)))  
+                      (comment (list "wrapper owner of this class"))
+                   
+                    "};\n"
+                  ;add constructors/destructors
+                  (let ([type-name (get-c-type-name memb module)]
+                        [members (class-def-members memb)])
+                        (string-append
+                          "//del\n"
+                          (format "void ~a_del(~a *self);\n" type-name type-name)
+                          "//destructor\n"
+                          (format "void ~a_destructor(~a *self);\n" type-name type-name)
+
+                           "//new\n"
+                          (format "~a * ~a_new("type-name type-name)
+                          ( string-join
+                            (map 
+                              (lambda (sub-memb)
+                                (format "~a~a ~a" (get-c-type-name (member-def-type sub-memb) module) (if (member-def-ref sub-memb)  "*" "") (member-def-name sub-memb))) 
+                            (filter member-def? members))
+                          ", ")
+                          ");\n"
+                           "//constructor\n"
+                          (format "void ~a_constructor(" type-name)
+                
+                          ( string-join
+                            (append (list (format "~a* self" type-name)) 
+                              (map 
+                                (lambda (arg)
+                                  (format "~a~a ~a" (get-c-type-name (arg-def-type arg) module) (if (arg-def-ref arg)  "*" "") (arg-def-name arg))) 
+                              (constructor-def-args (class-def-constructor memb))))
+                          ", ")
+                          ");\n"
+                         ))
+
+                  ;add methods of class  
+                  (apply string-append  
+                    (map 
+                      (lambda (mthd)
+                        (cond 
+                          [(method-def? mthd)  
+                            (let ([return-type (return-def-type (method-def-return mthd))]
+                                  [c-type (get-c-type-name memb module)]
+                                  [return-ref (return-def-ref (method-def-return mthd))]
+                                  [return-c-type (get-c-type-name (return-def-type (method-def-return mthd)) module)])
+                              (string-append
+                                (comment 
+                                  (append
+                                    (list
+                                      (method-def-brief mthd) 
+                                      (method-def-doc mthd))
+                                    (list(format "@param ~a" (class-def-brief memb)))
+                                    (map 
+                                      (lambda (inp)
+                                        (format "@param ~a" (arg-def-brief inp)))
+                                      (method-def-args mthd))
+                                    (list (format "@return ~a" (return-def-brief(method-def-return  mthd))))))
+                              (if (method-def-return mthd)
+                                ;return value 
+                                (format  "~a~a~a"(get-if-struct return-type) return-c-type  (if return-ref "*" ""))
+                                "void")
+                              (format " ~a_~a (struct ~a* self" c-type (method-def-name mthd) c-type)
+                              (cond 
+                                [(> (length (method-def-args mthd)) 0)
+                                  (string-append
+                                    ", "
+                                    (string-join  
+                                      (map 
+                                        (lambda (inp)
+                                          (string-append
+                                            (format "~a~a " (get-if-struct (arg-def-type inp)) (get-c-type-name (arg-def-type inp) module) )
+                                            (if (arg-def-ref inp) "*" "")
+                                              (arg-def-name inp)))
+                                        (method-def-args mthd))
+                                      ","))]
+                                [else ""])
+                              ");\n"))]
+                          [else ""]))
+                      (class-def-members memb))))]
+              [else ""]))
+      (module-def-defs module))))
+  
+;main function it generates c header file representation and save it to disk 
+(define (generate-c-header module module-map)
+  (let ([body ""]) 
+    (save-header 
+      (string-append
+        ;add header
+        (get-copyright-header module)
+        "\n"
+        ;add include guard
+        (get-guard module)
+        "\n"
+        "#ifdef __cplusplus\n"
+        "extern \"C\" {\n"
+        "#endif\n"
+        ;add include
+        (apply string-append 
+          (map (lambda (memb)
+            (if (callable-def? memb)
+              (format "#include \"~a\"\n" (get-c-callable-inc-filename memb module ))
+              "")) 
+            (module-def-defs module)))
+        (get-includes module module-map)
+        "\n"
+        ;add namespace
+        ;(format "namespace ~a {\n" (string-join(append (module-def-ns module) (list (module-def-name module))) "::"))
+        ;add declarations
+        (get-forward-declarations module)
+        "\n\n"
+        ;add members
+        (get-members module)
+        "#ifdef __cplusplus\n"
+        "}\n"
+        "#endif\n"
+        (format "#endif //~a\n" (get-guard-name module))
+      )
+      module)))
+
+;main function it generates c src file representation and save it to disk 
+(define (generate-c-src module module-map)
+  (let ([body ""]) 
+    (save-src 
+      (string-append
+        ;add header
+        (get-copyright-header module)
+        "\n"
+        ;add include
+        "#include <stdlib.h>\n"
+        (format "#include \"~a\"\n" (get-include-filename module ))
+        "\n"
+        ;add free/init functions
+        (apply 
+          string-append
+          (map (lambda (memb) 
+            (cond
+              [(class-def? memb)  
+                (let ([type-name (get-c-type-name memb module)]
+                      [members (class-def-members memb)])
+                  (string-append
+                    "//del\n"
+                    (format "void ~a_del(~a *self){\n" type-name type-name)
+                    (format "\t~a_destructor(self);\n" type-name)
+                    "\tfree(self);\n"
+                    "}\n"
+                    "//new\n"
+                    (format "~a * ~a_new("type-name  type-name)
+                    ( string-join
+                      (map 
+                        (lambda (sub-memb)
+                          (format "~a~a ~a" (get-c-type-name (member-def-type sub-memb) module) (if (member-def-ref sub-memb)  "*" "") (member-def-name sub-memb))) 
+                      (filter member-def? members))
+                    ", ")
+                    "){\n"
+                    
+                    (format "\t~a* _obj =	malloc(sizeof(~a));\n" type-name type-name)
+
+                    "\treturn _obj;\n"
+                    "}\n"
+                   ))]
+              [else ""]))
+          (module-def-defs module))))
+      module)))
+
+;return callables declarations blok as string
+(define (get-callables-def module )
+  (apply 
+    string-append
+    (hash-map 
+      (module-def-env module) 
+      (lambda (key memb)
+        (if (callable-def? memb)
+          (format "typedef struct ~a ~a;\n" key key)
+          "")))))
+
+;return callables defenitions blok as string
+(define (get-callables-decl module )
+    (apply 
+      string-append
+      (hash-map 
+        (module-def-env module) 
+        (lambda (key memb)
+          (if (callable-def? memb)
+              (get-callable-decl memb module)
+            "")))))
+
+;return declaration block for callable
+(define (get-callable-decl memb module)
+  (string-append
+    (format "struct ~a {\n"  (get-c-type-name memb module))
+    "void *_owner_;\n"
+    (if (callable-def-return memb) 
+      (format "~a~a~a (*func)("
+        (get-if-struct (return-def-type(callable-def-return memb))) 
+        (get-c-type-name (return-def-type (callable-def-return memb)) module)
+        (if (return-def-ref (callable-def-return memb)) "*" "")) 
+      "void")
+    
+    (string-join  
+        (append
+          (map 
+            (lambda (inp)
+              (string-append
+                (format "~a~a " (get-if-struct (arg-def-type inp)) (get-c-type-name (arg-def-type inp) module))
+                (if (arg-def-ref inp) "*" "")
+                (arg-def-name inp)
+                ))
+            (callable-def-args memb))
+            (list "void *c"))
+          ",")
+          
+    ");\n"
+    "void *closure;\n"
+    "void (*free)(void*closure);\n"
+    "};\n" 
+    ))
+
+;it generates h headers file representation and save it to disk 
+(define (generate-callable module)
+  (hash-map (module-def-env module) 
+    (lambda(key val)
+      (if (callable-def? val) 
+        (begin
+          (generate-callable-inc-file val module)
+        )
+        void))))
+
+;return callable include filename
+(define (get-guard-callable-inc-name module callable)
+  (format "H_~a" (string-upcase  (string-join(list (car(module-def-ns module)) (type-def-name callable)) "_"))))
+
+;return guard section for callable .h file
+(define (get-guard-callable-inc-header module callable)
+  (let ([guard (get-guard-callable-inc-name module callable)])
+    (format "#ifndef ~a\n#define ~a\n" guard guard)))
+
+;save callable file to disk
+(define (save-callable-inc-file data callable module)
+  (begin
+    (make-directory*  (get-c-callable-directory-name-full module))
+    (display-to-file	data (get-c-callable-inc-filename-full  callable module) #:exists 'replace)))
+
+(define (add-c-decl memb module)
+      (cond
+        [(alias-def? memb)
+        (string-append
+          (add-c-decl (alias-def-type memb) module)
+          (format "typedef ~a ~a;\n" (get-c-type-name (alias-def-type memb) module) (get-c-type-name memb module) ))]
+        [(or (class-def? memb) (struct-def? memb) (callable-def? memb))  
+          (format "typedef struct ~a ~a;\n"  (get-c-type-name memb module) (get-c-type-name memb module))]
+        [else ""]))
+
+;generate .h file for callable
+(define (generate-callable-inc-file callable module)
+  (begin
+    ;generate callable header file
+    (save-callable-inc-file
+     (string-append
+        ; add header
+        (get-copyright-header module)
+        "\n"
+        ;add include guard
+        (get-guard-callable-inc-header module callable)
+        "#ifdef __cplusplus\n"
+        "extern \"C\" {\n"
+        "#endif\n"
+        "#include \"stdint.h\"\n" 
+        "#include \"stdbool.h\"\n" 
+        "#include \"mir/pythongen/common_c.h\"\n" 
+        ;add declarations
+        (apply string-append
+          (hash-map (collect-callable-defs callable (make-hash)) 
+            (lambda(key memb)
+              (add-c-decl memb module))))
+   
+        ;add members
+        (get-callable-decl callable module)
+
+        "#ifdef __cplusplus\n"
+        "}\n"
+        "#endif\n"
+        ;clouse guard
+        (format "#endif //~a\n" (get-guard-callable-inc-name module callable))
+      )
+      callable module)
+  ))
+
+;generate .c file for callable
+(define (generate-c-source main-module module-map common?)
+  (begin
+    (if (not common?)
+      (map 
+        (lambda (key)
+          (let([mod (hash-ref  module-map key)])
+              (generate-callable mod)
+              (generate-c-header mod module-map)
+              (generate-c-src mod module-map)
+              void))
+      (module-def-requires main-module))
+    (void))))
+
+;generate source info without generating source file  
+(define (get-c-source-info main-module module-map common?)
+    (if (not common?)
+      (append 
+        (apply append
+          (map
+            (lambda (key)
+              (let([mod (hash-ref module-map key )])
+              (list
+                (get-include-filename-full mod)
+                (get-src-filename-full mod))))
+          (module-def-requires main-module)))
+        
+
+    (let ([callables (list)])
+      (map
+        (lambda (key)
+          (let([mod (hash-ref module-map key)])
+            (map
+             (lambda (memb)
+                (cond
+                  [(callable-def? memb) 
+                      (set! callables(append callables (list (get-c-callable-inc-filename-full memb main-module ))))]
+                  [else ""]))
+                (module-def-defs mod))))
+        (module-def-requires main-module))
+      callables))
+      (list)
+      ))
