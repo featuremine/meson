@@ -67,7 +67,8 @@ hadron_special_kwargs = set([
     'suffix',
     'version',
     'verify',
-    'python'
+    'python',
+    'install'
 ])
 
 class colors:
