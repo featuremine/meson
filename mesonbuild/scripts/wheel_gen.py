@@ -53,7 +53,10 @@ def wheel_gen(dist_info, mayor_ver, minor_ver):
         f.write("Wheel-Version: 1.0\n")
         f.write("Generator: bdist_wheel (0.33.1)\n")
         f.write("Root-Is-Purelib: false\n")
-        f.write("Tag: cp%s-cp%sm-linux_x86_64\n" % (v, v))
+        if major_ver >= 3 and minor_ver>=8:
+            f.write("Tag: cp%s-cp%s-linux_x86_64\n" % (v, v))
+        else:
+            f.write("Tag: cp%s-cp%sm-linux_x86_64\n" % (v, v))
 
 
 def top_level_gen(dist_info, module):
@@ -87,12 +90,20 @@ if __name__ == "__main__":
     metadata_gen(dist_info, args.module, args.version)
     record_gen(dist_info, args.module, args.sources)
 
-    zipname = '%s-%s-cp%s%s-cp%s%sm-linux_x86_64.whl' % (args.module,
-                                                         args.version,
-                                                         major_ver,
-                                                         minor_ver,
-                                                         major_ver,
-                                                         minor_ver)
+    if major_ver >= 3 and minor_ver>=8:
+        zipname = '%s-%s-cp%s%s-cp%s%s-linux_x86_64.whl' % (args.module,
+                                                            args.version,
+                                                            major_ver,
+                                                            minor_ver,
+                                                            major_ver,
+                                                            minor_ver)
+    else:
+        zipname = '%s-%s-cp%s%s-cp%s%sm-linux_x86_64.whl' % (args.module,
+                                                             args.version,
+                                                             major_ver,
+                                                             minor_ver,
+                                                             major_ver,
+                                                             minor_ver)
 
     module_dir = os.path.join(args.build_dir, 'package', args.module)
     with ZipFile(zipname, 'w') as zip:
