@@ -56,6 +56,27 @@
     (make-directory*  (get-src-directory-name-full module))
     (display-to-file	data  (get-src-filename-full module) #:exists 'replace)))
 
+;get callable c callable directory name
+(define (get-c-callable-src-directory-name module)
+    (build-path "src"  "_callables"))
+
+(define (get-c-callable-src-directory-name-full module)
+  (build-path (get-destination-folder-name) (get-c-callable-src-directory-name module)))
+
+;get callable src file name
+(define (get-c-callable-src-filename callable module)
+  (apply build-path (list(get-c-callable-src-directory-name module) (format "~a.c"(type-def-name callable)))))
+
+;get callable src full path
+(define (get-c-callable-src-filename-full callable module)
+  (build-path (get-destination-folder-name) (get-c-callable-src-filename  callable module)))
+
+;save string data to src file
+(define (save-callable-src data callable  module )
+    (begin
+    (make-directory*  (get-c-callable-src-directory-name-full module))
+    (display-to-file	data  (get-c-callable-src-filename-full callable module) #:exists 'replace)))
+
 ;return guard name as string
 (define (get-guard-name module)
   (format "H_~a" (string-upcase  (string-join(append (module-def-ns module) (list (module-def-name module))) "_"))))
@@ -93,17 +114,6 @@
               [else ""]))
       (module-def-defs module))))
 
-;create commented block from list of strings
-(define (comment vars)
-  (string-append 
-    "/**\n"
-      (apply string-append 
-        (map 
-          (lambda (var) 
-            (format "* ~a\n" var))
-          vars))
-    "*/\n"))
-
 ;get member-def as string
 (define (get-member-def memb module) 
   (string-append
@@ -138,22 +148,31 @@
                     (const-def-val memb)))]
 
               [(struct-def? memb)  
-                (string-append
-                  (comment (list (struct-def-brief memb) (struct-def-doc memb)))
-                  (format "struct ~a {\n" 
-                    (get-c-type-name memb module))
-                  (string-join  
-                  (map 
-                    (lambda (memb)
-                      (get-member-def memb module))
-                    (struct-def-members memb))
-                  "")  
-                  "};\n")]
+                (let ([type-name (get-c-type-name memb module)])
+                  (string-append
+                    (comment (list (struct-def-brief memb) (struct-def-doc memb)))
+                    (format "struct ~a {\n" 
+                      (get-c-type-name memb module))
+                    (string-join  
+                    (map 
+                      (lambda (memb)
+                        (get-member-def memb module))
+                      (struct-def-members memb))
+                    "")  
+                    "};\n"
+                      (comment (format "return type descriptor structure for ~a\n" type-name))
+                      (format "mir_type_descr* ~a_get_descr();\n" type-name)
+                      (comment (format "free memory function for ~a\n" type-name))
+                      (format "void ~a_del_(~a *self);\n" type-name type-name) 
+                      (comment (format "alloc memory function for ~a\n" type-name))
+                      (format "~a * ~a_new_();\n" type-name type-name)
+                    ))]
               [(class-def? memb)  
                 (string-append
                   (comment (list (class-def-brief memb) (class-def-doc memb)))
                   (format "struct ~a {\n" 
                     (get-c-type-name memb module))
+                  (comment "wrapper owner for this class\n")
                   "void *_owner_;\n"
                   (apply string-append  
                     (map 
@@ -164,28 +183,21 @@
                           [else ""]
                           ))
                       (class-def-members memb)))  
-                      (comment (list "wrapper owner of this class"))
                    
                     "};\n"
                   ;add constructors/destructors
                   (let ([type-name (get-c-type-name memb module)]
                         [members (class-def-members memb)])
                         (string-append
-                          "//del\n"
-                          (format "void ~a_del(~a *self);\n" type-name type-name)
-                          "//destructor\n"
+                          (comment (format "return type descriptor structure for ~a\n" type-name))
+                          (format "mir_type_descr* ~a_get_descr();\n" type-name)
+                          (comment (format "free memory function for ~a\n" type-name))
+                          (format "void ~a_del_(~a *self);\n" type-name type-name) 
+                          (comment (format "alloc memory function for ~a\n" type-name))
+                          (format "~a * ~a_new_();\n" type-name type-name)
+                          (comment (format "destructor must be implement manually for ~a\n" type-name))
                           (format "void ~a_destructor(~a *self);\n" type-name type-name)
-
-                           "//new\n"
-                          (format "~a * ~a_new("type-name type-name)
-                          ( string-join
-                            (map 
-                              (lambda (sub-memb)
-                                (format "~a~a ~a" (get-c-type-name (member-def-type sub-memb) module) (if (member-def-ref sub-memb)  "*" "") (member-def-name sub-memb))) 
-                            (filter member-def? members))
-                          ", ")
-                          ");\n"
-                           "//constructor\n"
+                          (comment (format "constructor must be implement manually for ~a\n" type-name))
                           (format "void ~a_constructor(" type-name)
                 
                           ( string-join
@@ -282,6 +294,68 @@
       )
       module)))
 
+;generate type descriptor block
+(define (get-c-type-description-structure type-name orig-type-name orig-type members module)
+  (string-append
+    (if(equal? type-name orig-type-name)
+      (string-append
+
+        (comment (format "make copy implace for ~a\n" type-name))
+        (format "void ~a_copy_implace_(~a* dest, ~a* src ){\n" type-name type-name type-name)
+        (apply string-append  
+          (map 
+            (lambda (memb)
+              (cond 
+                [(member-def? memb)  
+                  (letrec ([type (get-origin-alias-type (member-def-type memb))]
+                           [name (member-def-name memb)]
+                           [type-name (get-c-type-name type module)]
+                           [ref? (member-def-ref memb)])
+                    (cond 
+                      [(default-def? type) 
+                            (format "\tdest->~a = src->~a;\n" name name)]
+                      [else
+                            (if ref? 
+                              (format "\tdest->~a =  ~a_get_descr()->copy_new_(src->~a);\n" name  type-name name)  
+                              (format "~a_get_descr()->copy_implace_(&dest->~a, &src->~a);\n" type-name name name))]))]
+                [else ""]))
+            members)) 
+        (format "\tmemcpy(dest, src, sizeof(~a));\n" type-name)
+        (if (class-def? orig-type)
+          "\tdest->_owner_=NULL;\n"
+          "")
+        "}\n"
+      
+        (comment (format "make new copy of ~a\n" type-name))
+        (format "~a * ~a_copy_new_(~a* obj){\n" type-name type-name type-name)
+        (format "\t~a* copy =	malloc(sizeof(~a));\n" type-name type-name) 
+        (format "\t~a_copy_implace_ (copy, obj);\n" type-name)
+        "\treturn copy;\n"
+        "}\n"
+
+        (comment (format "return size of ~a\n" type-name))
+        (format "size_t ~a_size_(){\n" type-name)
+        (format "\treturn sizeof(~a);\n" type-name)
+        "}\n")
+      "")
+
+    ;type descriptor structure
+    (comment (format "type descriptor structure for ~a\n" type-name))
+    (format "static mir_type_descr type_descr~a ={\n" type-name)
+    (format "\t(void *(*)(void *))~a_copy_new_,\n" orig-type-name)
+    (format "\t~a_size_,\n" orig-type-name)
+    (format "\t(void (*)(void *, void *))~a_copy_implace_,\n" orig-type-name)
+    (format "\t(void (*)(void *))~a_del_,\n" orig-type-name)
+    (format "\t(void *(*)())~a_new_,\n" orig-type-name)
+    "\tmir_inc_ref,\n"
+    "\tmir_dec_ref\n"
+    "};\n"
+    ;return type descriptor
+    (comment (format "return type descriptor structure for ~a\n" type-name))  
+    (format "mir_type_descr* ~a_get_descr(){\n" type-name)
+    (format "\treturn &type_descr~a;\n" type-name)
+    "}\n"))
+
 ;main function it generates c src file representation and save it to disk 
 (define (generate-c-src module module-map)
   (let ([body ""]) 
@@ -292,6 +366,7 @@
         "\n"
         ;add include
         "#include <stdlib.h>\n"
+        "#include <string.h>\n"
         (format "#include \"~a\"\n" (get-include-filename module ))
         "\n"
         ;add free/init functions
@@ -303,26 +378,36 @@
                 (let ([type-name (get-c-type-name memb module)]
                       [members (class-def-members memb)])
                   (string-append
-                    "//del\n"
-                    (format "void ~a_del(~a *self){\n" type-name type-name)
+                    (comment (format "free memory function for ~a\n" type-name))
+                    (format "void ~a_del_(~a *self){\n" type-name type-name)
                     (format "\t~a_destructor(self);\n" type-name)
                     "\tfree(self);\n"
                     "}\n"
-                    "//new\n"
-                    (format "~a * ~a_new("type-name  type-name)
-                    ( string-join
-                      (map 
-                        (lambda (sub-memb)
-                          (format "~a~a ~a" (get-c-type-name (member-def-type sub-memb) module) (if (member-def-ref sub-memb)  "*" "") (member-def-name sub-memb))) 
-                      (filter member-def? members))
-                    ", ")
-                    "){\n"
+                    (comment (format "memory allocation function for ~a\n" type-name))
+                    (format "~a * ~a_new_(){\n" type-name type-name)
                     
                     (format "\t~a* _obj =	malloc(sizeof(~a));\n" type-name type-name)
 
                     "\treturn _obj;\n"
                     "}\n"
+                    (get-c-type-description-structure type-name type-name memb members module)
                    ))]
+              [(struct-def? memb)  
+                (let ([type-name (get-c-type-name memb module)]
+                      [members (struct-def-members memb)])
+                        (string-append
+                          (comment (format "free memory function for ~a\n" type-name))
+                          (format "void ~a_del_(~a *self){\n" type-name type-name)
+                          "\tfree(self);\n"
+                          "}\n"
+                          (comment (format "memory allocation function for ~a\n" type-name))
+                          (format "~a * ~a_new_(){\n" type-name type-name)
+                          
+                          (format "\t~a* _obj =	malloc(sizeof(~a));\n" type-name type-name)
+
+                          "\treturn _obj;\n"
+                          "}\n"
+                          (get-c-type-description-structure type-name type-name memb members module)))]
               [else ""]))
           (module-def-defs module))))
       module)))
@@ -351,14 +436,18 @@
 
 ;return declaration block for callable
 (define (get-callable-decl memb module)
+  (let ([type-name (get-c-type-name memb module)])
   (string-append
-    (format "struct ~a {\n"  (get-c-type-name memb module))
-    "void *_owner_;\n"
+    (comment "structure which represents callable\n")
+    (format "struct ~a {\n"  type-name)
+    (comment "wrapper owner for this class\n")
+    "\tvoid *_owner_;\n"
     (if (callable-def-return memb) 
-      (format "~a~a~a (*func)("
-        (get-if-struct (return-def-type(callable-def-return memb))) 
-        (get-c-type-name (return-def-type (callable-def-return memb)) module)
-        (if (return-def-ref (callable-def-return memb)) "*" "")) 
+      (string-append (comment "allows to call stored callback wit arguments\n")
+        (format "\t~a~a~a (*func)("
+          (get-if-struct (return-def-type(callable-def-return memb))) 
+          (get-c-type-name (return-def-type (callable-def-return memb)) module)
+          (if (return-def-ref (callable-def-return memb)) "*" ""))) 
       "void")
     
     (string-join  
@@ -375,10 +464,13 @@
           ",")
           
     ");\n"
-    "void *closure;\n"
-    "void (*free)(void*closure);\n"
+    (comment "closure pointer on closure\n")
+    "\tvoid *closure;\n"
+    (comment "free function for closure\n")
+    "\tvoid (*free)(void*closure);\n"
     "};\n" 
-    ))
+    (comment (format "return type descriptor structure for ~a\n" type-name))
+    (format "mir_type_descr* ~a_get_descr();\n" type-name))))
 
 ;it generates h headers file representation and save it to disk 
 (define (generate-callable module)
@@ -387,6 +479,7 @@
       (if (callable-def? val) 
         (begin
           (generate-callable-inc-file val module)
+          (generate-callable-src-file val module)
         )
         void))))
 
@@ -431,6 +524,7 @@
         "#endif\n"
         "#include \"stdint.h\"\n" 
         "#include \"stdbool.h\"\n" 
+        "#include \"mir/pythongen/utils.h\"\n" 
         "#include \"mir/pythongen/common_c.h\"\n" 
         ;add declarations
         (apply string-append
@@ -446,6 +540,39 @@
         "#endif\n"
         ;clouse guard
         (format "#endif //~a\n" (get-guard-callable-inc-name module callable))
+      )
+      callable module)
+  ))
+
+;generate .c file for callable
+(define (generate-callable-src-file callable module)
+  (let([type-name (get-c-type-name callable module)])
+    ;generate callable header file
+    (save-callable-src
+     (string-append
+        ; add header
+        (get-copyright-header module)
+        "\n"
+        ;add include guard
+        (format "#include \"~a\"\n" (get-c-callable-inc-filename callable module))
+
+
+        ;type descriptor structure
+        (comment (format "type descriptor structure for ~a\n" type-name))
+        (format "static mir_type_descr type_descr~a ={\n" type-name)
+        "\t(void *(*)(void *))mir_callable_copy_new_,\n"
+        "\tmir_callable_size_,\n"
+        "\t(void (*)(void *, void *))mir_callable_copy_implace_,\n"
+        "\t(void (*)(void *))mir_callable_del_,\n"
+        "\t(void *(*)())mir_callable_new_,\n"
+        "\tmir_inc_ref,\n"
+        "\tmir_dec_ref\n"
+        "};\n"
+        ;return type descriptor
+        (comment (format "return type descriptor structure for ~a\n" type-name))  
+        (format "mir_type_descr* ~a_get_descr(){\n" type-name)
+        (format "\treturn &type_descr~a;\n" type-name)
+        "}\n"
       )
       callable module)
   ))
@@ -486,7 +613,7 @@
              (lambda (memb)
                 (cond
                   [(callable-def? memb) 
-                      (set! callables(append callables (list (get-c-callable-inc-filename-full memb main-module ))))]
+                      (set! callables(append callables (list (get-c-callable-inc-filename-full memb main-module ) (get-c-callable-src-filename-full memb main-module ))))]
                   [else ""]))
                 (module-def-defs mod))))
         (module-def-requires main-module))

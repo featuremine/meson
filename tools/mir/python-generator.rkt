@@ -384,17 +384,6 @@
               [else ""]))
       (module-def-defs module))))
 
-;create commented block from list of strings
-(define (comment vars)
-  (string-append 
-    "/**\n"
-      (apply string-append 
-        (map 
-          (lambda (var) 
-            (format "* ~a\n" var))
-          vars))
-    "*/\n"))
-
 ;create members block as string
 (define (get-members-header module )
   (apply 
@@ -606,7 +595,7 @@
                       [c-type   (get-c-type-name memb module)]
                       [memb-mmbrs  (struct-def-members memb)])
                   (string-append
-                    (comment (list (struct-def-brief memb) (struct-def-doc memb)))
+                      (comment (list (struct-def-brief memb) (struct-def-doc memb)))
                       "//init function\n"
                       "static int\n"
                       (format "_init~a(~a *self, PyObject * args, PyObject *kwds)\n" py-type py-type)
@@ -754,7 +743,7 @@
                     "Py_INCREF(self);\n"
                     "return (PyObject *) self;\n}\n";
 
-
+                    
                 ))]
                 [(class-def? memb)  
                   (let ([py-type   (get-python-type-name memb module)]
@@ -1781,7 +1770,6 @@
           (map
             (lambda (key)
               (let([mod (hash-ref module-map key )])
-                  (println key)
                   (list
                     (get-python-filename-source-full mod)
                     (get-python-filename-header-full mod))))

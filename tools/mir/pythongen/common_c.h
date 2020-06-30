@@ -15,10 +15,22 @@
 #ifndef _C_COMMON_H_
 #define _C_COMMON_H_
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
-void mir_inc_ref(void *obj);
-void mir_dec_ref(void *obj);
+#include <stdlib.h>
+    void mir_inc_ref(void *obj);
+    void mir_dec_ref(void *obj);
+    typedef struct
+    {
+        void *(*copy_new_)(void *);
+        size_t (*size_)();
+        void (*copy_implace_)(void *dest, void *obj);
+        void (*del_)(void *);
+        void *(*new_)();
+        void (*inc_ref_)(void *);
+        void (*dec_ref_)(void *);
+    } mir_type_descr;
 #ifdef __cplusplus
 }
 #endif

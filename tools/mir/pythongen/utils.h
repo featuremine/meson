@@ -21,10 +21,25 @@
 #ifndef H_MIR_PYTHONGEN_UTILS_H
 #define H_MIR_PYTHONGEN_UTILS_H
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 #include <Python.h>
-void free_closure(void *closure);
+       void free_closure(void *closure);
+       typedef struct
+       {
+              void *_owner_;
+              void *func;
+              void *closure;
+              void (*free)(void *);
+       } mir_callable_struct;
+
+       mir_callable_struct *mir_callable_new_();
+       void mir_callable_del_(mir_callable_struct *);
+       void mir_callable_copy_implace_(mir_callable_struct *dest, mir_callable_struct *src);
+       mir_callable_struct *mir_callable_copy_new_(mir_callable_struct *obj);
+       size_t mir_callable_size_();
+
 #ifdef __cplusplus
 }
 #endif
