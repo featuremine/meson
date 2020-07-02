@@ -143,9 +143,11 @@
               [(const-def? memb)  
                 (string-append
                   (comment (list (const-def-brief memb) (const-def-doc memb)))
-                  (format "#define ~a ~a\n\n" 
-                    (get-c-type-name-from-string (const-def-name memb)) 
-                    (const-def-val memb)))]
+                  (if (default-def? (const-def-type memb))
+                    (format "#define ~a ~a\n\n" 
+                      (get-c-type-name-from-string (const-def-name memb)) 
+                      (const-def-val memb))
+                    (format "~a * get_mir_const_~a();\n" (get-c-type-name (const-def-type memb) module) (get-c-type-name-from-string (const-def-name memb)))))]
 
               [(struct-def? memb)  
                 (let ([type-name (get-c-type-name memb module)])
@@ -387,7 +389,7 @@
                     (format "~a * ~a_new_(){\n" type-name type-name)
                     
                     (format "\t~a* _obj =	malloc(sizeof(~a));\n" type-name type-name)
-
+                    "_obj->_owner_ = NULL;\n"
                     "\treturn _obj;\n"
                     "}\n"
                     (get-c-type-description-structure type-name type-name memb members module)
@@ -404,7 +406,7 @@
                           (format "~a * ~a_new_(){\n" type-name type-name)
                           
                           (format "\t~a* _obj =	malloc(sizeof(~a));\n" type-name type-name)
-
+                          
                           "\treturn _obj;\n"
                           "}\n"
                           (get-c-type-description-structure type-name type-name memb members module)))]

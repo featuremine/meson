@@ -16,6 +16,7 @@
     [namespace graph]
     [require])
 
+
 (def-class Point
     [brief "Point 2d."]
     [doc "Structure which represents 2d point with x y coordinates and methods."]
@@ -49,4 +50,9 @@
             [type double]]])
 
 
+(def-const ConstPoint
+    [brief "Point."]
+    [doc "Conatant point"]
+    [type Point]
+    [val 0])
 

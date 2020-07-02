@@ -407,6 +407,8 @@
                     (format "struct ~a {\nPyObject_HEAD\nstruct ~a data;\n};\n" 
                       py-type c-type )
                     (format "PyTypeObject * _get_pys_~a();\n" c-type)
+                    (format "~a* _get_data~a(~a *);\n" c-type py-type py-type) 
+                    (format "PyObject * _new_with_data_pys_~a(~a *);\n" c-type  c-type) 
      
                     ))]
                
@@ -419,6 +421,7 @@
                        py-type c-type )
                     (format "PyTypeObject * _get_pys_~a();\n" c-type)
                     (format "~a* _get_data~a(~a *);\n" c-type py-type py-type) 
+                    (format "PyObject * _new_with_data_pys_~a(~a *);\n" c-type  c-type) 
                     ))]
 
               [else ""]))
@@ -1012,15 +1015,26 @@
           (cond
             [(variable-def? memb)  
               "-----------variable--------------"]
+            [(or (struct-def? memb)  (class-def? memb) )
+              (let ([py-type   (get-python-type-name memb module)])
+                (format "add_type_to_module (_pyargmod_~a, _get~a(), \"~a\");\n" ns py-type (car (reverse (string-split (type-def-name memb) ".")))))]
+            [else ""])))
+        (module-def-defs module))))
+
+;create module file alias block as string
+(define (get-module-const-block module modulearg)
+  (apply string-append
+    (map (lambda (memb) 
+        (let ([ns (string-join (module-def-ns module) "_")])
+          (cond
             [(const-def? memb)  
               (format "add_const_to_module(_pyargmod_~a, \"~a\", ~a);\n" 
                 ns 
                 (car (reverse (string-split (const-def-name memb) ".")) )
-                (format (to-python-type (const-def-type memb))  (string-replace (const-def-name memb) "." "_")))]
-       
-            [(or (struct-def? memb)  (class-def? memb) )
-              (let ([py-type   (get-python-type-name memb module)])
-                (format "add_type_to_module (_pyargmod_~a, _get~a(), \"~a\");\n" ns py-type (car (reverse (string-split (type-def-name memb) ".")))))]
+                (if (default-def? (const-def-type memb))
+                  (format (to-python-type (const-def-type memb))  (string-replace (const-def-name memb) "." "_"))
+                  (let([c-type (get-c-type-name (get-origin-alias-type (const-def-type memb)) module)])
+                        (format (format "_new_with_data_pys_~a(get_mir_const_~a())\n" c-type (get-c-type-name-from-string (const-def-name memb)))))))]
             [else ""])))
         (module-def-defs module))))
 
@@ -1285,6 +1299,11 @@
         (hash-map module-map
           (lambda (path mod)
               (get-module-alias-block mod modulearg)))) 
+      
+      (apply string-append 
+        (hash-map module-map
+          (lambda (path mod)
+              (get-module-const-block mod modulearg)))) 
       "//free NewType\n"
       "Py_DecRef(NewType);\n"
       ;return

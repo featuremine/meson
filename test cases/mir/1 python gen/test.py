@@ -20,6 +20,10 @@
 # PYTHONPATH=build/lib.linux-x86_64-3.6 python3 ../test/mir/python-gen/_mir_wrapper-test.py
 import _mir_wrapper
 
+cp = _mir_wrapper.ConstPoint;
+cv = _mir_wrapper.aliases.ConstVector;
+assert(cp.x == 1.0 and cp.x == cv.x and cp.y == 2.0 and cp.y == cv.y)
+
 # test method without arguments
 p1 = _mir_wrapper.Point(3, 4)
 print(p1.x, p1.y)

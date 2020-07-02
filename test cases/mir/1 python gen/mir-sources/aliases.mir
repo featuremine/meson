@@ -155,3 +155,10 @@
         [def-return 
             [brief "Distance."]
             [type double]]])
+
+(def-const ConstVector
+    [brief "Point."]
+    [doc "Conatant vector"]
+    [type Vector2d]
+    [val 0])
+    

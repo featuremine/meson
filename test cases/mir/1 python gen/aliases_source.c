@@ -50,3 +50,9 @@ void graph_aliases_AliasClass_constructor(graph_aliases_AliasClass *self,
                                           graph_aliases_Vector2d obj) {
   self->obj = obj;
 }
+
+graph_aliases_Vector2d * get_mir_const_graph_aliases_ConstVector(){
+  graph_Point * pt =  graph_Point_get_descr()->new_();
+  graph_Point_constructor(pt,1,2);
+  return pt;
+}
