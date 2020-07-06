@@ -590,7 +590,25 @@
                                             (get-template-type-id template-id type-id mod)
                                             (format "~a" val-data)
                                             ref))))))]
-                                            
+
+
+
+    [(def-const-full id-data [brief brief-txt] [doc doc-txt] [type (type-id ...)] [val val-data] ref)
+      (lambda (mod)
+        (let ([id  (get-symbol id-data)])
+          (if (id-find mod id)
+              (error "duplicate definition of" id)
+              (let (
+                [name (get-full-name mod (symbol->string id))]
+                [arg-id  ((type-id ...) mod) ])
+                    (id-add! mod name (const-def name
+                                            #'id-data
+                                            brief-txt
+                                            doc-txt
+                                            (maybe-unbound-id mod arg-id)
+                                            (format "~a" val-data)
+                                            ref))))))]
+
     [(def-const-full id-data [brief brief-txt] [doc doc-txt] [type type-id-data] [val val-data] ref)
       (lambda (mod)
         (let ([id  (get-symbol id-data)]
