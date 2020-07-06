@@ -540,7 +540,6 @@
                                             (maybe-unbound-id mod type-id)
                                             ref))))))]))
 
-
 ;alias syntax with optional reference
 (define-syntax def-alias
   (syntax-rules ()
@@ -721,7 +720,6 @@
       (let ([id  (get-symbol id-data)]
             [template-id  (get-symbol template-id-data)]
             [type-id (get-symbol type-id-data)])
-              (println id type-id)
               (if (set-member? ctx id) (error (format "duplicate member name: ~a\n" id)) (set-add! ctx id ) )
               (arg-def
                     (symbol->string id)
@@ -855,3 +853,43 @@
                                                         (list ((def-arg in-data ...)  mod (mutable-set)) ...)
                                                         ((def-return out-data ...) mod)))))
 
+;full enum value syntax
+(define-syntax def-enum-value-full
+  (syntax-rules ()
+  [(def-enum-value-full id-data [brief brief-txt] val)
+    (lambda (mod ctx) 
+      (let ([id  (get-symbol id-data)])
+              (if (set-member? ctx id) (error (format "duplicate member name: ~a\n" id)) (set-add! ctx id ) )
+              (enum-value-def
+                    (symbol->string id)
+                    #'id-data
+                    brief-txt
+                    val)
+                  ))]       
+            ))
+
+;enum value syntax
+(define-syntax def-enum-value
+  (syntax-rules ()
+    [(def-arg  id ... val)
+    (def-enum-value-full id ... val)]
+    [(def-arg id ...)
+    (def-enum-value-full id ... #f)]))
+
+;enum syntax with reference
+(define-syntax def-enum
+  (syntax-rules ()
+    [(def-enum id-data [brief brief-txt] [doc doc-txt] member ...)
+      (lambda (mod)
+        (let ([id  (get-symbol id-data)]
+              [ctx (mutable-set)])
+                (if (id-find mod id)
+                    (error "duplicate definition of" id)
+                    (let (
+                      [name (get-full-name mod (symbol->string id))])
+                      (id-add! mod name (enum-def name
+                                                  #'id-data
+                                                  brief-txt
+                                                  doc-txt
+                                                  (list (member mod ctx) ...)
+                                                  ))))))]))
