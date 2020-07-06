@@ -58,6 +58,9 @@
 (struct class-def (brief doc constructor members)  #:super struct:type-def  #:transparent)
 (struct constructor-def (stx args) #:transparent)
 (struct method-def (name stx brief doc args return) #:transparent)
+(struct enum-def (brief doc members) #:super struct:type-def #:transparent)
+(struct enum-value-def (name stx brief value) #:transparent)
+
 (struct template-def (callback) #:super struct:type-def  #:transparent)
 
 ;represents namespace
