@@ -28,6 +28,8 @@
   (struct-out method-def)
   (struct-out namespace-def)
   (struct-out template-def)
+  (struct-out enum-def)
+  (struct-out enum-value-def)
   get-destination-folder-name
   set-destination-folder-name
   set-base-root-dir

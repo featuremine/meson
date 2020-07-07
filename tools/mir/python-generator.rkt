@@ -65,7 +65,7 @@
             (callable-def-args type))
           ", ")
         (format "], ~a]"(get-typing-python (return-def-type (callable-def-return type)))))]
-  
+    [(enum-def? type) "int"]
     [else (format "~a"(string-join (cdr (string-split (type-def-name type) ".")) "."))]))
 
 ;use as arguments for Pytuple
@@ -104,9 +104,11 @@
 
 ;wrapper function for formats
 (define (get-format type) 
-  (if (default-def? type)
-    (hash-ref format-dict-python (type-def-name type))
-    "O")) 
+ (cond [(default-def? type)
+        (hash-ref format-dict-python (type-def-name type))]
+    [(enum-def? type) 
+      "b"]
+    [else "O"])) 
 
 ;use for converting from c to python
 (define to-python-dict '#hash(
@@ -132,6 +134,8 @@
     (hash-ref to-python-dict (type-def-name type))]
      [(alias-def? type) 
       (to-python-type (alias-def-type type))]
+    [(enum-def? type) 
+      "PyLong_FromLong(~a)"]
     [else
     #f]))
 
@@ -175,6 +179,13 @@
   ("none" . "PyNone ~a")
   ))
 
+;wrapper for convertations from c to python
+(define (to-c-type type module)
+ (cond [(default-def? type)
+        (hash-ref to-c-dict (type-def-name type))]
+      [(enum-def? type) "PyLong_AsLong(~a)"]
+      [else (format "_get_data~a(~a)" (get-python-type-name type module) "~a")]))
+
 ;using for converting from c to python TypeObject
 (define py_type_objects '#hash(
   ("char" . "PyUnicode_Type") 
@@ -199,13 +210,8 @@
         (format "&~a" (hash-ref py_type_objects (type-def-name type)))]
       [(alias-def? type)
         (get-python-type-object (alias-def-type type) mod)]
+      [(enum-def? type) "&PyLongType"]
       [else  (format "_get~a()" (get-python-type-name type mod))]))
-
-;wrapper for convertations from c to python
-(define (to-c-type type module)
-  (if (default-def? type) 
-    (hash-ref to-c-dict (type-def-name type))
-    (format "_get_data~a(~a)" (get-python-type-name type module) "~a")))
 
 ;get struct word if struct as string
 (define (get-if-struct type)
@@ -218,6 +224,7 @@
         (hash-ref type-dict (type-def-name type))]
       [(alias-def? type)
         (get-python-type-name (alias-def-type type) mod)]
+      [(enum-def? type) "PyLong_Type"]
       [else  
       (let ([env (module-def-env mod)]
             [id  (type-def-name type)])
@@ -234,6 +241,7 @@
         (hash-ref type-args-python (type-def-name type))]
       [(alias-def? type)
         (get-python-arg-type-name (alias-def-type type) mod)]
+      [(enum-def? type) "int"]
       [else   
       (let ([env (module-def-env mod)]
             [id  (type-def-name type)])
@@ -490,12 +498,14 @@
             (if member-ref?
               "*"
               "")
-            (if (or  (default-def? origin-type) member-ref?) 
+            (if (or  (default-def? origin-type) (enum-def? origin-type) member-ref?) 
               "" "*")
             (format (to-c-type origin-type module) 
-              (if (default-def? origin-type)  
-              "value" 
-              (format "(~a*)value" type-name-python ))))
+              (cond 
+                [(default-def? origin-type) "value" ]  
+                [(enum-def? origin-type) "value" ] 
+                [else (format "(~a*)value" type-name-python )]
+              )))
           "if (PyErr_Occurred()) {\n\treturn -1;\n\t}\n" 
           (format "self->data.~a = val;\n" name)
           "return 0;\n}\n")))))
@@ -549,7 +559,7 @@
                 args)
               ", ")
             )
-          "PyErr_SetString(PyExc_RuntimeError, \"Unable to parse args\");\n"
+   
           "\treturn NULL;\n}\n" 
 
           ;check obj args
@@ -637,7 +647,7 @@
                                   args)
                                 ", ")
                               )
-                            "PyErr_SetString(PyExc_RuntimeError, \"Unable to parse args\");\n"
+                     
                             "\treturn -1;\n}\n" 
 
                             ;check obj args
@@ -804,7 +814,7 @@
                                   args)
                                 ", ")
                               )
-                            "PyErr_SetString(PyExc_RuntimeError, \"Unable to parse args\");\n"
+                   
                             "\treturn -1;\n}\n" 
 
                             ;check obj args
@@ -1062,6 +1072,8 @@
  (cond 
                [(default-def? arg-type) 
                 (format "~a _pyarg_~a;\n" arg-py-type arg-name)]
+               [(enum-def? arg-type) 
+                (format "~a _pyarg_~a;\n" arg-py-type arg-name)]
                [(alias-def?  arg-type) 
                   (arg-initialisation-block
                     (alias-def-type arg-type) 
@@ -1091,6 +1103,7 @@
   (cond 
     [(default-def? arg-type) ""]
     [(alias-def?  arg-type) (check-arg-block (alias-def-type arg-type) arg-name module ret-val)]
+    [(enum-def?  arg-type) ""]
     [(callable-def? arg-type) 
       (callable-check-block arg-type (format "_pyarg_~a" arg-name)  (format "_pyargdata_~a" arg-name) (get-python-type-name arg-type module) (get-c-type-name arg-type module) module ret-val)]
     [else               
@@ -1118,6 +1131,8 @@
                             (format "_pyarg_~a" arg-name)]
                       [(callable-def? arg-type) 
                             (format "_pyargdata_~a" arg-name)]
+                      [(enum-def? arg-type) 
+                            (format "_pyarg_~a" arg-name)]
                       [else
                             (if arg-ref? 
                               (format "_get_data~a(_pyarg_~a)"  (get-python-arg-type-name arg-type module) arg-name)  
@@ -1140,12 +1155,8 @@
     (string-join ns "_"))
 
 ;return module defenition
-(define (add-module-def brief doc moduledef module-name ns module)
-  (let (
-        [members  (namespace-def-members ns)]) 
+(define (add-module-def brief doc moduledef module-name ns module) 
   (string-append
-    ;add callables
-
       ;add-module-def
       "static PyModuleDef\n"
       (format "~a = {\n" moduledef)
@@ -1159,7 +1170,7 @@
       "    NULL,       /* clear */\n"
       "    NULL\n"
       "};\n")
-  ))
+  )
 
 ;return namespaces hash map
 (define (get-module-namespaces main-module module-map)
@@ -1214,9 +1225,25 @@
       (apply string-append 
         (hash-map ns-map
           (lambda (name ns)
-            (add-module-def (namespace-def-brief ns) (namespace-def-brief ns) (format "_pymod_~a_def" name) name ns module))
+            (add-module-def (namespace-def-brief ns) (namespace-def-doc ns) (format "_pymod_~a_def" name) name ns module))
                   ns-map))
-      
+
+      ;add enums
+      "//Enum module defenitions\n"
+      (apply string-append 
+        (hash-map module-map
+          (lambda (path mod)
+              (apply string-append
+                (map (lambda (memb) 
+                    (let (
+                      [ns (string-join (module-def-ns mod) "_")])
+                      (cond
+                        [(enum-def? memb)  
+                        (let ([type-name (get-c-type-name memb module) ])
+                         (add-module-def (enum-def-brief memb) (enum-def-doc memb) (format "_py_enum_mod_~a_def" type-name)  (car (reverse (string-split (type-def-name memb) "."))) ns mod))]
+                        [else ""])))
+                    (module-def-defs mod))))))
+
       "//add member to module\n"
       "int add_type_to_module(PyObject * _py_mod, PyTypeObject * _py_arg_type, const char * name ) {\n"
       "_py_arg_type->tp_new = PyType_GenericNew;\n"
@@ -1284,6 +1311,38 @@
           (lambda (path mod)
               (get-module-mebers-block mod modulearg)))) 
       
+
+      ;add enums
+      (apply string-append 
+        (hash-map module-map
+          (lambda (path mod)
+              (apply string-append
+                (map (lambda (memb) 
+                    (let (
+                      [ns (string-join (module-def-ns mod) "_")])
+                      (cond
+                        [(enum-def? memb)  
+                            (let ([type-name (get-c-type-name memb module) ])
+                              (string-append
+                                (format "//add enum ~a\n" type-name)
+                                "{\n"
+                                (format "\tPyObject * ~a = PyModule_Create(&~a);\n" (format "_py_enum_mod_~a" type-name) (format "_py_enum_mod_~a_def" type-name))
+                                (format "\tif (~a == NULL) {\n" (format "_py_enum_mod_~a" type-name))
+                                "\t\treturn NULL;\n"
+                                "\t}\n"
+                                (format "\tadd_object_to_module (_pyargmod_~a, _py_enum_mod_~a, \"~a\");\n"  ns type-name (car (reverse (string-split (type-def-name memb) "."))))
+                                (string-join  
+                                  (map 
+                                    (lambda (val)
+                                      (let (
+                                          [name (format "~a_~a" type-name (enum-value-def-name val))]
+                                          [value (enum-value-def-value val)])
+                                        (format "\tPyModule_AddObject(_py_enum_mod_~a, \"~a\", PyLong_FromLong(~a));" type-name (enum-value-def-name val) name)))
+                                    (enum-def-members memb))
+                                  "\n")
+                                "\n}\n"))]
+                        [else ""])))
+                    (module-def-defs mod))))))
 
       ;add callables
       (apply string-append 

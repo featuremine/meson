@@ -140,7 +140,7 @@
     (for ([def defs])
       (cond
         [(member-def? def)(bind-unbounded-member def mod)]
-        [(method-def? def)(bind-unbounded-method def mod)]
+        [(method-def? def)(bind-unbounded-method def (type-def-name obj) mod)]
         [else  (error (format "unprocessable entity ~a \n"  def))]))))
 
 ;bind unbounded alias
@@ -231,18 +231,23 @@
 
 
 ;bind unbounded method
-(define (bind-unbounded-method obj mod)(
-  let ([args (method-def-args obj)]
-      [return (method-def-return obj)]
+(define (bind-unbounded-method def name mod)(
+  let ([args (method-def-args def)]
+      [return (method-def-return def)]
       [env (module-def-env mod)]
     )
     (begin
       (for ([arg args])
-        (cond [(check-unbounded-type (arg-def-type arg) (arg-def-ref arg) env (arg-def-stx arg))
-                  (set-arg-def-type! arg (hash-ref env (unbound-id-sym (arg-def-type arg))))]))
-      (cond [(check-unbounded-type (return-def-type return) (return-def-ref return) env (return-def-stx return))
-        (set-return-def-type! return (hash-ref env (unbound-id-sym (return-def-type return))))]))))
-
+        (cond 
+          [ (and (unbound-id? (arg-def-type arg)) (equal? (unbound-id-sym (arg-def-type arg)) name))
+              (set-arg-def-type! arg (hash-ref env (unbound-id-sym (arg-def-type arg))))]
+          [(check-unbounded-type (arg-def-type arg) (arg-def-ref arg) env (arg-def-stx arg))
+              (set-arg-def-type! arg (hash-ref env (unbound-id-sym (arg-def-type arg))))]))
+      (cond 
+        [ (and (unbound-id? (return-def-type return)) (equal? (unbound-id-sym (return-def-type return)) name))
+          (set-return-def-type! return (hash-ref env (unbound-id-sym (return-def-type return))))]
+        [(check-unbounded-type (return-def-type return) (return-def-ref return) env (return-def-stx return))
+          (set-return-def-type! return (hash-ref env (unbound-id-sym (return-def-type return))))]))))
 
 ;bind unbounded in module
 (define (bind-unbounded-module mod)(
@@ -256,8 +261,9 @@
       [(const-def? def)(bind-unbounded-const def mod)]
       [(callable-def? def)(bind-unbounded-callable def mod)]
       [(class-def? def)(bind-unbounded-class def mod)]
+      [(enum-def? def) void]
       [(template-def? def) ""]
-      [else  (error (format "unprcessable entity ~a \n" def))]))))
+      [else  (error (format "unprocessable entity ~a \n" def))]))))
 
 
 ;process module stx and reverse defs
@@ -362,6 +368,8 @@
          def-constructor
          def-class
          def-template
+         def-enum
+         def-enum-value
          generate-source
          get-source-info
          last
@@ -871,10 +879,10 @@
 ;enum value syntax
 (define-syntax def-enum-value
   (syntax-rules ()
-    [(def-arg  id ... val)
-    (def-enum-value-full id ... val)]
-    [(def-arg id ...)
-    (def-enum-value-full id ... #f)]))
+    [(def-enum-value  id [brief brief-txt] val)
+    (def-enum-value-full id [brief brief-txt]  val)]
+    [(def-enum-value id [brief brief-txt] )
+    (def-enum-value-full id [brief brief-txt]  #f)]))
 
 ;enum syntax with reference
 (define-syntax def-enum
