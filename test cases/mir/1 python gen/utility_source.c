@@ -223,3 +223,21 @@ struct graph_Point *
 graph_utility_NoneTester_get_none(struct graph_utility_NoneTester *self) {
   return NULL;
 }
+
+
+
+void graph_utility_EnumClass_destructor(graph_utility_EnumClass *self){
+
+}
+
+void graph_utility_EnumClass_constructor(graph_utility_EnumClass* self){
+
+}
+
+graph_utility_TestEnum graph_utility_EnumClass_set_enum (struct graph_utility_EnumClass* self, graph_utility_TestEnum testEnum){
+  self->testEnum = testEnum;
+  return testEnum;
+}
+struct graph_utility_EnumClass graph_utility_EnumClass_getHimSelf (struct graph_utility_EnumClass* self, struct graph_utility_EnumClass data){
+  return data;
+}

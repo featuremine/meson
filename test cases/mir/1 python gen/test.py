@@ -24,6 +24,16 @@ cp = _mir_wrapper.ConstPoint;
 cv = _mir_wrapper.aliases.ConstVector;
 assert(cp.x == 1.0 and cp.x == cv.x and cp.y == 2.0 and cp.y == cv.y)
 
+# test enums
+assert(_mir_wrapper.utility.TestEnum.val1 == 0 and _mir_wrapper.utility.TestEnum.val3 == 3)
+te = _mir_wrapper.utility.EnumStruct(_mir_wrapper.utility.TestEnum.val3)
+assert(te.testEnum == 3)
+tec = _mir_wrapper.utility.EnumClass()
+tec.set_enum(_mir_wrapper.utility.TestEnum.val3)
+assert(tec.testEnum == 3)
+ret_ec = tec.getHimSelf(tec); 
+assert(tec.testEnum == ret_ec.testEnum)
+
 # test method without arguments
 p1 = _mir_wrapper.Point(3, 4)
 print(p1.x, p1.y)

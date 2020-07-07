@@ -140,6 +140,23 @@
                   (format "extern ~a~a" (get-if-struct (variable-def-type memb)) (get-c-type-name (variable-def-type memb) module))
                   (if (variable-def-ref memb) "* " " ")
                   (format "~a;\n\n"  (get-c-type-name-from-string (variable-def-name memb))))]
+              [(enum-def? memb)  
+               (let ([type-name (get-c-type-name memb module)])
+                (string-append
+                  (comment (list (enum-def-brief memb) (enum-def-doc memb)))
+                  "typedef enum  {\n" 
+
+                  (string-join  
+                    (map 
+                      (lambda (val)
+                        (let([name (format "~a_~a" type-name (enum-value-def-name val))]
+                             [value (enum-value-def-value val)])
+                          (string-append   
+                            (comment (enum-value-def-brief val))
+                            (if value (format "~a=~a" name value) name))))
+                      (enum-def-members memb))
+                    ",\n") 
+                  (format "\n} ~a;\n"(get-c-type-name memb module))))]
               [(const-def? memb)  
                 (string-append
                   (comment (list (const-def-brief memb) (const-def-doc memb)))
@@ -315,6 +332,8 @@
                            [ref? (member-def-ref memb)])
                     (cond 
                       [(default-def? type) 
+                            (format "\tdest->~a = src->~a;\n" name name)]
+                      [(enum-def? type) 
                             (format "\tdest->~a = src->~a;\n" name name)]
                       [else
                             (if ref? 
