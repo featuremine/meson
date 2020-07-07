@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import sys
+import os
 
 if sys.version_info < (3, 5, 0):
     print('Tried to install with an unsupported version of Python. '
@@ -54,6 +55,14 @@ data_files +=  [('tools/mir/', ['tools/mir/utils.rkt',
                                          'tools/mir/pythongen/utils.h',
                                          'tools/mir/pythongen/utils.c'])]
 
+# load requirements
+lib_path = os.path.dirname(os.path.realpath(__file__))
+req_path = os.path.join(lib_path, 'requirements.txt')
+reqs = []
+if os.path.isfile(req_path):
+    with open(req_path) as f:
+        reqs = [line for line in f.read().splitlines() if len(line) > 0 and not line.startswith('#')]
+
 if __name__ == '__main__':
     setup(name='meson',
           version=version,
@@ -67,6 +76,7 @@ if __name__ == '__main__':
           package_data=package_data,
           entry_points=entries,
           data_files=data_files,
+          install_requires=reqs,
           classifiers=['Development Status :: 5 - Production/Stable',
                        'Environment :: Console',
                        'Intended Audience :: Developers',

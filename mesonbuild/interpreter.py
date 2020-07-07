@@ -2258,8 +2258,8 @@ class Interpreter(InterpreterBase):
         if modname not in self.modules:
             try:
                 module = importlib.import_module('mesonbuild.modules.' + modname)
-            except ImportError:
-                raise InvalidArguments('Module "%s" does not exist' % (modname, ))
+            except ImportError as e:
+                raise InvalidArguments(f"Failed to import module '{modname}': {e}.")
             self.modules[modname] = module.initialize(self)
         return ModuleHolder(modname, self.modules[modname], self)
 
