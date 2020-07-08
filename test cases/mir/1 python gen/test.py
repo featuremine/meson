@@ -58,16 +58,16 @@ p3 = util.multiply_points(p1, 3)
 assert((p3.x) == 9.0 and (p3.y) == 12.0)
 
 # test method with two simple types
-assert(util.divide(9, 3) == 3.0)
+assert(util.divide1(9, 3) == 3.0)
 
 # test method with two simple types
-assert(util.multiply(3, 3) == 9.0)
+assert(util.multiply1(3, 3) == 9.0)
 
 # test concat strings
 assert(util.concat_strings("Hello", " World") == "Hello World")
 
 # test method with simple type
-assert(util.add(3, 5) == 8)
+assert(util.add1(3, 5) == 8)
 
 # test method with objects
 point4 = util.pointSum(p1, p2)
@@ -193,5 +193,14 @@ assert(mh.get_int() == 11)
 nt = _mir_wrapper.utility.NoneTester()
 print('hello')
 assert(nt.get_none() is None)
+
+#test operators
+
+op_pt1 = _mir_wrapper.Point(3, 3)
+op_pt2 = _mir_wrapper.Point(1, 1)
+op_pt3 = op_pt1 + op_pt2
+
+assert(op_pt3.x==4 and op_pt3.y==4  )
+
 
 print('end')

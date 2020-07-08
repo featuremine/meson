@@ -42,6 +42,15 @@
         [def-return 
             [brief "Distance."]
             [type double]]]
+    [def-method add
+        [brief "Add"]
+        [doc  "Add."]
+        [def-arg point
+            [brief "point"]
+            [type Point] #:ref]
+        [def-return 
+            [brief "point."]
+            [type Point] #:ref]]
     [def-method norm 
         [brief "Norm"]
         [doc  "Calculate the norm value of point."]

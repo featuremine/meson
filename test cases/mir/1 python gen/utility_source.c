@@ -9,12 +9,12 @@ graph_utility_Utility_multiply_points(struct graph_utility_Utility *self,
   return (struct graph_Point){NULL, point->x * K, point->y * K};
 }
 
-double graph_utility_Utility_divide(struct graph_utility_Utility *self,
+double graph_utility_Utility_divide1(struct graph_utility_Utility *self,
                                     double num1, double num2) {
   return num1 / num2;
 }
 
-double graph_utility_Utility_multiply(struct graph_utility_Utility *self,
+double graph_utility_Utility_multiply1(struct graph_utility_Utility *self,
                                       double num1, double num2) {
   return num1 * num2;
 }
@@ -27,7 +27,7 @@ char *graph_utility_Utility_concat_strings(struct graph_utility_Utility *self,
   return result;
 }
 
-int32_t graph_utility_Utility_add(struct graph_utility_Utility *self, int32_t a,
+int32_t graph_utility_Utility_add1(struct graph_utility_Utility *self, int32_t a,
                                   int32_t b) {
   return a + b;
 }
