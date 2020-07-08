@@ -1,0 +1,5 @@
+boto3==1.13.11
+findimports==1.5.2
+pandas==1.0.5
+mypy==0.782
+pylint==2.5.3
