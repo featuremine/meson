@@ -201,6 +201,9 @@ op_pt2 = _mir_wrapper.Point(1, 1)
 op_pt3 = op_pt1 + op_pt2
 
 assert(op_pt3.x==4 and op_pt3.y==4  )
-
+op_pt4 = op_pt3/2
+assert(op_pt4.x==2 and op_pt4.y==2  )
+op_pt5 = op_pt3/0
+assert(op_pt5 == None)
 
 print('end')

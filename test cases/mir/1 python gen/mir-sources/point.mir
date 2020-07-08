@@ -51,6 +51,15 @@
         [def-return 
             [brief "point."]
             [type Point] #:ref]]
+    [def-method divide
+        [brief "Divide"]
+        [doc  "Divide."]
+        [def-arg val
+            [brief "val"]
+            [type int64]]
+        [def-return 
+            [brief "point."]
+            [type Point] #:ref]]
     [def-method norm 
         [brief "Norm"]
         [doc  "Calculate the norm value of point."]

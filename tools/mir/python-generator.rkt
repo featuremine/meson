@@ -593,6 +593,11 @@
         "substract"
         "multiply"
         "divide"
+        "less"
+        "less_equal"
+        "more"
+        "more_equal"
+        "equal"
         "power"
         "and"
         "or"    
@@ -929,8 +934,8 @@
                             "{NULL, NULL, 0, NULL}\n};\n")
                          "")
                         (if num-methods 
-                          (let ([get-method (lambda(name)
-                                              (if (hash-has-key? num-methods name) (format "(PyObject* (*) (PyObject*, PyObject*))_num~a_~a" py-type name) "NULL"))])
+                          (let ([get-method (lambda(name [f "~a"][return "NULL"])
+                                              (if (hash-has-key? num-methods name) (format f (format "(PyObject* (*) (PyObject*, PyObject*))_num~a_~a" py-type name)) return))])
                             (string-append
                               ;add num method defenitions
                               (apply string-append
@@ -940,28 +945,65 @@
                                         [args (method-def-args mthd)]
                                         [ret-type (return-def-type (method-def-return mthd))]
                                         [ret-ref (return-def-ref (method-def-return mthd))])
-                                    (if (= (length args) 1)    
-                                      (string-append
-                                        (format "static PyObject* ~a(~a* self, ~a* _pyarg_~a) {\n" struct-mthd-name py-type py-type (arg-def-name (car args)))
-                                        ;check obj arg
-                                        (check-arg-block (arg-def-type (car args)) (arg-def-name (car args)) module "NULL")
-                                        ;return section
-                                        (build-return-section             
-                                          (string-append
-                                            (format "~a(&self->data, " c-mthd-name)
-                                              (string-join 
-                                                (map 
-                                                  (lambda (arg)
-                                                    (let ([arg-type (arg-def-type arg)]
-                                                          [arg-name (arg-def-name arg)])
-                                                      (return-arg-representation arg-type arg-name (arg-def-ref arg) module )))
-                                                  args)
-                                                ", ")
-                                            ")"
-                                            ) ret-type module ret-ref)  
+                                    (if (= (length args) 1)
+                                      (letrec ([arg-name (arg-def-name (car args))]
+                                               [arg-type (arg-def-type (car args))]
+                                               [arg-c-type (get-c-type-name arg-type module)]
+                                               [arg-py-type (get-python-type-name arg-type module)]
+                                               [arg-value-name (format "_pyarg_~a" arg-name)])  
+                                        (string-append
+                                          (format "static PyObject* ~a(~a* self, PyObject* obj) {\n" struct-mthd-name py-type)
+                                          (if (default-def? (arg-def-type (car args)))
+                                            (string-append 
+                                              (type-check-return-section "obj" (format "&~a"(hash-ref type-dict-python (type-def-name arg-type)))  (type-def-name arg-type) "NULL")
+                                              (format "~a ~a = ~a;\n" arg-c-type arg-value-name (format (to-c-type (arg-def-type (car args)) module) "obj")))
+                                            (string-append 
+                                              (format "~a* ~a = (~a*) obj;\n" arg-py-type  arg-value-name arg-py-type)
+                                              (check-arg-block (arg-def-type (car args)) (arg-def-name (car args)) module "NULL")))
+                                          ;return section
+                                          (build-return-section             
+                                            (string-append
+                                              (format "~a(&self->data, " c-mthd-name)
+                                                (string-join 
+                                                  (map 
+                                                    (lambda (arg)
+                                                      (let ([arg-type (arg-def-type arg)]
+                                                            [arg-name (arg-def-name arg)])
+                                                        (return-arg-representation arg-type arg-name (arg-def-ref arg) module )))
+                                                    args)
+                                                  ", ")
+                                              ")"
+                                              ) ret-type module ret-ref)  
 
-                                        "}\n")
+                                          "}\n"))
                                       (error (format "in method ~a of ~a should be exactly one input argument" name c-type)))))))
+
+                              (if (hash-has-key? num-methods "equal")
+                                (string-append
+                                  (format "static PyObject *rich_compare~a(PyObject *obj1, PyObject *obj2, int op) {\n" py-type)
+                                  "    switch (op) {\n"
+                                  "    case Py_LT:\n"
+                                  (get-method "less" (string-append "if(~a(" (format "(~a*)obj1, (~a*)obj2)) Py_RETURN_TRUE;" py-type py-type)) "")
+                                  "      break;\n"
+                                  "    case Py_LE:\n"
+                                  (get-method "less_equal" (string-append "if(~a(" (format "(~a*)obj1, (~a*)obj2)) Py_RETURN_TRUE;" py-type py-type)) "")
+                                  "      break;\n"
+                                  "    case Py_EQ:\n"
+                                  (get-method "equal" (string-append "if(~a(" (format "(~a*)obj1, (~a*)obj2)) Py_RETURN_TRUE;" py-type py-type)) "")
+                                  "      break;\n"
+                                  "    case Py_NE:\n"
+                                  (get-method "equal" (string-append "if(~a(" (format "(~a*)obj1, (~a*)obj2)) Py_RETURN_TRUE;" py-type py-type)) "")
+                                  "      break;\n"
+                                  "    case Py_GT:\n"
+                                  (get-method "more" (string-append "if(~a(" (format "(~a*)obj1, (~a*)obj2)) Py_RETURN_TRUE;" py-type py-type)) "")
+                                  "      break;\n"
+                                  "    case Py_GE:\n"
+                                  (get-method "more_equal" (string-append "if(~a(" (format "(~a*)obj1, (~a*)obj2)) Py_RETURN_TRUE;" py-type py-type)) "")
+                                  "      break;\n"
+                                  "    }\n"
+                                  "    Py_RETURN_FALSE;\n"
+                                  "  }\n")
+                                "")
 
 
                               (format "static PyNumberMethods num_methods~a[] = {{\n" py-type) 
@@ -976,8 +1018,8 @@
                               "NULL,                           /*nb_absolute*/\n"
                               "NULL,                           /*nb_bool*/\n"
                               "NULL,                           /*nb_invert*/\n"
-                              "NULL,                           /*nb_lshift*/\n"
-                              "NULL,                           /*nb_rshift*/\n"
+                              "NULL,                      /*nb_lshift*/\n"
+                              "NULL,                      /*nb_rshift*/\n"
                               (format "~a,       /*nb_and*/\n" (get-method "and"))
                               "NULL,                           /*nb_xor*/\n" 
                               (format "~a,        /*nb_or*/\n" (get-method "or"))
@@ -1030,7 +1072,7 @@
                       (format "\"~a\\n~a\",          /* tp_doc */\n" (class-def-brief memb) (class-def-doc memb))
                       "0,                         /* tp_traverse */\n"
                       "0,                         /* tp_clear */\n"
-                      "0,                         /* tp_richcompare */\n"
+                      (format "~a,                /* tp_richcompare */\n" (if (and num-methods (hash-has-key? num-methods "equal")) (format "rich_compare~a"py-type) "0"))
                       "0,                         /* tp_weaklistoffset */\n"
                       "0,                         /* tp_iter */\n"
                       "0,                         /* tp_iternext */\n"
@@ -1195,6 +1237,13 @@
             (arg-initialisation-block arg-type arg-name arg-py-type arg-c-type module)))
       args)))
 
+;type check return section section
+(define (type-check-return-section py-type arg-value arg-type-name ret-val)
+  (string-append
+    (format "if (!PyObject_TypeCheck(~a, ~a)) {\n" py-type arg-value )
+    (format "PyErr_SetString(PyExc_TypeError, \"Argument provided must be an ~a\");\n" arg-type-name)
+    (format "return ~a;\n}\n" ret-val)))   
+
 ;add block with one argument checks
 (define (check-arg-block arg-type arg-name module ret-val)   
   (cond 
@@ -1203,11 +1252,8 @@
     [(enum-def?  arg-type) ""]
     [(callable-def? arg-type) 
       (callable-check-block arg-type (format "_pyarg_~a" arg-name)  (format "_pyargdata_~a" arg-name) (get-python-type-name arg-type module) (get-c-type-name arg-type module) module ret-val)]
-    [else               
-      (string-append
-        (format "if (!PyObject_TypeCheck(_pyarg_~a, _get~a())) {\n" arg-name (get-python-arg-type-name arg-type module))
-        (format "PyErr_SetString(PyExc_TypeError, \"Argument provided must be an ~a\");\n" (type-def-name arg-type))
-         (format "return ~a;\n}\n" ret-val))]))
+    [else    
+      (type-check-return-section (format "_pyarg_~a" arg-name )   (format "_get~a()" (get-python-arg-type-name arg-type module)) (type-def-name arg-type) ret-val)]))
 
 ;add block with arguments checks
 (define (check-args-block args module ret-val)
