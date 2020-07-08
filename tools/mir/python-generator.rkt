@@ -107,7 +107,7 @@
  (cond [(default-def? type)
         (hash-ref format-dict-python (type-def-name type))]
     [(enum-def? type) 
-      "b"]
+      "B"]
     [else "O"])) 
 
 ;use for converting from c to python
@@ -241,7 +241,7 @@
         (hash-ref type-args-python (type-def-name type))]
       [(alias-def? type)
         (get-python-arg-type-name (alias-def-type type) mod)]
-      [(enum-def? type) "int"]
+      [(enum-def? type) "uint8_t"]
       [else   
       (let ([env (module-def-env mod)]
             [id  (type-def-name type)])
