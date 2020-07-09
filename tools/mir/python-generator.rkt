@@ -983,22 +983,22 @@
                                   (format "static PyObject *rich_compare~a(PyObject *obj1, PyObject *obj2, int op) {\n" py-type)
                                   "    switch (op) {\n"
                                   "    case Py_LT:\n"
-                                  (get-method "less" (string-append "if(~a(" (format "(~a*)obj1, (~a*)obj2)) Py_RETURN_TRUE;" py-type py-type)) "")
+                                  (get-method "less" (string-append "if(~a(" (format "(~a*)obj1, obj2)) Py_RETURN_TRUE;" py-type )) "")
                                   "      break;\n"
                                   "    case Py_LE:\n"
-                                  (get-method "less_equal" (string-append "if(~a(" (format "(~a*)obj1, (~a*)obj2)) Py_RETURN_TRUE;" py-type py-type)) "")
+                                  (get-method "less_equal" (string-append "if(~a(" (format "(~a*)obj1, obj2)) Py_RETURN_TRUE;" py-type )) "")
                                   "      break;\n"
                                   "    case Py_EQ:\n"
-                                  (get-method "equal" (string-append "if(~a(" (format "(~a*)obj1, (~a*)obj2)) Py_RETURN_TRUE;" py-type py-type)) "")
+                                  (get-method "equal" (string-append "if(~a(" (format "(~a*)obj1, obj2)) Py_RETURN_TRUE;" py-type )) "")
                                   "      break;\n"
                                   "    case Py_NE:\n"
-                                  (get-method "equal" (string-append "if(~a(" (format "(~a*)obj1, (~a*)obj2)) Py_RETURN_TRUE;" py-type py-type)) "")
+                                  (get-method "equal" (string-append "if(~a(" (format "(~a*)obj1, obj2)) Py_RETURN_TRUE;" py-type )) "")
                                   "      break;\n"
                                   "    case Py_GT:\n"
-                                  (get-method "more" (string-append "if(~a(" (format "(~a*)obj1, (~a*)obj2)) Py_RETURN_TRUE;" py-type py-type)) "")
+                                  (get-method "more" (string-append "if(~a(" (format "(~a*)obj1, obj2)) Py_RETURN_TRUE;" py-type )) "")
                                   "      break;\n"
                                   "    case Py_GE:\n"
-                                  (get-method "more_equal" (string-append "if(~a(" (format "(~a*)obj1, (~a*)obj2)) Py_RETURN_TRUE;" py-type py-type)) "")
+                                  (get-method "more_equal" (string-append "if(~a(" (format "(~a*)obj1, obj2)) Py_RETURN_TRUE;" py-type )) "")
                                   "      break;\n"
                                   "    }\n"
                                   "    Py_RETURN_FALSE;\n"
@@ -1542,47 +1542,49 @@
           (args-initialisation-block args module)
 
           ;parse args TODO: create common block for all PyArg_ParseTuple
-          (format "if (!PyArg_ParseTuple(args, \"~a\", ~a)) {\n"
-            ;formats
-              (apply string-append 
-                (map 
-                  (lambda (arg)
-                    (let ([arg-type (arg-def-type arg)])
-                      (get-format arg-type)))
-                  args))
-            ;references
-            (string-join 
-              (map 
-                (lambda (arg)
-                  (let ([arg-name (arg-def-name arg)])
-                    (format "&_pyarg_~a" arg-name)))
-                args)
-              ", ")
-            )
+          (if (>(length args) 0)
+            (string-append
+              (format "if (!PyArg_ParseTuple(args, \"~a\", ~a)) {\n"
+                ;formats
+                  (apply string-append 
+                    (map 
+                      (lambda (arg)
+                        (let ([arg-type (arg-def-type arg)])
+                          (get-format arg-type)))
+                      args))
+                ;references
+                (string-join 
+                  (map 
+                    (lambda (arg)
+                      (let ([arg-name (arg-def-name arg)])
+                        (format "&_pyarg_~a" arg-name)))
+                    args)
+                  ", "))
+           
             
-          "\treturn NULL;\n}\n" 
-            (check-args-block args module "NULL")
+          "\treturn NULL;\n}\n") 
+            "")
 
+          (check-args-block args module "NULL")
 
           "//return section\n"
           (build-return-section 
-            (string-append
-              (format "\n((~a *)self)\n->data.func(" py-type)
+              (string-append
+                (format "\n((~a *)self)\n->data.func(" py-type)
                 (string-join
-                  (map 
-                    (lambda (arg)
-                      (let (
-                            [arg-name (arg-def-name arg)]
-                            [arg-type (arg-def-type arg)]
-                            [arg-python-type (get-python-arg-type-name (arg-def-type arg) module)]
-                            )
-                            (return-arg-representation arg-type arg-name (arg-def-ref arg) module)
-                          ))
-                    args)
-                    ", ")
-            (format ",\n((~a *)self)->data.closure)"py-type)
-              )
-          
+                  (append
+                    (map 
+                      (lambda (arg)
+                        (let (
+                              [arg-name (arg-def-name arg)]
+                              [arg-type (arg-def-type arg)]
+                              [arg-python-type (get-python-arg-type-name (arg-def-type arg) module)]
+                              )
+                              (return-arg-representation arg-type arg-name (arg-def-ref arg) module)
+                            ))
+                      args)
+                    (list (format "\n((~a *)self)->data.closure)"py-type)))
+                      ", "))
             ret-type module ret-ref)
             "\n};\n"
 
