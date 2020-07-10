@@ -22,12 +22,16 @@
 #include "mir/pythongen/utils.h"
 void free_closure(void *closure) { Py_DECREF(closure); }
 
+typedef struct{
+  void * _owner_; 
+}mir_object;
+
 void mir_inc_ref(void *obj) {
-  if (obj != NULL && obj != Py_None)
+  if ((mir_object*)obj != NULL && ((mir_object*)obj)->_owner_  != NULL && ((mir_object*)obj)->_owner_  != Py_None)
     Py_INCREF(obj);
 }
 void mir_dec_ref(void *obj) {
-  if (obj != NULL && obj != Py_None)
+  if ((mir_object*)obj != NULL && ((mir_object*)obj)->_owner_  != NULL && ((mir_object*)obj)->_owner_  != Py_None)
     Py_DECREF(obj);
 }
 
