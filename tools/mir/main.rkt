@@ -365,6 +365,7 @@
          def-arg
          def-return
          def-method
+         def-numerical
          def-constructor
          def-class
          def-template
@@ -860,6 +861,26 @@
                                                         doc-txt
                                                         (list ((def-arg in-data ...)  mod (mutable-set)) ...)
                                                         ((def-return out-data ...) mod)))))
+
+;define rule for callable:
+;build callable defenition and add it to the module members
+;first we check id in module defenition second we add it to module
+(define-syntax-rule (def-numerical id-data
+                    [brief brief-txt]
+                    [doc doc-txt]
+                    [def-arg in-data ...]...
+                    [def-return out-data ...])
+                    (lambda (mod ctx)
+                        (letrec ([orig-symbol (get-symbol id-data)]
+                                [id  (string->symbol(string-append "numerical_" (symbol->string orig-symbol)))])
+                          (if (set-member? ctx id) (error (format "duplicate method name: ~a\n" id)) (set-add! ctx id))
+                            (numerical-def (symbol->string id)
+                                                        #'id-data
+                                                        brief-txt
+                                                        doc-txt
+                                                        (list ((def-arg in-data ...)  mod (mutable-set)) ...)
+                                                        ((def-return out-data ...) mod)
+                                                        (symbol->string orig-symbol)))))
 
 ;full enum value syntax
 (define-syntax def-enum-value-full

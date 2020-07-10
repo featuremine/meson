@@ -23,12 +23,12 @@ graph_Point * get_mir_const_graph_ConstPoint(){
   return pt;
 }
 
-struct graph_Point* graph_Point_add (struct graph_Point* self, struct graph_Point *point){
+struct graph_Point* graph_Point_numerical_add (struct graph_Point* self, struct graph_Point *point){
   graph_Point*  pt = graph_Point_get_descr()->new_();
   graph_Point_constructor(pt,self->x+point->x, self->y+point->y);
   return pt;
 }
-struct graph_Point* graph_Point_divide (struct graph_Point* self, int64_t val){
+struct graph_Point* graph_Point_numerical_divide (struct graph_Point* self, int64_t val){
   if (val==0) return NULL;
   graph_Point*  pt = graph_Point_get_descr()->new_();
   graph_Point_constructor(pt,self->x/val, self->y/val);

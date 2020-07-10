@@ -26,6 +26,7 @@
   (struct-out class-def)
   (struct-out constructor-def)
   (struct-out method-def)
+  (struct-out numerical-def)
   (struct-out namespace-def)
   (struct-out template-def)
   (struct-out enum-def)
@@ -60,6 +61,7 @@
 (struct class-def (brief doc constructor members)  #:super struct:type-def  #:transparent)
 (struct constructor-def (stx args) #:transparent)
 (struct method-def (name stx brief doc args return) #:transparent)
+(struct numerical-def (num-name) #:super struct:method-def  #:transparent)
 (struct enum-def (brief doc members) #:super struct:type-def #:transparent)
 (struct enum-value-def (name stx brief value) #:transparent)
 

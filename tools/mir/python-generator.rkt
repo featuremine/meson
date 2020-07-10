@@ -608,8 +608,8 @@
   (let ([ret (make-hash)])
     (for ([memb members]) 
       (cond
-        [(method-def? memb) 
-          (if (set-member? numerical-set (method-def-name memb)) (hash-set! ret (method-def-name memb) memb) void)]))
+        [(numerical-def? memb) 
+          (if (set-member? numerical-set (numerical-def-num-name memb)) (hash-set! ret (numerical-def-num-name memb) memb) void)]))
     (if (hash-empty? ret) #f ret)))
   
 
@@ -915,7 +915,7 @@
                             (map 
                               (lambda (m)
                                 (cond 
-                                  [(method-def? m)  
+                                  [(and (method-def? m) (not (numerical-def? m)))  
                                   (get-method-impl-python (get-c-type-name memb module) (get-python-type-name memb module) m module)]
                                   [else ""]
                                   ))
@@ -926,7 +926,7 @@
                               (map 
                                 (lambda (m)
                                   (cond 
-                                    [(method-def? m)  
+                                    [(and (method-def? m) (not (numerical-def? m)))   
                                     (get-method-def-python (get-python-type-name memb module) m module)]
                                     [else ""]
                                     ))
@@ -941,7 +941,7 @@
                               (apply string-append
                                 (hash-map num-methods (lambda (name mthd)
                                   (let ([struct-mthd-name (format "_num~a_~a" py-type name)]
-                                        [c-mthd-name (format "~a_~a" c-type name)]
+                                        [c-mthd-name (format "~a_numerical_~a" c-type name)]
                                         [args (method-def-args mthd)]
                                         [ret-type (return-def-type (method-def-return mthd))]
                                         [ret-ref (return-def-ref (method-def-return mthd))])
