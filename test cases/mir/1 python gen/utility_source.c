@@ -95,10 +95,9 @@ typedef graph_Point *(*c_p_callb)(double K);
 graph_Point *c_p_closure(double K) {
   printf("c callback with params %f\n", K);
 
-  graph_Point *p = malloc(sizeof(graph_Point));
+  graph_Point *p = graph_Point_get_descr()->new_();
   p->x = 3;
   p->y = 4;
-  p->_owner_ = NULL;
   return p;
 };
 
@@ -122,10 +121,9 @@ int32_t graph_utility_Utility_add_callable2(
 
 graph_Point *
 graph_utility_Utility_get_point_ref(struct graph_utility_Utility *self) {
-  graph_Point *point = malloc(sizeof(graph_Point));
+  graph_Point *point = graph_Point_get_descr()->new_();
   point->x = 3;
   point->y = 4;
-  point->_owner_ = NULL;
   return point;
 };
 
