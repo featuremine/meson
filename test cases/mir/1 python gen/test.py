@@ -58,10 +58,10 @@ p3 = util.multiply_points(p1, 3)
 assert((p3.x) == 9.0 and (p3.y) == 12.0)
 
 # test method with two simple types
-assert(util.divide1(9, 3) == 3.0)
+assert(util.divide(9, 3) == 3.0)
 
 # test method with two simple types
-assert(util.multiply1(3, 3) == 9.0)
+assert(util.multiply(3, 3) == 9.0)
 
 # test concat strings
 assert(util.concat_strings("Hello", " World") == "Hello World")

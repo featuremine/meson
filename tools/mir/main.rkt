@@ -872,8 +872,8 @@
                                                         (list ((def-arg in-data ...)  mod (mutable-set)) ...)
                                                         ((def-return out-data ...) mod)))))
 
-;define rule for callable:
-;build callable defenition and add it to the module members
+;define rule for operator
+;build operator defenition and add it to the module members
 ;first we check id in module defenition second we add it to module
 (define-syntax-rule (def-operator id-data
                     [brief brief-txt]

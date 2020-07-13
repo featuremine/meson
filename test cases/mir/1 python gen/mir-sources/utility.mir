@@ -168,7 +168,7 @@
             #:ref
             ]]
 
-    [def-method divide1 
+    [def-method divide 
         [brief "Divide numbers"]
         [doc  "Divide numbers"]
         [def-arg num1
@@ -181,7 +181,7 @@
             [brief "Result."]
             [type double]]]
 
-    [def-method multiply1 
+    [def-method multiply 
         [brief "Multiply numbers"]
         [doc  "Multiply numbers"]
         [def-arg num1
