@@ -35,8 +35,24 @@
 ;list of default types
 (define default-types (list 'char 'pointer 'none 'string 'int8 'int16 'int32 'int64 'uint8 'uint16 'uint32 'uint64 'bool 'double))
 
+;hash of operator symbols
+(define operator-dict-python '#hash(
+  (+= . "inplace_add") 
+  (-= . "inplace_substract") 
+  (/= . "inplace_divide") 
+  (*= . "inplace_multiply") 
+  (< . "less") 
+  (== . "equal") 
+  (&& . "and") 
+  (|| . "or")))
+
+(define (get-operator symb)
+   (hash-ref operator-dict-python symb #f))
+
+;return formatted string location from syntax object
 (define (get-location-string stx)
   (format "~a:~a:~a" (syntax-source stx)(syntax-line stx)(syntax-column stx)))
+
 ;default env
 (define (default-env)
   (let ([hash (make-hash)])
@@ -365,7 +381,7 @@
          def-arg
          def-return
          def-method
-         def-numerical
+         def-operator
          def-constructor
          def-class
          def-template
@@ -761,9 +777,7 @@
               #'id-data
               brief-txt
               (maybe-unbound-id mod type-id)
-              ref)))]
-            
-            ))
+              ref)))]))
 
 ;arg syntax with optional reference
 (define-syntax def-arg
@@ -804,7 +818,6 @@
               (maybe-unbound-id mod type-id)
               ref)))]))
 
-
 ;return syntax with optional reference
 (define-syntax def-return
   (syntax-rules ()
@@ -812,9 +825,6 @@
       (def-return-full id ... #t)]
     [(def-return id ...)
       (def-return-full id ... #f)]))
-
-
-
 
 ;define rule for constructor:
 ;build constructor defenition
@@ -865,22 +875,23 @@
 ;define rule for callable:
 ;build callable defenition and add it to the module members
 ;first we check id in module defenition second we add it to module
-(define-syntax-rule (def-numerical id-data
+(define-syntax-rule (def-operator id-data
                     [brief brief-txt]
                     [doc doc-txt]
                     [def-arg in-data ...]...
                     [def-return out-data ...])
                     (lambda (mod ctx)
                         (letrec ([orig-symbol (get-symbol id-data)]
-                                [id  (string->symbol(string-append "numerical_" (symbol->string orig-symbol)))])
-                          (if (set-member? ctx id) (error (format "duplicate method name: ~a\n" id)) (set-add! ctx id))
-                            (numerical-def (symbol->string id)
-                                                        #'id-data
-                                                        brief-txt
-                                                        doc-txt
-                                                        (list ((def-arg in-data ...)  mod (mutable-set)) ...)
-                                                        ((def-return out-data ...) mod)
-                                                        (symbol->string orig-symbol)))))
+                                [op (get-operator orig-symbol)]
+                                [id  (if op  (string->symbol(string-append "operator_" op)) (error (format "invalid operator ~a" orig-symbol)))])      
+                            (if (set-member? ctx id) (error (format "duplicate method name: ~a\n" id)) (set-add! ctx id))
+                              (operator-def (symbol->string id)
+                                                          #'id-data
+                                                          brief-txt
+                                                          doc-txt
+                                                          (list ((def-arg in-data ...)  mod (mutable-set)) ...)
+                                                          ((def-return out-data ...) mod)
+                                                          (symbol->string orig-symbol)))))
 
 ;full enum value syntax
 (define-syntax def-enum-value-full

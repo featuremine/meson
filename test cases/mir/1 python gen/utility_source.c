@@ -239,3 +239,18 @@ graph_utility_TestEnum graph_utility_EnumClass_set_enum (struct graph_utility_En
 struct graph_utility_EnumClass graph_utility_EnumClass_getHimSelf (struct graph_utility_EnumClass* self, struct graph_utility_EnumClass data){
   return data;
 }
+
+
+void graph_utility_Integer_destructor(graph_utility_Integer *self){}
+
+void graph_utility_Integer_constructor(graph_utility_Integer* self, int64_t val){
+  self->value = val;
+}
+
+bool graph_utility_Integer_operator_less (struct graph_utility_Integer* self, struct graph_utility_Integer *val){
+  return   self->value < val->value;
+}
+
+bool graph_utility_Integer_operator_equal (struct graph_utility_Integer* self, struct graph_utility_Integer *val){
+    return   self->value == val->value;
+}

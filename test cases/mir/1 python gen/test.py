@@ -198,12 +198,26 @@ assert(nt.get_none() is None)
 
 op_pt1 = _mir_wrapper.Point(3, 3)
 op_pt2 = _mir_wrapper.Point(1, 1)
-op_pt3 = op_pt1 + op_pt2
+op_pt1 += op_pt2
 
-assert(op_pt3.x==4 and op_pt3.y==4  )
-op_pt4 = op_pt3/2
-assert(op_pt4.x==2 and op_pt4.y==2  )
-op_pt5 = op_pt3/0
-assert(op_pt5 == None)
+assert(op_pt1.x==4 and op_pt1.y==4  )
+op_pt1/=2
 
+assert(op_pt1.x==2 and op_pt1.y==2  )
+op_pt1/=0
+assert(op_pt1 == None)
+
+
+int1 = _mir_wrapper.utility.Integer(1)
+int2 = _mir_wrapper.utility.Integer(2)
+assert(int1<int2)
+assert(int1<=int2)
+assert(int1<=int1)
+assert(int1==int1)
+assert(int1!=int2)
+assert(not (int1==int2))
+assert(not (int1>int2))
+assert(int2>=int2)
+assert(int2>=int1)
+assert(int2>int1)
 print('end')

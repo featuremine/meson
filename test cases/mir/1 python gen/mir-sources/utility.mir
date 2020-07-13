@@ -464,3 +464,33 @@
             [brief "result"]
             [type TestEnum]]])
 
+
+(def-class Integer
+    [brief "custon integer class"]
+    [doc "custon integer class"]
+    [def-constructor
+        [def-arg val
+            [brief "int value"]
+            [type int64]]]
+    [def-member value
+        [brief "Integer value"]
+        [type int64]]
+    [def-operator <
+        [brief "less"]
+        [doc  "less"]
+        [def-arg val
+            [brief "a value"]
+            [type Integer]#:ref]
+        [def-return 
+            [brief "result"]
+            [type bool]]]
+    [def-operator ==
+        [brief "equal"]
+        [doc  "equal"]
+        [def-arg val
+            [brief "a value"]
+            [type Integer]#:ref]
+        [def-return 
+            [brief "result"]
+            [type bool]]])
+

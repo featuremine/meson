@@ -42,7 +42,7 @@
         [def-return 
             [brief "Distance."]
             [type double]]]
-    [def-numerical add
+    [def-operator +=
         [brief "Add"]
         [doc  "Add."]
         [def-arg point
@@ -51,7 +51,7 @@
         [def-return 
             [brief "point."]
             [type Point] #:ref]]
-    [def-numerical divide
+    [def-operator /=
         [brief "Divide"]
         [doc  "Divide."]
         [def-arg val

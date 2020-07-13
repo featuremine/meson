@@ -588,28 +588,13 @@
             (format "~a(&self->data)" c-mthd-name) ret-type module ret-ref)))
       "}\n")))
 
-(define numerical-set 
-  (set "add" 
-        "substract"
-        "multiply"
-        "divide"
-        "less"
-        "less_equal"
-        "more"
-        "more_equal"
-        "equal"
-        "power"
-        "and"
-        "or"    
-        ))
-
 ;return members definition block for python object
-(define (get-numerical-methods members )
+(define (get-operators members )
   (let ([ret (make-hash)])
     (for ([memb members]) 
       (cond
-        [(numerical-def? memb) 
-          (if (set-member? numerical-set (numerical-def-num-name memb)) (hash-set! ret (numerical-def-num-name memb) memb) void)]))
+        [(operator-def? memb) 
+          (hash-set! ret (operator-def-num-name memb) memb)]))
     (if (hash-empty? ret) #f ret)))
   
 
@@ -788,7 +773,7 @@
                   (letrec ([py-type   (get-python-type-name memb module)]
                         [c-type   (get-c-type-name memb module)]
                         [memb-mmbrs  (class-def-members memb)]
-                        [num-methods (get-numerical-methods memb-mmbrs)]
+                        [operators (get-operators memb-mmbrs)]
                         [memb-has-mthds  (> (apply + (map 
                                                       (lambda (m) 
                                                         (if (method-def? m) 1 0))
@@ -915,7 +900,7 @@
                             (map 
                               (lambda (m)
                                 (cond 
-                                  [(and (method-def? m) (not (numerical-def? m)))  
+                                  [(and (method-def? m) (not (operator-def? m)))  
                                   (get-method-impl-python (get-c-type-name memb module) (get-python-type-name memb module) m module)]
                                   [else ""]
                                   ))
@@ -926,22 +911,24 @@
                               (map 
                                 (lambda (m)
                                   (cond 
-                                    [(and (method-def? m) (not (numerical-def? m)))   
+                                    [(and (method-def? m) (not (operator-def? m)))   
                                     (get-method-def-python (get-python-type-name memb module) m module)]
                                     [else ""]
                                     ))
                                 memb-mmbrs))  
                             "{NULL, NULL, 0, NULL}\n};\n")
                          "")
-                        (if num-methods 
-                          (let ([get-method (lambda(name [f "~a"][return "NULL"])
-                                              (if (hash-has-key? num-methods name) (format f (format "(PyObject* (*) (PyObject*, PyObject*))_num~a_~a" py-type name)) return))])
+                        (if operators 
+                          (let ([get-method (lambda(symb [f "~a"][return "NULL"])
+                                              (if (hash-has-key? operators symb) (format f (format "(PyObject* (*) (PyObject*, PyObject*))~a_~a" py-type (method-def-name (hash-ref operators symb #f)))) return))])
                             (string-append
                               ;add num method defenitions
                               (apply string-append
-                                (hash-map num-methods (lambda (name mthd)
-                                  (let ([struct-mthd-name (format "_num~a_~a" py-type name)]
-                                        [c-mthd-name (format "~a_numerical_~a" c-type name)]
+                                (hash-map operators (lambda (symb mthd)
+                                  (letrec (
+                                        [name (method-def-name mthd)]
+                                        [struct-mthd-name (format "~a_~a" py-type name)]
+                                        [c-mthd-name (format "~a_~a" c-type name)]
                                         [args (method-def-args mthd)]
                                         [ret-type (return-def-type (method-def-return mthd))]
                                         [ret-ref (return-def-ref (method-def-return mthd))])
@@ -978,41 +965,49 @@
                                           "}\n"))
                                       (error (format "in method ~a of ~a should be exactly one input argument" name c-type)))))))
 
-                              (if (hash-has-key? num-methods "equal")
-                                (string-append
-                                  (format "static PyObject *rich_compare~a(PyObject *obj1, PyObject *obj2, int op) {\n" py-type)
-                                  "    switch (op) {\n"
-                                  "    case Py_LT:\n"
-                                  (get-method "less" (string-append "if(~a(" (format "(~a*)obj1, obj2)) Py_RETURN_TRUE;" py-type )) "")
-                                  "      break;\n"
-                                  "    case Py_LE:\n"
-                                  (get-method "less_equal" (string-append "if(~a(" (format "(~a*)obj1, obj2)) Py_RETURN_TRUE;" py-type )) "")
-                                  "      break;\n"
-                                  "    case Py_EQ:\n"
-                                  (get-method "equal" (string-append "if(~a(" (format "(~a*)obj1, obj2)) Py_RETURN_TRUE;" py-type )) "")
-                                  "      break;\n"
-                                  "    case Py_NE:\n"
-                                  (get-method "equal" (string-append "if(~a(" (format "(~a*)obj1, obj2)) Py_RETURN_TRUE;" py-type )) "")
-                                  "      break;\n"
-                                  "    case Py_GT:\n"
-                                  (get-method "more" (string-append "if(~a(" (format "(~a*)obj1, obj2)) Py_RETURN_TRUE;" py-type )) "")
-                                  "      break;\n"
-                                  "    case Py_GE:\n"
-                                  (get-method "more_equal" (string-append "if(~a(" (format "(~a*)obj1, obj2)) Py_RETURN_TRUE;" py-type )) "")
-                                  "      break;\n"
-                                  "    }\n"
-                                  "    Py_RETURN_FALSE;\n"
-                                  "  }\n")
+                              (if (or (hash-has-key? operators "==") (hash-has-key? operators "<"))
+                                (let ([less (hash-ref operators "<" #f)]
+                                      [equal (hash-ref operators "==" #f)])
+                                  (string-append
+                                    (format "static PyObject *rich_compare~a(PyObject *obj1, PyObject *obj2, int op) {\n" py-type)
+                                    "    switch (op) {\n"
+                                    "    case Py_LT:\n"
+                                    (if less (format "if (~a_~a((~a*)obj1, obj2)==Py_True)  Py_RETURN_TRUE;\n"py-type (method-def-name less) py-type ) "")
+                                    "      break;\n"
+                                    "    case Py_LE:\n"
+                                    (if (and less equal) (format "if ((~a) ||\n (~a)) Py_RETURN_TRUE;\n"
+                                                              (format "~a_~a((~a*)obj1, obj2)==Py_True"py-type (method-def-name less) py-type )
+                                                              (format "~a_~a((~a*)obj1, obj2)==Py_True"py-type (method-def-name equal) py-type )) 
+                                                          "")
+                                    "      break;\n"
+                                    "    case Py_EQ:\n"
+                                    (if equal (format "if (~a_~a((~a*)obj1, obj2)==Py_True)  Py_RETURN_TRUE;\n"py-type (method-def-name equal) py-type ) "")
+                                    "      break;\n"
+                                    "    case Py_NE:\n"
+                                    (if equal (format "if (~a_~a((~a*)obj1, obj2)!=Py_True)  Py_RETURN_TRUE;\n"py-type (method-def-name equal) py-type ) "")
+                                    "      break;\n"
+                                    "    case Py_GT:\n"
+                                    (if (and less equal) (format "if (!(~a) &&\n !(~a)) Py_RETURN_TRUE;\n" 
+                                                          (format "~a_~a((~a*)obj1, obj2)==Py_True"py-type (method-def-name less) py-type )
+                                                          (format "~a_~a((~a*)obj1, obj2)==Py_True"py-type (method-def-name equal) py-type )) 
+                                                      "")
+                                    "      break;\n"
+                                    "    case Py_GE:\n"
+                                   (if less (format "if (~a_~a((~a*)obj1, obj2)!=Py_True)  Py_RETURN_TRUE;\n"py-type (method-def-name less) py-type ) "")
+                                    "      break;\n"
+                                    "    }\n"
+                                    "    Py_RETURN_FALSE;\n"
+                                    "  }\n"))
                                 "")
 
 
                               (format "static PyNumberMethods num_methods~a[] = {{\n" py-type) 
-                              (format "~a,       /*nb_add*/\n" (get-method "add"))
-                              (format "~a,       /*nb_substract*/\n" (get-method "substract"))
-                              (format "~a,       /*nb_multiply*/\n" (get-method "multiply"))
+                              (format "~a,       /*nb_add*/\n" (get-method "+"))
+                              (format "~a,       /*nb_substract*/\n" (get-method "-"))
+                              (format "~a,       /*nb_multiply*/\n" (get-method "*"))
                               "NULL,                           /*nb_remainder*/\n"
                               "NULL,                           /*nb_divmod*/\n"
-                              (format "~a,                     /*nb_power*/\n" (get-method "power"))
+                              (format "~a,                     /*nb_power*/\n" (get-method "^"))
                               "NULL,                           /*nb_negative*/\n"
                               "NULL,                           /*nb_positive*/\n"
                               "NULL,                           /*nb_absolute*/\n"
@@ -1020,26 +1015,26 @@
                               "NULL,                           /*nb_invert*/\n"
                               "NULL,                      /*nb_lshift*/\n"
                               "NULL,                      /*nb_rshift*/\n"
-                              (format "~a,       /*nb_and*/\n" (get-method "and"))
+                              (format "~a,       /*nb_and*/\n" (get-method "&&"))
                               "NULL,                           /*nb_xor*/\n" 
-                              (format "~a,        /*nb_or*/\n" (get-method "or"))
+                              (format "~a,        /*nb_or*/\n" (get-method "||"))
                               "NULL,                           /*nb_int*/\n"
                               "NULL,                           /*nb_reserved*/\n"
                               "NULL,                           /*nb_float*/\n"
-                              "NULL,                           /*nb_inplace_add*/\n"
-                              "NULL,                           /*nb_inplace_substract*/\n"
-                              "NULL,                           /*nb_inplace_multiply*/\n"
+                              (format "~a,                           /*nb_inplace_add*/\n" (get-method "+="))
+                              (format "~a,                           /*nb_inplace_substract*/\n" (get-method "-="))
+                              (format "~a,                           /*nb_inplace_multiply*/\n" (get-method "*="))
                               "NULL,                           /*nb_inplace_remainder*/\n"
-                              "NULL,                           /*nb_inplace_power*/\n"
+                              (format "~a,                            /*nb_inplace_power*/\n" (get-method "^="))
                               "NULL,                           /*nb_inplace_lshift*/\n"
                               "NULL,                           /*nb_inplace_rshift*/\n"
-                              "NULL,                           /*nb_inplace_and*/\n"
+                              (format "~a,                            /*nb_inplace_and*/\n" (get-method "&&"))
                               "NULL,                           /*nb_inplace_xor*/\n"
-                              "NULL,                           /*nb_inplace_or*/\n"
+                              (format "~a,                           /*nb_inplace_or*/\n" (get-method "||"))
                               "NULL,                           /*nb_floor_divide*/\n"
-                              (format "~a,                     /*nb_true_divide*/\n" (get-method "divide"))
+                              (format "~a,                     /*nb_true_divide*/\n" (get-method "/"))
                               "NULL,                           /*nb_inplace_floor_divide*/\n"
-                              "NULL,                           /*nb_inplace_true_divide*/\n"
+                              (format "~a,                                /*nb_inplace_true_divide*/\n" (get-method "/="))
                               "NULL,                           /*nb_index*/\n"
                               "NULL,                           /*nb_matrix_multiply*/\n"
                               "NULL                            /*nb_inplace_matrix_multiply*/\n"
@@ -1059,7 +1054,7 @@
                       "0,                         /* tp_setattr */\n"
                       "0,                         /* tp_compare */\n"
                       "0,                         /* tp_repr */\n"
-                      (format "~a,                         /* tp_as_number */\n" (if num-methods  (format "num_methods~a"py-type) "0"))
+                      (format "~a,                         /* tp_as_number */\n" (if operators  (format "num_methods~a"py-type) "0"))
                       "0,                         /* tp_as_sequence */\n"
                       "0,                         /* tp_as_mapping */\n"
                       "0,                         /* tp_hash */\n"
@@ -1072,7 +1067,7 @@
                       (format "\"~a\\n~a\",          /* tp_doc */\n" (class-def-brief memb) (class-def-doc memb))
                       "0,                         /* tp_traverse */\n"
                       "0,                         /* tp_clear */\n"
-                      (format "~a,                /* tp_richcompare */\n" (if (and num-methods (hash-has-key? num-methods "equal")) (format "rich_compare~a"py-type) "0"))
+                      (format "~a,                /* tp_richcompare */\n" (if (and operators (or (hash-has-key? operators "==") (hash-has-key? operators "<")) ) (format "rich_compare~a"py-type) "0"))
                       "0,                         /* tp_weaklistoffset */\n"
                       "0,                         /* tp_iter */\n"
                       "0,                         /* tp_iternext */\n"
