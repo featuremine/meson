@@ -106,8 +106,7 @@
 (define (get-format type) 
  (cond [(default-def? type)
         (hash-ref format-dict-python (type-def-name type))]
-    [(enum-def? type) 
-      "B"]
+    [(enum-def? type) "B"]
     [else "O"])) 
 
 ;use for converting from c to python
@@ -417,7 +416,6 @@
                     (format "PyTypeObject * _get_pys_~a();\n" c-type)
                     (format "~a* _get_data~a(~a *);\n" c-type py-type py-type) 
                     (format "PyObject * _new_with_data_pys_~a(~a *);\n" c-type  c-type) 
-     
                     ))]
                
               [(class-def? memb)  
@@ -588,7 +586,7 @@
             (format "~a(&self->data)" c-mthd-name) ret-type module ret-ref)))
       "}\n")))
 
-;return members definition block for python object
+;return operators hashtable from members list
 (define (get-operators members )
   (let ([ret (make-hash)])
     (for ([memb members]) 
@@ -597,8 +595,6 @@
           (hash-set! ret (operator-def-num-name memb) memb)]))
     (if (hash-empty? ret) #f ret)))
   
-
-
 ;return members definition block for python object
 (define (get-members-source module )
   (apply 
@@ -757,6 +753,7 @@
                     (format "PyTypeObject * _get~a(){return (PyTypeObject*) &~a;};\n" py-type (type_of_py_object memb module) )
                     (format "~a * _get_data_pys_~a(~a * data) {return &data->data; };\n" c-type c-type py-type)
 
+                    ;new with data
                     (format "PyObject * _new_with_data_pys_~a(~a * data){\n"  c-type c-type)
                     "if (data==NULL) Py_RETURN_NONE;\n"
                     (format "PyTypeObject *type = &~a;\n" (type_of_py_object memb module))
@@ -1090,19 +1087,24 @@
 
                       (format "PyTypeObject * _get~a(){return (PyTypeObject*) &~a;};" py-type (type_of_py_object memb module) )
                       (format "~a * _get_data_pys_~a(~a * data) {return &data->data; };\n" c-type c-type py-type)
-                      ;new with data
-                      (format "PyObject * _new_with_data_pys_~a(~a * data){\n"  c-type c-type)
-                        "if (data==NULL) Py_RETURN_NONE;\n"
-                        "if (data->_owner_!=NULL){\n"
-                        "  Py_INCREF(data->_owner_);\n"
-                        "  return data->_owner_;\n"
-                        "}\n"
+
+                      ;new with owner
+                      (format "~a * _new_with_owner_~a(){\n" c-type c-type )
                         (format "PyTypeObject *type = &~a;\n" (type_of_py_object memb module))
                         (format "~a *self;\n" py-type)
                         (format "self = (~a *)type->tp_alloc(type, 0)\n;" py-type)
-                        "if (self == NULL) Py_RETURN_NONE;\n"
+                        "if (self == NULL) return NULL;\n"
+                        "self->data._owner_ = self;\n"
+                        "return &self->data;\n}\n";
+
+                      ;new with data
+                      (format "PyObject * _new_with_data_pys_~a(~a * data){\n" c-type c-type)
+                      "if(data==NULL) Py_RETURN_NONE;\n"
+                        (format "~a* new_data = _new_with_owner_~a();"c-type c-type)
+                        "if (new_data == NULL) Py_RETURN_NONE;\n"
+                        (format "~a * self = (~a *) new_data->_owner_;\n"py-type py-type)
                         (format "memcpy (&self->data, data, sizeof(~a));\n" c-type)
-                        "data->_owner_ = self;\n"
+                        "self->data._owner_ = self;\n"
                         "Py_INCREF(self);\n"
                         "return(PyObject *) self;\n}\n";
 
@@ -1630,13 +1632,21 @@
           (format "~a * _new_pys_~a()\n{  return malloc(sizeof(~a)); }\n" py-type c-type py-type)
           (format "void _free_pys_~a(~a * callable)\n{  free (callable); }\n" c-type py-type)
 
-          ;new with data
-          (format "PyObject * _new_with_data_pys_~a(~a * data){\n" c-type c-type)
-           "if(data==NULL) Py_RETURN_NONE;\n"
+          ;new with owner
+          (format "~a * _new_with_owner_~a(){\n" c-type c-type )
             (format "PyTypeObject *type = &~a;\n" (type_of_py_object memb module))
             (format "~a *self;\n" py-type)
             (format "self = (~a *)type->tp_alloc(type, 0)\n;" py-type)
-            "if (self == NULL) Py_RETURN_NONE;\n"
+            "if (self == NULL) return NULL;\n"
+            "self->data._owner_ = self;\n"
+            "return &self->data;\n}\n";
+          
+          ;new with data
+          (format "PyObject * _new_with_data_pys_~a(~a * data){\n" c-type c-type)
+           "if(data==NULL) Py_RETURN_NONE;\n"
+            (format "~a* new_data = _new_with_owner_~a();"c-type c-type)
+            "if (new_data == NULL) Py_RETURN_NONE;\n"
+            (format "~a * self = (~a *) new_data->_owner_;\n"py-type py-type)
             (format "memcpy (&self->data, data, sizeof(~a));\n" c-type)
             "self->data._owner_ = self;\n"
             "Py_INCREF(self);\n"

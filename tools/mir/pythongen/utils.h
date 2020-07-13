@@ -36,7 +36,7 @@ extern "C"
 
        mir_callable_struct *mir_callable_new_();
        void mir_callable_del_(mir_callable_struct *);
-       void mir_callable_copy_implace_(mir_callable_struct *dest, mir_callable_struct *src);
+       void mir_callable_copy_inplace_(mir_callable_struct *dest, mir_callable_struct *src);
        mir_callable_struct *mir_callable_copy_new_(mir_callable_struct *obj);
        size_t mir_callable_size_();
 
