@@ -106,7 +106,7 @@ graph_Point *c_p_callback(double K, void *c) { return ((c_p_callb)c)(K); };
 rl_graph_Point_a_double *graph_utility_Utility_get_callable_with_ref(
     struct graph_utility_Utility *self) {
   printf("hello from c\n");
-  rl_graph_Point_a_double *callback = malloc(sizeof(rl_graph_Point_a_double));
+  rl_graph_Point_a_double *callback = rl_graph_Point_a_double_get_descr()->new_();
   callback->closure = c_p_closure;
   callback->func = c_p_callback;
   callback->free = c_free;
