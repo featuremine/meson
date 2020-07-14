@@ -28,11 +28,11 @@ typedef struct{
 
 void mir_inc_ref(void *obj) {
   if ((mir_object*)obj != NULL && ((mir_object*)obj)->_owner_  != NULL && ((mir_object*)obj)->_owner_  != Py_None)
-    Py_INCREF(obj);
+    Py_INCREF(((mir_object*)obj)->_owner_);
 }
 void mir_dec_ref(void *obj) {
   if ((mir_object*)obj != NULL && ((mir_object*)obj)->_owner_  != NULL && ((mir_object*)obj)->_owner_  != Py_None)
-    Py_DECREF(obj);
+    Py_DECREF(((mir_object*)obj)->_owner_);
 }
 
 void mir_callable_del_(mir_callable_struct *obj) {
