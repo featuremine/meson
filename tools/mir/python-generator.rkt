@@ -65,7 +65,7 @@
             (callable-def-args type))
           ", ")
         (format "], ~a]"(get-typing-python (return-def-type (callable-def-return type)))))]
-  
+    [(enum-def? type) "int"]
     [else (format "~a"(string-join (cdr (string-split (type-def-name type) ".")) "."))]))
 
 ;use as arguments for Pytuple
@@ -104,9 +104,10 @@
 
 ;wrapper function for formats
 (define (get-format type) 
-  (if (default-def? type)
-    (hash-ref format-dict-python (type-def-name type))
-    "O")) 
+ (cond [(default-def? type)
+        (hash-ref format-dict-python (type-def-name type))]
+    [(enum-def? type) "B"]
+    [else "O"])) 
 
 ;use for converting from c to python
 (define to-python-dict '#hash(
@@ -132,6 +133,8 @@
     (hash-ref to-python-dict (type-def-name type))]
      [(alias-def? type) 
       (to-python-type (alias-def-type type))]
+    [(enum-def? type) 
+      "PyLong_FromLong(~a)"]
     [else
     #f]))
 
@@ -175,6 +178,13 @@
   ("none" . "PyNone ~a")
   ))
 
+;wrapper for convertations from c to python
+(define (to-c-type type module)
+ (cond [(default-def? type)
+        (hash-ref to-c-dict (type-def-name type))]
+      [(enum-def? type) "PyLong_AsLong(~a)"]
+      [else (format "_get_data~a(~a)" (get-python-type-name type module) "~a")]))
+
 ;using for converting from c to python TypeObject
 (define py_type_objects '#hash(
   ("char" . "PyUnicode_Type") 
@@ -199,13 +209,8 @@
         (format "&~a" (hash-ref py_type_objects (type-def-name type)))]
       [(alias-def? type)
         (get-python-type-object (alias-def-type type) mod)]
+      [(enum-def? type) "&PyLongType"]
       [else  (format "_get~a()" (get-python-type-name type mod))]))
-
-;wrapper for convertations from c to python
-(define (to-c-type type module)
-  (if (default-def? type) 
-    (hash-ref to-c-dict (type-def-name type))
-    (format "_get_data~a(~a)" (get-python-type-name type module) "~a")))
 
 ;get struct word if struct as string
 (define (get-if-struct type)
@@ -218,6 +223,7 @@
         (hash-ref type-dict (type-def-name type))]
       [(alias-def? type)
         (get-python-type-name (alias-def-type type) mod)]
+      [(enum-def? type) "PyLong_Type"]
       [else  
       (let ([env (module-def-env mod)]
             [id  (type-def-name type)])
@@ -234,6 +240,7 @@
         (hash-ref type-args-python (type-def-name type))]
       [(alias-def? type)
         (get-python-arg-type-name (alias-def-type type) mod)]
+      [(enum-def? type) "uint8_t"]
       [else   
       (let ([env (module-def-env mod)]
             [id  (type-def-name type)])
@@ -409,7 +416,6 @@
                     (format "PyTypeObject * _get_pys_~a();\n" c-type)
                     (format "~a* _get_data~a(~a *);\n" c-type py-type py-type) 
                     (format "PyObject * _new_with_data_pys_~a(~a *);\n" c-type  c-type) 
-     
                     ))]
                
               [(class-def? memb)  
@@ -490,12 +496,14 @@
             (if member-ref?
               "*"
               "")
-            (if (or  (default-def? origin-type) member-ref?) 
+            (if (or  (default-def? origin-type) (enum-def? origin-type) member-ref?) 
               "" "*")
             (format (to-c-type origin-type module) 
-              (if (default-def? origin-type)  
-              "value" 
-              (format "(~a*)value" type-name-python ))))
+              (cond 
+                [(default-def? origin-type) "value" ]  
+                [(enum-def? origin-type) "value" ] 
+                [else (format "(~a*)value" type-name-python )]
+              )))
           "if (PyErr_Occurred()) {\n\treturn -1;\n\t}\n" 
           (format "self->data.~a = val;\n" name)
           "return 0;\n}\n")))))
@@ -549,7 +557,7 @@
                 args)
               ", ")
             )
-          "PyErr_SetString(PyExc_RuntimeError, \"Unable to parse args\");\n"
+   
           "\treturn NULL;\n}\n" 
 
           ;check obj args
@@ -578,6 +586,15 @@
             (format "~a(&self->data)" c-mthd-name) ret-type module ret-ref)))
       "}\n")))
 
+;return operators hashtable from members list
+(define (get-operators members )
+  (let ([ret (make-hash)])
+    (for ([memb members]) 
+      (cond
+        [(operator-def? memb) 
+          (hash-set! ret (operator-def-num-name memb) memb)]))
+    (if (hash-empty? ret) #f ret)))
+  
 ;return members definition block for python object
 (define (get-members-source module )
   (apply 
@@ -637,7 +654,7 @@
                                   args)
                                 ", ")
                               )
-                            "PyErr_SetString(PyExc_RuntimeError, \"Unable to parse args\");\n"
+                     
                             "\treturn -1;\n}\n" 
 
                             ;check obj args
@@ -736,6 +753,7 @@
                     (format "PyTypeObject * _get~a(){return (PyTypeObject*) &~a;};\n" py-type (type_of_py_object memb module) )
                     (format "~a * _get_data_pys_~a(~a * data) {return &data->data; };\n" c-type c-type py-type)
 
+                    ;new with data
                     (format "PyObject * _new_with_data_pys_~a(~a * data){\n"  c-type c-type)
                     "if (data==NULL) Py_RETURN_NONE;\n"
                     (format "PyTypeObject *type = &~a;\n" (type_of_py_object memb module))
@@ -749,9 +767,10 @@
                     
                 ))]
                 [(class-def? memb)  
-                  (let ([py-type   (get-python-type-name memb module)]
+                  (letrec ([py-type   (get-python-type-name memb module)]
                         [c-type   (get-c-type-name memb module)]
                         [memb-mmbrs  (class-def-members memb)]
+                        [operators (get-operators memb-mmbrs)]
                         [memb-has-mthds  (> (apply + (map 
                                                       (lambda (m) 
                                                         (if (method-def? m) 1 0))
@@ -804,7 +823,7 @@
                                   args)
                                 ", ")
                               )
-                            "PyErr_SetString(PyExc_RuntimeError, \"Unable to parse args\");\n"
+                   
                             "\treturn -1;\n}\n" 
 
                             ;check obj args
@@ -878,7 +897,7 @@
                             (map 
                               (lambda (m)
                                 (cond 
-                                  [(method-def? m)  
+                                  [(and (method-def? m) (not (operator-def? m)))  
                                   (get-method-impl-python (get-c-type-name memb module) (get-python-type-name memb module) m module)]
                                   [else ""]
                                   ))
@@ -889,13 +908,135 @@
                               (map 
                                 (lambda (m)
                                   (cond 
-                                    [(method-def? m)  
+                                    [(and (method-def? m) (not (operator-def? m)))   
                                     (get-method-def-python (get-python-type-name memb module) m module)]
                                     [else ""]
                                     ))
                                 memb-mmbrs))  
                             "{NULL, NULL, 0, NULL}\n};\n")
                          "")
+                        (if operators 
+                          (let ([get-method (lambda(symb [f "~a"][return "NULL"])
+                                              (if (hash-has-key? operators symb) (format f (format "(PyObject* (*) (PyObject*, PyObject*))~a_~a" py-type (method-def-name (hash-ref operators symb #f)))) return))])
+                            (string-append
+                              ;add num method defenitions
+                              (apply string-append
+                                (hash-map operators (lambda (symb mthd)
+                                  (letrec (
+                                        [name (method-def-name mthd)]
+                                        [struct-mthd-name (format "~a_~a" py-type name)]
+                                        [c-mthd-name (format "~a_~a" c-type name)]
+                                        [args (method-def-args mthd)]
+                                        [ret-type (return-def-type (method-def-return mthd))]
+                                        [ret-ref (return-def-ref (method-def-return mthd))])
+                                    (if (= (length args) 1)
+                                      (letrec ([arg-name (arg-def-name (car args))]
+                                               [arg-type (arg-def-type (car args))]
+                                               [arg-c-type (get-c-type-name arg-type module)]
+                                               [arg-py-type (get-python-type-name arg-type module)]
+                                               [arg-value-name (format "_pyarg_~a" arg-name)])  
+                                        (string-append
+                                          (format "static PyObject* ~a(~a* self, PyObject* obj) {\n" struct-mthd-name py-type)
+                                          (if (default-def? (arg-def-type (car args)))
+                                            (string-append 
+                                              (type-check-return-section "obj" (format "&~a"(hash-ref type-dict-python (type-def-name arg-type)))  (type-def-name arg-type) "NULL")
+                                              (format "~a ~a = ~a;\n" arg-c-type arg-value-name (format (to-c-type (arg-def-type (car args)) module) "obj")))
+                                            (string-append 
+                                              (format "~a* ~a = (~a*) obj;\n" arg-py-type  arg-value-name arg-py-type)
+                                              (check-arg-block (arg-def-type (car args)) (arg-def-name (car args)) module "NULL")))
+                                          ;return section
+                                          (build-return-section             
+                                            (string-append
+                                              (format "~a(&self->data, " c-mthd-name)
+                                                (string-join 
+                                                  (map 
+                                                    (lambda (arg)
+                                                      (let ([arg-type (arg-def-type arg)]
+                                                            [arg-name (arg-def-name arg)])
+                                                        (return-arg-representation arg-type arg-name (arg-def-ref arg) module )))
+                                                    args)
+                                                  ", ")
+                                              ")"
+                                              ) ret-type module ret-ref)  
+
+                                          "}\n"))
+                                      (error (format "in method ~a of ~a should be exactly one input argument" name c-type)))))))
+
+                              (if (or (hash-has-key? operators "==") (hash-has-key? operators "<"))
+                                (let ([less (hash-ref operators "<" #f)]
+                                      [equal (hash-ref operators "==" #f)])
+                                  (string-append
+                                    (format "static PyObject *rich_compare~a(PyObject *obj1, PyObject *obj2, int op) {\n" py-type)
+                                    "    switch (op) {\n"
+                                    "    case Py_LT:\n"
+                                    (if less (format "if (~a_~a((~a*)obj1, obj2)==Py_True)  Py_RETURN_TRUE;\n"py-type (method-def-name less) py-type ) "")
+                                    "      break;\n"
+                                    "    case Py_LE:\n"
+                                    (if (and less equal) (format "if ((~a) ||\n (~a)) Py_RETURN_TRUE;\n"
+                                                              (format "~a_~a((~a*)obj1, obj2)==Py_True"py-type (method-def-name less) py-type )
+                                                              (format "~a_~a((~a*)obj1, obj2)==Py_True"py-type (method-def-name equal) py-type )) 
+                                                          "")
+                                    "      break;\n"
+                                    "    case Py_EQ:\n"
+                                    (if equal (format "if (~a_~a((~a*)obj1, obj2)==Py_True)  Py_RETURN_TRUE;\n"py-type (method-def-name equal) py-type ) "")
+                                    "      break;\n"
+                                    "    case Py_NE:\n"
+                                    (if equal (format "if (~a_~a((~a*)obj1, obj2)!=Py_True)  Py_RETURN_TRUE;\n"py-type (method-def-name equal) py-type ) "")
+                                    "      break;\n"
+                                    "    case Py_GT:\n"
+                                    (if (and less equal) (format "if (!(~a) &&\n !(~a)) Py_RETURN_TRUE;\n" 
+                                                          (format "~a_~a((~a*)obj1, obj2)==Py_True"py-type (method-def-name less) py-type )
+                                                          (format "~a_~a((~a*)obj1, obj2)==Py_True"py-type (method-def-name equal) py-type )) 
+                                                      "")
+                                    "      break;\n"
+                                    "    case Py_GE:\n"
+                                   (if less (format "if (~a_~a((~a*)obj1, obj2)!=Py_True)  Py_RETURN_TRUE;\n"py-type (method-def-name less) py-type ) "")
+                                    "      break;\n"
+                                    "    }\n"
+                                    "    Py_RETURN_FALSE;\n"
+                                    "  }\n"))
+                                "")
+
+
+                              (format "static PyNumberMethods num_methods~a[] = {{\n" py-type) 
+                              (format "~a,       /*nb_add*/\n" (get-method "+"))
+                              (format "~a,       /*nb_substract*/\n" (get-method "-"))
+                              (format "~a,       /*nb_multiply*/\n" (get-method "*"))
+                              "NULL,                           /*nb_remainder*/\n"
+                              "NULL,                           /*nb_divmod*/\n"
+                              (format "~a,                     /*nb_power*/\n" (get-method "^"))
+                              "NULL,                           /*nb_negative*/\n"
+                              "NULL,                           /*nb_positive*/\n"
+                              "NULL,                           /*nb_absolute*/\n"
+                              "NULL,                           /*nb_bool*/\n"
+                              "NULL,                           /*nb_invert*/\n"
+                              "NULL,                      /*nb_lshift*/\n"
+                              "NULL,                      /*nb_rshift*/\n"
+                              (format "~a,       /*nb_and*/\n" (get-method "&&"))
+                              "NULL,                           /*nb_xor*/\n" 
+                              (format "~a,        /*nb_or*/\n" (get-method "||"))
+                              "NULL,                           /*nb_int*/\n"
+                              "NULL,                           /*nb_reserved*/\n"
+                              "NULL,                           /*nb_float*/\n"
+                              (format "~a,                           /*nb_inplace_add*/\n" (get-method "+="))
+                              (format "~a,                           /*nb_inplace_substract*/\n" (get-method "-="))
+                              (format "~a,                           /*nb_inplace_multiply*/\n" (get-method "*="))
+                              "NULL,                           /*nb_inplace_remainder*/\n"
+                              (format "~a,                            /*nb_inplace_power*/\n" (get-method "^="))
+                              "NULL,                           /*nb_inplace_lshift*/\n"
+                              "NULL,                           /*nb_inplace_rshift*/\n"
+                              (format "~a,                            /*nb_inplace_and*/\n" (get-method "&&"))
+                              "NULL,                           /*nb_inplace_xor*/\n"
+                              (format "~a,                           /*nb_inplace_or*/\n" (get-method "||"))
+                              "NULL,                           /*nb_floor_divide*/\n"
+                              (format "~a,                     /*nb_true_divide*/\n" (get-method "/"))
+                              "NULL,                           /*nb_inplace_floor_divide*/\n"
+                              (format "~a,                                /*nb_inplace_true_divide*/\n" (get-method "/="))
+                              "NULL,                           /*nb_index*/\n"
+                              "NULL,                           /*nb_matrix_multiply*/\n"
+                              "NULL                            /*nb_inplace_matrix_multiply*/\n"
+                              "}};\n"))
+                            "")
 
 
                       "//py-typeobject\n"
@@ -910,7 +1051,7 @@
                       "0,                         /* tp_setattr */\n"
                       "0,                         /* tp_compare */\n"
                       "0,                         /* tp_repr */\n"
-                      "0,                         /* tp_as_number */\n"
+                      (format "~a,                         /* tp_as_number */\n" (if operators  (format "num_methods~a"py-type) "0"))
                       "0,                         /* tp_as_sequence */\n"
                       "0,                         /* tp_as_mapping */\n"
                       "0,                         /* tp_hash */\n"
@@ -923,7 +1064,7 @@
                       (format "\"~a\\n~a\",          /* tp_doc */\n" (class-def-brief memb) (class-def-doc memb))
                       "0,                         /* tp_traverse */\n"
                       "0,                         /* tp_clear */\n"
-                      "0,                         /* tp_richcompare */\n"
+                      (format "~a,                /* tp_richcompare */\n" (if (and operators (or (hash-has-key? operators "==") (hash-has-key? operators "<")) ) (format "rich_compare~a"py-type) "0"))
                       "0,                         /* tp_weaklistoffset */\n"
                       "0,                         /* tp_iter */\n"
                       "0,                         /* tp_iternext */\n"
@@ -946,19 +1087,24 @@
 
                       (format "PyTypeObject * _get~a(){return (PyTypeObject*) &~a;};" py-type (type_of_py_object memb module) )
                       (format "~a * _get_data_pys_~a(~a * data) {return &data->data; };\n" c-type c-type py-type)
-                      ;new with data
-                      (format "PyObject * _new_with_data_pys_~a(~a * data){\n"  c-type c-type)
-                        "if (data==NULL) Py_RETURN_NONE;\n"
-                        "if (data->_owner_!=NULL){\n"
-                        "  Py_INCREF(data->_owner_);\n"
-                        "  return data->_owner_;\n"
-                        "}\n"
+
+                      ;new with owner
+                      (format "~a * _new_with_owner_~a(){\n" c-type c-type )
                         (format "PyTypeObject *type = &~a;\n" (type_of_py_object memb module))
                         (format "~a *self;\n" py-type)
                         (format "self = (~a *)type->tp_alloc(type, 0)\n;" py-type)
-                        "if (self == NULL) Py_RETURN_NONE;\n"
+                        "if (self == NULL) return NULL;\n"
+                        "self->data._owner_ = self;\n"
+                        "return &self->data;\n}\n";
+
+                      ;new with data
+                      (format "PyObject * _new_with_data_pys_~a(~a * data){\n" c-type c-type)
+                      "if(data==NULL) Py_RETURN_NONE;\n"
+                        (format "~a* new_data = _new_with_owner_~a();"c-type c-type)
+                        "if (new_data == NULL) Py_RETURN_NONE;\n"
+                        (format "~a * self = (~a *) new_data->_owner_;\n"py-type py-type)
                         (format "memcpy (&self->data, data, sizeof(~a));\n" c-type)
-                        "data->_owner_ = self;\n"
+                        "self->data._owner_ = self;\n"
                         "Py_INCREF(self);\n"
                         "return(PyObject *) self;\n}\n";
 
@@ -1062,6 +1208,8 @@
  (cond 
                [(default-def? arg-type) 
                 (format "~a _pyarg_~a;\n" arg-py-type arg-name)]
+               [(enum-def? arg-type) 
+                (format "~a _pyarg_~a;\n" arg-py-type arg-name)]
                [(alias-def?  arg-type) 
                   (arg-initialisation-block
                     (alias-def-type arg-type) 
@@ -1086,18 +1234,23 @@
             (arg-initialisation-block arg-type arg-name arg-py-type arg-c-type module)))
       args)))
 
+;type check return section section
+(define (type-check-return-section py-type arg-value arg-type-name ret-val)
+  (string-append
+    (format "if (!PyObject_TypeCheck(~a, ~a)) {\n" py-type arg-value )
+    (format "PyErr_SetString(PyExc_TypeError, \"Argument provided must be an ~a\");\n" arg-type-name)
+    (format "return ~a;\n}\n" ret-val)))   
+
 ;add block with one argument checks
 (define (check-arg-block arg-type arg-name module ret-val)   
   (cond 
     [(default-def? arg-type) ""]
     [(alias-def?  arg-type) (check-arg-block (alias-def-type arg-type) arg-name module ret-val)]
+    [(enum-def?  arg-type) ""]
     [(callable-def? arg-type) 
       (callable-check-block arg-type (format "_pyarg_~a" arg-name)  (format "_pyargdata_~a" arg-name) (get-python-type-name arg-type module) (get-c-type-name arg-type module) module ret-val)]
-    [else               
-      (string-append
-        (format "if (!PyObject_TypeCheck(_pyarg_~a, _get~a())) {\n" arg-name (get-python-arg-type-name arg-type module))
-        (format "PyErr_SetString(PyExc_TypeError, \"Argument provided must be an ~a\");\n" (type-def-name arg-type))
-         (format "return ~a;\n}\n" ret-val))]))
+    [else    
+      (type-check-return-section (format "_pyarg_~a" arg-name )   (format "_get~a()" (get-python-arg-type-name arg-type module)) (type-def-name arg-type) ret-val)]))
 
 ;add block with arguments checks
 (define (check-args-block args module ret-val)
@@ -1118,6 +1271,8 @@
                             (format "_pyarg_~a" arg-name)]
                       [(callable-def? arg-type) 
                             (format "_pyargdata_~a" arg-name)]
+                      [(enum-def? arg-type) 
+                            (format "_pyarg_~a" arg-name)]
                       [else
                             (if arg-ref? 
                               (format "_get_data~a(_pyarg_~a)"  (get-python-arg-type-name arg-type module) arg-name)  
@@ -1140,12 +1295,8 @@
     (string-join ns "_"))
 
 ;return module defenition
-(define (add-module-def brief doc moduledef module-name ns module)
-  (let (
-        [members  (namespace-def-members ns)]) 
+(define (add-module-def brief doc moduledef module-name ns module) 
   (string-append
-    ;add callables
-
       ;add-module-def
       "static PyModuleDef\n"
       (format "~a = {\n" moduledef)
@@ -1159,7 +1310,7 @@
       "    NULL,       /* clear */\n"
       "    NULL\n"
       "};\n")
-  ))
+  )
 
 ;return namespaces hash map
 (define (get-module-namespaces main-module module-map)
@@ -1214,9 +1365,25 @@
       (apply string-append 
         (hash-map ns-map
           (lambda (name ns)
-            (add-module-def (namespace-def-brief ns) (namespace-def-brief ns) (format "_pymod_~a_def" name) name ns module))
+            (add-module-def (namespace-def-brief ns) (namespace-def-doc ns) (format "_pymod_~a_def" name) name ns module))
                   ns-map))
-      
+
+      ;add enums
+      "//Enum module defenitions\n"
+      (apply string-append 
+        (hash-map module-map
+          (lambda (path mod)
+              (apply string-append
+                (map (lambda (memb) 
+                    (let (
+                      [ns (string-join (module-def-ns mod) "_")])
+                      (cond
+                        [(enum-def? memb)  
+                        (let ([type-name (get-c-type-name memb module) ])
+                         (add-module-def (enum-def-brief memb) (enum-def-doc memb) (format "_py_enum_mod_~a_def" type-name)  (car (reverse (string-split (type-def-name memb) "."))) ns mod))]
+                        [else ""])))
+                    (module-def-defs mod))))))
+
       "//add member to module\n"
       "int add_type_to_module(PyObject * _py_mod, PyTypeObject * _py_arg_type, const char * name ) {\n"
       "_py_arg_type->tp_new = PyType_GenericNew;\n"
@@ -1285,6 +1452,38 @@
               (get-module-mebers-block mod modulearg)))) 
       
 
+      ;add enums
+      (apply string-append 
+        (hash-map module-map
+          (lambda (path mod)
+              (apply string-append
+                (map (lambda (memb) 
+                    (let (
+                      [ns (string-join (module-def-ns mod) "_")])
+                      (cond
+                        [(enum-def? memb)  
+                            (let ([type-name (get-c-type-name memb module) ])
+                              (string-append
+                                (format "//add enum ~a\n" type-name)
+                                "{\n"
+                                (format "\tPyObject * ~a = PyModule_Create(&~a);\n" (format "_py_enum_mod_~a" type-name) (format "_py_enum_mod_~a_def" type-name))
+                                (format "\tif (~a == NULL) {\n" (format "_py_enum_mod_~a" type-name))
+                                "\t\treturn NULL;\n"
+                                "\t}\n"
+                                (format "\tadd_object_to_module (_pyargmod_~a, _py_enum_mod_~a, \"~a\");\n"  ns type-name (car (reverse (string-split (type-def-name memb) "."))))
+                                (string-join  
+                                  (map 
+                                    (lambda (val)
+                                      (let (
+                                          [name (format "~a_~a" type-name (enum-value-def-name val))]
+                                          [value (enum-value-def-value val)])
+                                        (format "\tPyModule_AddObject(_py_enum_mod_~a, \"~a\", PyLong_FromLong(~a));" type-name (enum-value-def-name val) name)))
+                                    (enum-def-members memb))
+                                  "\n")
+                                "\n}\n"))]
+                        [else ""])))
+                    (module-def-defs mod))))))
+
       ;add callables
       (apply string-append 
         (hash-map (module-def-env module)
@@ -1340,47 +1539,49 @@
           (args-initialisation-block args module)
 
           ;parse args TODO: create common block for all PyArg_ParseTuple
-          (format "if (!PyArg_ParseTuple(args, \"~a\", ~a)) {\n"
-            ;formats
-              (apply string-append 
-                (map 
-                  (lambda (arg)
-                    (let ([arg-type (arg-def-type arg)])
-                      (get-format arg-type)))
-                  args))
-            ;references
-            (string-join 
-              (map 
-                (lambda (arg)
-                  (let ([arg-name (arg-def-name arg)])
-                    (format "&_pyarg_~a" arg-name)))
-                args)
-              ", ")
-            )
+          (if (>(length args) 0)
+            (string-append
+              (format "if (!PyArg_ParseTuple(args, \"~a\", ~a)) {\n"
+                ;formats
+                  (apply string-append 
+                    (map 
+                      (lambda (arg)
+                        (let ([arg-type (arg-def-type arg)])
+                          (get-format arg-type)))
+                      args))
+                ;references
+                (string-join 
+                  (map 
+                    (lambda (arg)
+                      (let ([arg-name (arg-def-name arg)])
+                        (format "&_pyarg_~a" arg-name)))
+                    args)
+                  ", "))
+           
             
-          "\treturn NULL;\n}\n" 
-            (check-args-block args module "NULL")
+          "\treturn NULL;\n}\n") 
+            "")
 
+          (check-args-block args module "NULL")
 
           "//return section\n"
           (build-return-section 
-            (string-append
-              (format "\n((~a *)self)\n->data.func(" py-type)
+              (string-append
+                (format "\n((~a *)self)\n->data.func(" py-type)
                 (string-join
-                  (map 
-                    (lambda (arg)
-                      (let (
-                            [arg-name (arg-def-name arg)]
-                            [arg-type (arg-def-type arg)]
-                            [arg-python-type (get-python-arg-type-name (arg-def-type arg) module)]
-                            )
-                            (return-arg-representation arg-type arg-name (arg-def-ref arg) module)
-                          ))
-                    args)
-                    ", ")
-            (format ",\n((~a *)self)->data.closure)"py-type)
-              )
-          
+                  (append
+                    (map 
+                      (lambda (arg)
+                        (let (
+                              [arg-name (arg-def-name arg)]
+                              [arg-type (arg-def-type arg)]
+                              [arg-python-type (get-python-arg-type-name (arg-def-type arg) module)]
+                              )
+                              (return-arg-representation arg-type arg-name (arg-def-ref arg) module)
+                            ))
+                      args)
+                    (list (format "\n((~a *)self)->data.closure)"py-type)))
+                      ", "))
             ret-type module ret-ref)
             "\n};\n"
 
@@ -1431,13 +1632,21 @@
           (format "~a * _new_pys_~a()\n{  return malloc(sizeof(~a)); }\n" py-type c-type py-type)
           (format "void _free_pys_~a(~a * callable)\n{  free (callable); }\n" c-type py-type)
 
-          ;new with data
-          (format "PyObject * _new_with_data_pys_~a(~a * data){\n" c-type c-type)
-           "if(data==NULL) Py_RETURN_NONE;\n"
+          ;new with owner
+          (format "~a * _new_with_owner_~a(){\n" c-type c-type )
             (format "PyTypeObject *type = &~a;\n" (type_of_py_object memb module))
             (format "~a *self;\n" py-type)
             (format "self = (~a *)type->tp_alloc(type, 0)\n;" py-type)
-            "if (self == NULL) Py_RETURN_NONE;\n"
+            "if (self == NULL) return NULL;\n"
+            "self->data._owner_ = self;\n"
+            "return &self->data;\n}\n";
+          
+          ;new with data
+          (format "PyObject * _new_with_data_pys_~a(~a * data){\n" c-type c-type)
+           "if(data==NULL) Py_RETURN_NONE;\n"
+            (format "~a* new_data = _new_with_owner_~a();"c-type c-type)
+            "if (new_data == NULL) Py_RETURN_NONE;\n"
+            (format "~a * self = (~a *) new_data->_owner_;\n"py-type py-type)
             (format "memcpy (&self->data, data, sizeof(~a));\n" c-type)
             "self->data._owner_ = self;\n"
             "Py_INCREF(self);\n"

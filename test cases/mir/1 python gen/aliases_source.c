@@ -20,8 +20,7 @@ graph_aliases_Vector2d *c_pr_callback(graph_aliases_Vector2d *point, void *c) {
 graph_aliases_Vector2d *graph_aliases_AliasClass_setCallable(
     struct graph_aliases_AliasClass *self,
     rl_graph_aliases_Vector2d_al_graph_aliases_Vector2d *callable) {
-  graph_aliases_Vector2d *point = malloc(sizeof(*point));
-  point->_owner_ = NULL;
+  graph_aliases_Vector2d *point =  graph_Point_get_descr()->new_();
   graph_aliases_Vector2d *ret = callable->func(point, callable->closure);
   callable->free(callable->closure);
   // free(callable);

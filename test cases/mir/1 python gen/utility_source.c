@@ -27,7 +27,7 @@ char *graph_utility_Utility_concat_strings(struct graph_utility_Utility *self,
   return result;
 }
 
-int32_t graph_utility_Utility_add(struct graph_utility_Utility *self, int32_t a,
+int32_t graph_utility_Utility_add1(struct graph_utility_Utility *self, int32_t a,
                                   int32_t b) {
   return a + b;
 }
@@ -95,10 +95,9 @@ typedef graph_Point *(*c_p_callb)(double K);
 graph_Point *c_p_closure(double K) {
   printf("c callback with params %f\n", K);
 
-  graph_Point *p = malloc(sizeof(graph_Point));
+  graph_Point *p = graph_Point_get_descr()->new_();
   p->x = 3;
   p->y = 4;
-  p->_owner_ = NULL;
   return p;
 };
 
@@ -122,10 +121,9 @@ int32_t graph_utility_Utility_add_callable2(
 
 graph_Point *
 graph_utility_Utility_get_point_ref(struct graph_utility_Utility *self) {
-  graph_Point *point = malloc(sizeof(graph_Point));
+  graph_Point *point = graph_Point_get_descr()->new_();
   point->x = 3;
   point->y = 4;
-  point->_owner_ = NULL;
   return point;
 };
 
@@ -222,4 +220,37 @@ void graph_utility_NoneTester_constructor(graph_utility_NoneTester *self) {}
 struct graph_Point *
 graph_utility_NoneTester_get_none(struct graph_utility_NoneTester *self) {
   return NULL;
+}
+
+
+
+void graph_utility_EnumClass_destructor(graph_utility_EnumClass *self){
+
+}
+
+void graph_utility_EnumClass_constructor(graph_utility_EnumClass* self){
+
+}
+
+graph_utility_TestEnum graph_utility_EnumClass_set_enum (struct graph_utility_EnumClass* self, graph_utility_TestEnum testEnum){
+  self->testEnum = testEnum;
+  return testEnum;
+}
+struct graph_utility_EnumClass graph_utility_EnumClass_getHimSelf (struct graph_utility_EnumClass* self, struct graph_utility_EnumClass data){
+  return data;
+}
+
+
+void graph_utility_Integer_destructor(graph_utility_Integer *self){}
+
+void graph_utility_Integer_constructor(graph_utility_Integer* self, int64_t val){
+  self->value = val;
+}
+
+bool graph_utility_Integer_operator_less (struct graph_utility_Integer* self, struct graph_utility_Integer *val){
+  return   self->value < val->value;
+}
+
+bool graph_utility_Integer_operator_equal (struct graph_utility_Integer* self, struct graph_utility_Integer *val){
+    return   self->value == val->value;
 }

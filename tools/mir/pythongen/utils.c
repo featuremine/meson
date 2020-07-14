@@ -22,12 +22,16 @@
 #include "mir/pythongen/utils.h"
 void free_closure(void *closure) { Py_DECREF(closure); }
 
+typedef struct{
+  void * _owner_; 
+}mir_object;
+
 void mir_inc_ref(void *obj) {
-  if (obj != NULL && obj != Py_None)
+  if ((mir_object*)obj != NULL && ((mir_object*)obj)->_owner_  != NULL && ((mir_object*)obj)->_owner_  != Py_None)
     Py_INCREF(obj);
 }
 void mir_dec_ref(void *obj) {
-  if (obj != NULL && obj != Py_None)
+  if ((mir_object*)obj != NULL && ((mir_object*)obj)->_owner_  != NULL && ((mir_object*)obj)->_owner_  != Py_None)
     Py_DECREF(obj);
 }
 
@@ -41,7 +45,7 @@ mir_callable_struct *mir_callable_new_() {
   return _obj;
 }
 
-void mir_callable_copy_implace_(mir_callable_struct *dest,
+void mir_callable_copy_inplace_(mir_callable_struct *dest,
                                 mir_callable_struct *src) {
 
   memcpy(dest, src, sizeof(mir_callable_struct));
@@ -50,7 +54,7 @@ void mir_callable_copy_implace_(mir_callable_struct *dest,
 
 mir_callable_struct *mir_callable_copy_new_(mir_callable_struct *obj) {
   mir_callable_struct *copy = malloc(sizeof(mir_callable_struct));
-  mir_callable_copy_implace_(copy, obj);
+  mir_callable_copy_inplace_(copy, obj);
   return copy;
 }
 

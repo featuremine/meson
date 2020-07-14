@@ -35,8 +35,24 @@
 ;list of default types
 (define default-types (list 'char 'pointer 'none 'string 'int8 'int16 'int32 'int64 'uint8 'uint16 'uint32 'uint64 'bool 'double))
 
+;hash of operator symbols
+(define operator-dict-python '#hash(
+  (+= . "inplace_add") 
+  (-= . "inplace_substract") 
+  (/= . "inplace_divide") 
+  (*= . "inplace_multiply") 
+  (< . "less") 
+  (== . "equal") 
+  (&& . "and") 
+  (|| . "or")))
+
+(define (get-operator symb)
+   (hash-ref operator-dict-python symb #f))
+
+;return formatted string location from syntax object
 (define (get-location-string stx)
   (format "~a:~a:~a" (syntax-source stx)(syntax-line stx)(syntax-column stx)))
+
 ;default env
 (define (default-env)
   (let ([hash (make-hash)])
@@ -140,7 +156,7 @@
     (for ([def defs])
       (cond
         [(member-def? def)(bind-unbounded-member def mod)]
-        [(method-def? def)(bind-unbounded-method def mod)]
+        [(method-def? def)(bind-unbounded-method def (type-def-name obj) mod)]
         [else  (error (format "unprocessable entity ~a \n"  def))]))))
 
 ;bind unbounded alias
@@ -231,18 +247,23 @@
 
 
 ;bind unbounded method
-(define (bind-unbounded-method obj mod)(
-  let ([args (method-def-args obj)]
-      [return (method-def-return obj)]
+(define (bind-unbounded-method def name mod)(
+  let ([args (method-def-args def)]
+      [return (method-def-return def)]
       [env (module-def-env mod)]
     )
     (begin
       (for ([arg args])
-        (cond [(check-unbounded-type (arg-def-type arg) (arg-def-ref arg) env (arg-def-stx arg))
-                  (set-arg-def-type! arg (hash-ref env (unbound-id-sym (arg-def-type arg))))]))
-      (cond [(check-unbounded-type (return-def-type return) (return-def-ref return) env (return-def-stx return))
-        (set-return-def-type! return (hash-ref env (unbound-id-sym (return-def-type return))))]))))
-
+        (cond 
+          [ (and (unbound-id? (arg-def-type arg)) (equal? (unbound-id-sym (arg-def-type arg)) name))
+              (set-arg-def-type! arg (hash-ref env (unbound-id-sym (arg-def-type arg))))]
+          [(check-unbounded-type (arg-def-type arg) (arg-def-ref arg) env (arg-def-stx arg))
+              (set-arg-def-type! arg (hash-ref env (unbound-id-sym (arg-def-type arg))))]))
+      (cond 
+        [ (and (unbound-id? (return-def-type return)) (equal? (unbound-id-sym (return-def-type return)) name))
+          (set-return-def-type! return (hash-ref env (unbound-id-sym (return-def-type return))))]
+        [(check-unbounded-type (return-def-type return) (return-def-ref return) env (return-def-stx return))
+          (set-return-def-type! return (hash-ref env (unbound-id-sym (return-def-type return))))]))))
 
 ;bind unbounded in module
 (define (bind-unbounded-module mod)(
@@ -256,8 +277,9 @@
       [(const-def? def)(bind-unbounded-const def mod)]
       [(callable-def? def)(bind-unbounded-callable def mod)]
       [(class-def? def)(bind-unbounded-class def mod)]
+      [(enum-def? def) void]
       [(template-def? def) ""]
-      [else  (error (format "unprcessable entity ~a \n" def))]))))
+      [else  (error (format "unprocessable entity ~a \n" def))]))))
 
 
 ;process module stx and reverse defs
@@ -359,9 +381,12 @@
          def-arg
          def-return
          def-method
+         def-operator
          def-constructor
          def-class
          def-template
+         def-enum
+         def-enum-value
          generate-source
          get-source-info
          last
@@ -539,7 +564,6 @@
                                             doc-txt
                                             (maybe-unbound-id mod type-id)
                                             ref))))))]))
-
 
 ;alias syntax with optional reference
 (define-syntax def-alias
@@ -721,7 +745,6 @@
       (let ([id  (get-symbol id-data)]
             [template-id  (get-symbol template-id-data)]
             [type-id (get-symbol type-id-data)])
-              (println id type-id)
               (if (set-member? ctx id) (error (format "duplicate member name: ~a\n" id)) (set-add! ctx id ) )
               (arg-def
                     (symbol->string id)
@@ -754,9 +777,7 @@
               #'id-data
               brief-txt
               (maybe-unbound-id mod type-id)
-              ref)))]
-            
-            ))
+              ref)))]))
 
 ;arg syntax with optional reference
 (define-syntax def-arg
@@ -797,7 +818,6 @@
               (maybe-unbound-id mod type-id)
               ref)))]))
 
-
 ;return syntax with optional reference
 (define-syntax def-return
   (syntax-rules ()
@@ -805,9 +825,6 @@
       (def-return-full id ... #t)]
     [(def-return id ...)
       (def-return-full id ... #f)]))
-
-
-
 
 ;define rule for constructor:
 ;build constructor defenition
@@ -855,3 +872,64 @@
                                                         (list ((def-arg in-data ...)  mod (mutable-set)) ...)
                                                         ((def-return out-data ...) mod)))))
 
+;define rule for operator
+;build operator defenition and add it to the module members
+;first we check id in module defenition second we add it to module
+(define-syntax-rule (def-operator id-data
+                    [brief brief-txt]
+                    [doc doc-txt]
+                    [def-arg in-data ...]...
+                    [def-return out-data ...])
+                    (lambda (mod ctx)
+                        (letrec ([orig-symbol (get-symbol id-data)]
+                                [op (get-operator orig-symbol)]
+                                [id  (if op  (string->symbol(string-append "operator_" op)) (error (format "invalid operator ~a" orig-symbol)))])      
+                            (if (set-member? ctx id) (error (format "duplicate method name: ~a\n" id)) (set-add! ctx id))
+                              (operator-def (symbol->string id)
+                                                          #'id-data
+                                                          brief-txt
+                                                          doc-txt
+                                                          (list ((def-arg in-data ...)  mod (mutable-set)) ...)
+                                                          ((def-return out-data ...) mod)
+                                                          (symbol->string orig-symbol)))))
+
+;full enum value syntax
+(define-syntax def-enum-value-full
+  (syntax-rules ()
+  [(def-enum-value-full id-data [brief brief-txt] val)
+    (lambda (mod ctx) 
+      (let ([id  (get-symbol id-data)])
+              (if (set-member? ctx id) (error (format "duplicate member name: ~a\n" id)) (set-add! ctx id ) )
+              (enum-value-def
+                    (symbol->string id)
+                    #'id-data
+                    brief-txt
+                    val)
+                  ))]       
+            ))
+
+;enum value syntax
+(define-syntax def-enum-value
+  (syntax-rules ()
+    [(def-enum-value  id [brief brief-txt] val)
+    (def-enum-value-full id [brief brief-txt]  val)]
+    [(def-enum-value id [brief brief-txt] )
+    (def-enum-value-full id [brief brief-txt]  #f)]))
+
+;enum syntax with reference
+(define-syntax def-enum
+  (syntax-rules ()
+    [(def-enum id-data [brief brief-txt] [doc doc-txt] member ...)
+      (lambda (mod)
+        (let ([id  (get-symbol id-data)]
+              [ctx (mutable-set)])
+                (if (id-find mod id)
+                    (error "duplicate definition of" id)
+                    (let (
+                      [name (get-full-name mod (symbol->string id))])
+                      (id-add! mod name (enum-def name
+                                                  #'id-data
+                                                  brief-txt
+                                                  doc-txt
+                                                  (list (member mod ctx) ...)
+                                                  ))))))]))

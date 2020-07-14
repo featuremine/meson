@@ -140,6 +140,23 @@
                   (format "extern ~a~a" (get-if-struct (variable-def-type memb)) (get-c-type-name (variable-def-type memb) module))
                   (if (variable-def-ref memb) "* " " ")
                   (format "~a;\n\n"  (get-c-type-name-from-string (variable-def-name memb))))]
+              [(enum-def? memb)  
+               (let ([type-name (get-c-type-name memb module)])
+                (string-append
+                  (comment (list (enum-def-brief memb) (enum-def-doc memb)))
+                  "typedef enum  {\n" 
+
+                  (string-join  
+                    (map 
+                      (lambda (val)
+                        (let([name (format "~a_~a" type-name (enum-value-def-name val))]
+                             [value (enum-value-def-value val)])
+                          (string-append   
+                            (comment (enum-value-def-brief val))
+                            (if value (format "~a=~a" name value) name))))
+                      (enum-def-members memb))
+                    ",\n") 
+                  (format "\n} ~a;\n"(get-c-type-name memb module))))]
               [(const-def? memb)  
                 (string-append
                   (comment (list (const-def-brief memb) (const-def-doc memb)))
@@ -302,8 +319,8 @@
     (if(equal? type-name orig-type-name)
       (string-append
 
-        (comment (format "make copy implace for ~a\n" type-name))
-        (format "void ~a_copy_implace_(~a* dest, ~a* src ){\n" type-name type-name type-name)
+        (comment (format "make copy inplace for ~a\n" type-name))
+        (format "void ~a_copy_inplace_(~a* dest, ~a* src ){\n" type-name type-name type-name)
         (apply string-append  
           (map 
             (lambda (memb)
@@ -316,22 +333,20 @@
                     (cond 
                       [(default-def? type) 
                             (format "\tdest->~a = src->~a;\n" name name)]
+                      [(enum-def? type) 
+                            (format "\tdest->~a = src->~a;\n" name name)]
                       [else
                             (if ref? 
                               (format "\tdest->~a =  ~a_get_descr()->copy_new_(src->~a);\n" name  type-name name)  
-                              (format "~a_get_descr()->copy_implace_(&dest->~a, &src->~a);\n" type-name name name))]))]
+                              (format "~a_get_descr()->copy_inplace_(&dest->~a, &src->~a);\n" type-name name name))]))]
                 [else ""]))
             members)) 
-        (format "\tmemcpy(dest, src, sizeof(~a));\n" type-name)
-        (if (class-def? orig-type)
-          "\tdest->_owner_=NULL;\n"
-          "")
         "}\n"
       
         (comment (format "make new copy of ~a\n" type-name))
         (format "~a * ~a_copy_new_(~a* obj){\n" type-name type-name type-name)
-        (format "\t~a* copy =	malloc(sizeof(~a));\n" type-name type-name) 
-        (format "\t~a_copy_implace_ (copy, obj);\n" type-name)
+        (format "\t~a* copy = (~a*) ~a_new_();\n" type-name type-name type-name)
+        (format "\t~a_copy_inplace_ (copy, obj);\n" type-name)
         "\treturn copy;\n"
         "}\n"
 
@@ -346,7 +361,7 @@
     (format "static mir_type_descr type_descr~a ={\n" type-name)
     (format "\t(void *(*)(void *))~a_copy_new_,\n" orig-type-name)
     (format "\t~a_size_,\n" orig-type-name)
-    (format "\t(void (*)(void *, void *))~a_copy_implace_,\n" orig-type-name)
+    (format "\t(void (*)(void *, void *))~a_copy_inplace_,\n" orig-type-name)
     (format "\t(void (*)(void *))~a_del_,\n" orig-type-name)
     (format "\t(void *(*)())~a_new_,\n" orig-type-name)
     "\tmir_inc_ref,\n"
@@ -385,11 +400,13 @@
                     (format "\t~a_destructor(self);\n" type-name)
                     "\tfree(self);\n"
                     "}\n"
+
+                    (comment (format "memory allocation with owner should be declare in extension for ~a\n" type-name))
+                    (format "~a * _new_with_owner_~a();\n" type-name type-name) 
+
                     (comment (format "memory allocation function for ~a\n" type-name))
                     (format "~a * ~a_new_(){\n" type-name type-name)
-                    
-                    (format "\t~a* _obj =	malloc(sizeof(~a));\n" type-name type-name)
-                    "_obj->_owner_ = NULL;\n"
+                    (format "\t~a* _obj =	_new_with_owner_~a();\n" type-name type-name)
                     "\treturn _obj;\n"
                     "}\n"
                     (get-c-type-description-structure type-name type-name memb members module)
@@ -558,15 +575,17 @@
         ;add include guard
         (format "#include \"~a\"\n" (get-c-callable-inc-filename callable module))
 
+        (comment (format "memory allocation with owner should be declare in extension for ~a\n" type-name))
+        (format "~a * _new_with_owner_~a();\n" type-name type-name) 
 
         ;type descriptor structure
         (comment (format "type descriptor structure for ~a\n" type-name))
         (format "static mir_type_descr type_descr~a ={\n" type-name)
         "\t(void *(*)(void *))mir_callable_copy_new_,\n"
         "\tmir_callable_size_,\n"
-        "\t(void (*)(void *, void *))mir_callable_copy_implace_,\n"
+        "\t(void (*)(void *, void *))mir_callable_copy_inplace_,\n"
         "\t(void (*)(void *))mir_callable_del_,\n"
-        "\t(void *(*)())mir_callable_new_,\n"
+        (format "\t(void *(*)())_new_with_owner_~a,\n"type-name)
         "\tmir_inc_ref,\n"
         "\tmir_dec_ref\n"
         "};\n"

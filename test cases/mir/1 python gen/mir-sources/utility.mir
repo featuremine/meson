@@ -207,7 +207,7 @@
             [brief "Result."]
             [type string]]] 
  
-    [def-method add 
+    [def-method add1 
         [brief "Add a to b and return result"]
         [doc  "Add a to b and return result"]
         [def-arg a
@@ -422,3 +422,75 @@
             [brief "result"]
             [type graph.Point]
             #:ref]])
+
+(def-enum TestEnum
+    [brief "Test enum"]
+    [doc "Enum for testing"]
+    [def-enum-value val1 [brief "Val 1"]]
+    [def-enum-value val3 [brief "Val 3"] 3])
+
+
+(def-struct EnumStruct
+    [brief "Enum struct"]
+    [doc "Struct with enum member"]
+    [def-member testEnum
+        [brief "testEnum"]
+        [type TestEnum]])
+
+(def-class EnumClass
+    [brief "Enum class"]
+    [doc "class with enum member"]
+    [def-constructor]
+    [def-method getHimSelf
+        [brief "data"]
+        [doc  "data"]
+        [def-arg data
+            [brief "data"]
+            [type EnumClass]]
+        [def-return 
+            [brief "result"]
+            [type EnumClass]]]
+
+    [def-member testEnum
+        [brief "testEnum"]
+        [type TestEnum]]
+    [def-method  set_enum
+        [brief "set enum"]
+        [doc  "set enum"]
+        [def-arg testEnum
+            [brief "testEnum"]
+            [type TestEnum]]
+        [def-return 
+            [brief "result"]
+            [type TestEnum]]])
+
+
+(def-class Integer
+    [brief "custon integer class"]
+    [doc "custon integer class"]
+    [def-constructor
+        [def-arg val
+            [brief "int value"]
+            [type int64]]]
+    [def-member value
+        [brief "Integer value"]
+        [type int64]]
+    [def-operator <
+        [brief "less"]
+        [doc  "less"]
+        [def-arg val
+            [brief "a value"]
+            [type Integer]#:ref]
+        [def-return 
+            [brief "result"]
+            [type bool]]]
+    [def-operator ==
+        [brief "equal"]
+        [doc  "equal"]
+        [def-arg val
+            [brief "a value"]
+            [type Integer]#:ref]
+        [def-return 
+            [brief "result"]
+            [type bool]]])
+

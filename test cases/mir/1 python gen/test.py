@@ -24,6 +24,16 @@ cp = _mir_wrapper.ConstPoint;
 cv = _mir_wrapper.aliases.ConstVector;
 assert(cp.x == 1.0 and cp.x == cv.x and cp.y == 2.0 and cp.y == cv.y)
 
+# test enums
+assert(_mir_wrapper.utility.TestEnum.val1 == 0 and _mir_wrapper.utility.TestEnum.val3 == 3)
+te = _mir_wrapper.utility.EnumStruct(_mir_wrapper.utility.TestEnum.val3)
+assert(te.testEnum == 3)
+tec = _mir_wrapper.utility.EnumClass()
+tec.set_enum(_mir_wrapper.utility.TestEnum.val3)
+assert(tec.testEnum == 3)
+ret_ec = tec.getHimSelf(tec); 
+assert(tec.testEnum == ret_ec.testEnum)
+
 # test method without arguments
 p1 = _mir_wrapper.Point(3, 4)
 print(p1.x, p1.y)
@@ -57,7 +67,7 @@ assert(util.multiply(3, 3) == 9.0)
 assert(util.concat_strings("Hello", " World") == "Hello World")
 
 # test method with simple type
-assert(util.add(3, 5) == 8)
+assert(util.add1(3, 5) == 8)
 
 # test method with objects
 point4 = util.pointSum(p1, p2)
@@ -184,4 +194,30 @@ nt = _mir_wrapper.utility.NoneTester()
 print('hello')
 assert(nt.get_none() is None)
 
+#test operators
+
+op_pt1 = _mir_wrapper.Point(3, 3)
+op_pt2 = _mir_wrapper.Point(1, 1)
+op_pt1 += op_pt2
+
+assert(op_pt1.x==4 and op_pt1.y==4  )
+op_pt1/=2
+
+assert(op_pt1.x==2 and op_pt1.y==2  )
+op_pt1/=0
+assert(op_pt1 == None)
+
+
+int1 = _mir_wrapper.utility.Integer(1)
+int2 = _mir_wrapper.utility.Integer(2)
+assert(int1<int2)
+assert(int1<=int2)
+assert(int1<=int1)
+assert(int1==int1)
+assert(int1!=int2)
+assert(not (int1==int2))
+assert(not (int1>int2))
+assert(int2>=int2)
+assert(int2>=int1)
+assert(int2>int1)
 print('end')
