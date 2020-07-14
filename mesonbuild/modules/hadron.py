@@ -320,8 +320,9 @@ class HadronModule(ExtensionModule):
         self.make_pkg_dir()
         copy_targets = {}
         for py in self.py_sources:
-            mod, trgt = self.gen_copy_trgt(py)
-            copy_targets[mod] = trgt
+            if py.fname != "__init__.py":
+                mod, trgt = self.gen_copy_trgt(py)
+                copy_targets[mod] = trgt
         return copy_targets
 
     def gen_verification_trgts(self, cpy_trgts, ext_deps = []):
@@ -633,17 +634,22 @@ class HadronModule(ExtensionModule):
 
         gen_script = textwrap.dedent(f"""\
         import os
-        if not os.path.exists('{out_path}'):
-            with open('{out_path}', 'w') as f:
-                f.write('from ._mir_wrapper import *')""")
+        with open('{out_path}', 'w') as f:
+            f.write('from ._mir_wrapper import *')""")
 
-        if shlib is not None:
+        init = next((py for py in self.py_sources if py.fname == '__init__.py'), None)
+        if init:
+            if shlib is not None:
+                deps += [shlib]
+            cmd = ['cp', '@INPUT@', '@OUTPUT@']
+        elif shlib is not None:
             deps += [shlib]
             cmd = [self.python3, '-c', gen_script]
         else:
             cmd = ['touch', '@OUTPUT@']
+
         custom_kwargs = {
-            'input': deps,
+            'input': deps if not init else os.path.join(self.source_dir, init.subdir, init.fname),
             'output': '__init__.py',
             'command': cmd,
             'depends': deps,
