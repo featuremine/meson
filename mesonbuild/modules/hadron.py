@@ -73,12 +73,13 @@ hadron_special_kwargs = set([
 
 class colors:
     RED = '\033[1;31m'
-    NC = '\033[0m' 
+    NC = '\033[0m'
 
 class Imports:
     def __init__(self):
         pass
     def get_imports(self, path):
+        sys.stderr = open(os.devnull, 'w')
         graph = findimports.ModuleGraph()
         graph.parsePathname(path)
         res = {}
@@ -91,6 +92,7 @@ class Imports:
           imports.sort()
           res[module.modname] = imports
         assert len(res) == 1
+        sys.stderr = sys.__stderr__
         return list(res.values())[0]
 
 
