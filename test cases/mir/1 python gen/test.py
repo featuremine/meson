@@ -19,6 +19,7 @@
 
 # PYTHONPATH=build/lib.linux-x86_64-3.6 python3 ../test/mir/python-gen/_mir_wrapper-test.py
 import _mir_wrapper
+import sys
 
 cp = _mir_wrapper.ConstPoint;
 cv = _mir_wrapper.aliases.ConstVector;
@@ -27,24 +28,32 @@ assert(cp.x == 1.0 and cp.x == cv.x and cp.y == 2.0 and cp.y == cv.y)
 # test enums
 assert(_mir_wrapper.utility.TestEnum.val1 == 0 and _mir_wrapper.utility.TestEnum.val3 == 3)
 te = _mir_wrapper.utility.EnumStruct(_mir_wrapper.utility.TestEnum.val3)
+assert(sys.getrefcount(te)==2)
 assert(te.testEnum == 3)
 tec = _mir_wrapper.utility.EnumClass()
+assert(sys.getrefcount(tec)==2)
 tec.set_enum(_mir_wrapper.utility.TestEnum.val3)
 assert(tec.testEnum == 3)
-ret_ec = tec.getHimSelf(tec); 
+assert(sys.getrefcount(tec)==2)
+ret_ec = tec.getHimSelf(tec)
+assert(tec==ret_ec)
+print(sys.getrefcount(ret_ec))
+assert(sys.getrefcount(ret_ec)==3)
 assert(tec.testEnum == ret_ec.testEnum)
 
 # test method without arguments
 p1 = _mir_wrapper.Point(3, 4)
+assert(sys.getrefcount(p1)==2)
 print(p1.x, p1.y)
 print("norm: ", p1.norm())
 assert(p1.norm() == 5.0)
+assert(sys.getrefcount(p1)==2)
 
 # test method with single argument
 p2 = _mir_wrapper.Point(0, 0)
 print("dist: ", p1.dist(p2))
 assert(p1.dist(p2) == 5.0)
-
+assert(sys.getrefcount(p2)==2)
 
 def test_call(d: float, p1: _mir_wrapper.Point):
     return 1
@@ -52,8 +61,10 @@ def test_call(d: float, p1: _mir_wrapper.Point):
 
 # test method that return object
 util = _mir_wrapper.utility.Utility(test_call)
+assert(sys.getrefcount(util)==2)
 
 p3 = util.multiply_points(p1, 3)
+assert(sys.getrefcount(p3)==2)
 
 assert((p3.x) == 9.0 and (p3.y) == 12.0)
 
@@ -75,17 +86,20 @@ assert (point4.x == 3.0 and point4.y == 4.0)
 
 # test class without members
 class_without_arguments = _mir_wrapper.utility.EmptyClass()
-print(class_without_arguments)
+assert(sys.getrefcount(class_without_arguments)==2)
 
 # test struct without members
 struct_without_arguments = _mir_wrapper.utility.EmptyStruct()
+assert(sys.getrefcount(struct_without_arguments)==2)
 
 # test struct without members
 struct_without_arguments2 = _mir_wrapper.utility.Point()
+assert(sys.getrefcount(struct_without_arguments2)==2)
 
 # test const variable
 assert(_mir_wrapper.utility.Pi == 3.14)
 assert(_mir_wrapper.utility.HelloWorld == 'Hello World')
+assert(sys.getrefcount(_mir_wrapper.utility.Pi)==2)
 
 # test alias
 assert(_mir_wrapper.utility.OrderId(3) == 3)
@@ -110,8 +124,10 @@ assert (checker.check_string("hello world") == "hello world")
 
 # test c callback
 cb = util.get_callable(p1, 1)
+assert(sys.getrefcount(cb)==2)
 print('cb', cb)
 assert(cb(1, p1) == 3)
+assert(sys.getrefcount(cb)==2)
 
 
 def call_me(a: float, b: _mir_wrapper.Point) -> int:
@@ -120,73 +136,73 @@ def call_me(a: float, b: _mir_wrapper.Point) -> int:
     assert(b.y == 4.0)
     return 3
 
+assert(sys.getrefcount(call_me)==2)
+assert(util.execute_callable(p1, call_me) == 3)
+assert(sys.getrefcount(call_me)==2)
 
-assert(util.add_callable(p1, call_me) == 3)
+#test send c callback back to c
+assert(util.execute_callable(p1, cb) == 3)
 
-# test send c callback back to c
-assert(util.add_callable(p1, cb) == 3)
 
 # test get extra calback
 cb2 = util.get_another_callable()
+assert(sys.getrefcount(cb2)==2)
 assert(cb2(3.0) == 3)
 
 # test callback with ref
 cb3 = util.get_callable_with_ref()
 p5 = cb3(3.0)
 assert(p5.x == 3.0 and p5.y == 4.0)
+assert(sys.getrefcount(cb3)==2)
+assert(sys.getrefcount(p5)==2)
 
-print("-------previous-----------")
+
 # test ref to object in method
 p6 = util.get_point_ref()
 assert(p6.x == 3.0 and p6.y == 4.0)
 
-print("-------start-----------")
-# test pointers
-swr = _mir_wrapper.aliases.StructWithRef(p6, p6)
-assert(swr.ref.x == 3.0 and swr.ref.y == 4.0)
-assert(swr.obj.x == 3.0 and swr.obj.y == 4.0)
+
 
 # test pointers
+print(sys.getrefcount(p6))
 cwr = _mir_wrapper.aliases.ClassWithRef(p6, p6)
+print(sys.getrefcount(p6))
 assert(cwr.ref.x == 3.0 and cwr.ref.y == 4.0)
 assert(cwr.obj.x == 3.0 and cwr.obj.y == 4.0)
-print("here")
+
 # test alias pointers
 als = _mir_wrapper.aliases.AliasStruct(
-    _mir_wrapper.aliases.Vector2d(_mir_wrapper.aliases.Vector(p6)),
     _mir_wrapper.aliases.Vector2d(_mir_wrapper.aliases.Vector(p6))
 )
-print("here")
+
 # print(als.obj.x)
-# assert(als.obj.x == 3.0 and als.obj.y == 4.0)
-# assert(als.ref.x == 3.0 and als.ref.y == 4.0)
-# print("here")
+assert(als.obj.x == 3.0 and als.obj.y == 4.0)
+
 # test pointers in functions
-# alsc = _mir_wrapper.aliases.AliasClass(
-#     _mir_wrapper.aliases.Vector2d(_mir_wrapper.aliases.Vector(p6))
-# )
+alsc = _mir_wrapper.aliases.AliasClass(
+    _mir_wrapper.aliases.Vector2d(_mir_wrapper.aliases.Vector(p6))
+)
 
-# assert(alsc.obj.x == 3.0 and alsc.obj.y == 4.0)
-# assert(alsc.dist(_mir_wrapper.aliases.Vector2d(_mir_wrapper.aliases.Vector(p6))) == 0.0)
+assert(alsc.obj.x == 3.0 and alsc.obj.y == 4.0)
+assert(alsc.dist(_mir_wrapper.aliases.Vector2d(_mir_wrapper.aliases.Vector(p6))) == 0.0)
 
-# test callable with alias
-
-
-# def point_callback(point: _mir_wrapper.aliases.Vector2d) -> _mir_wrapper.aliases.Vector2d:
-#     return _mir_wrapper.aliases.Vector2d(_mir_wrapper.aliases.Vector(p6))
+#test callable with alias
 
 
-# p7 = alsc.setCallable(point_callback)
-# assert(p7.x == 3.0 and p7.y == 4.0)
+def point_callback(point: _mir_wrapper.aliases.Vector2d) -> _mir_wrapper.aliases.Vector2d:
+    return _mir_wrapper.aliases.Vector2d(_mir_wrapper.aliases.Vector(p6))
 
-# # test alias as callable
-# callb = alsc.setAliasCallable(point_callback)
-# p8 = callb(p7)
-# assert(p8.x == 3.0 and p8.y == 4.0)
 
-# p9 = alsc.aliasCallable(p8)
+p7 = alsc.setCallable(point_callback)
+assert(p7.x == 3.0 and p7.y == 4.0)
+# test alias as callable
+callb = alsc.setAliasCallable(point_callback)
+p8 = callb(p7)
+assert(p8.x == 3.0 and p8.y == 4.0)
 
-# assert(p9.x == 3.0 and p9.y == 4.0)
+p9 = alsc.aliasCallable(p8)
+
+assert(p9.x == 3.0 and p9.y == 4.0)
 
 # test callback inside callback
 mh = _mir_wrapper.utility.pointerHolder()
@@ -196,7 +212,7 @@ assert(mh.get_int() == 11)
 nt = _mir_wrapper.utility.NoneTester()
 assert(nt.get_none() is None)
 
-#test operators
+# #test operators
 
 op_pt1 = _mir_wrapper.Point(3, 3)
 op_pt2 = _mir_wrapper.Point(1, 1)

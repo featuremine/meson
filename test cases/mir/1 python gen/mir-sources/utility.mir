@@ -48,7 +48,7 @@
             [brief "Result."]
             [type graph.Point]]]
 
-    [def-method add_callable
+    [def-method execute_callable
         [brief "Scalar multiplication"]
         [doc  "Make multiplication of point and salar coeficient."]
         [def-arg point

@@ -71,24 +71,9 @@
         [brief "obj"]
         [type graph.Point ]])
 
-(def-struct StructWithRef
-    [brief "Struct with ref"]
-    [doc "Struct with ref"]
-    [def-member ref
-        [brief "ref"]
-        [type graph.Point ] 
-        #:ref]
-    [def-member obj
-        [brief "obj"]
-        [type graph.Point ]])
-
 (def-struct AliasStruct
     [brief "Alias struct"]
     [doc "Alias struct"]
-    [def-member ref
-        [brief "ref"]
-        [type graph.Point ] 
-        #:ref]
     [def-member obj
         [brief "obj"]
         [type Vector2d ]])

@@ -26,11 +26,13 @@ graph_Point * get_mir_const_graph_ConstPoint(){
 struct graph_Point* graph_Point_operator_inplace_add (struct graph_Point* self, struct graph_Point *point){
   self->x = self->x+point->x;
   self->y = self->y+point->y;
+  graph_Point_get_descr()->inc_ref_(self);
   return self;
 }
 struct graph_Point* graph_Point_operator_inplace_divide (struct graph_Point* self, int64_t val){
   if (val==0) return NULL;
   self->x = self->x/val;
   self->y = self->y/val;
+  graph_Point_get_descr()->inc_ref_(self);
   return self;
 }

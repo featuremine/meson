@@ -20,7 +20,9 @@
 
 #include "mir/pythongen/common_c.h"
 #include "mir/pythongen/utils.h"
-void free_closure(void *closure) { Py_DECREF(closure); }
+void free_closure(void *closure) { 
+  Py_DECREF(closure); 
+  }
 
 typedef struct{
   void * _owner_; 
@@ -31,31 +33,40 @@ void mir_inc_ref(void *obj) {
     Py_INCREF(((mir_object*)obj)->_owner_);
 }
 void mir_dec_ref(void *obj) {
-  if ((mir_object*)obj != NULL && ((mir_object*)obj)->_owner_  != NULL && ((mir_object*)obj)->_owner_  != Py_None)
+  if ((mir_object*)obj != NULL && ((mir_object*)obj)->_owner_  != NULL && ((mir_object*)obj)->_owner_  != Py_None){
     Py_DECREF(((mir_object*)obj)->_owner_);
+  }
 }
 
-void mir_callable_del_(mir_callable_struct *obj) {
-  obj->free(obj->closure);
-  free(obj);
+void mir_inc_ref_struct(void *obj) {}
+
+void mir_dec_ref_struct(void *obj) {}
+long mir_get_ref_cnt(void *obj){
+   if ((mir_object*)obj != NULL && ((mir_object*)obj)->_owner_  != NULL && ((mir_object*)obj)->_owner_  != Py_None)
+  return Py_REFCNT(((mir_object*)obj)->_owner_);
+  else return 0;
 }
+// void mir_callable_del_(mir_callable_struct *obj) {
+//   obj->free(obj->closure);
+//   free(obj);
+// }
 
-mir_callable_struct *mir_callable_new_() {
-  mir_callable_struct *_obj = malloc(sizeof(mir_callable_struct));
-  return _obj;
-}
+// mir_callable_struct *mir_callable_new_() {
+//   mir_callable_struct *_obj = malloc(sizeof(mir_callable_struct));
+//   return _obj;
+// }
 
-void mir_callable_copy_inplace_(mir_callable_struct *dest,
-                                mir_callable_struct *src) {
+// void mir_callable_copy_inplace_(mir_callable_struct *dest,
+//                                 mir_callable_struct *src) {
 
-  memcpy(dest, src, sizeof(mir_callable_struct));
-  dest->_owner_ = NULL;
-}
+//   memcpy(dest, src, sizeof(mir_callable_struct));
+//   dest->_owner_ = NULL;
+// }
 
-mir_callable_struct *mir_callable_copy_new_(mir_callable_struct *obj) {
-  mir_callable_struct *copy = malloc(sizeof(mir_callable_struct));
-  mir_callable_copy_inplace_(copy, obj);
-  return copy;
-}
+// mir_callable_struct *mir_callable_copy_new_(mir_callable_struct *obj) {
+//   mir_callable_struct *copy = malloc(sizeof(mir_callable_struct));
+//   mir_callable_copy_inplace_(copy, obj);
+//   return copy;
+// }
 
-size_t mir_callable_size_() { return sizeof(mir_callable_struct); }
+// size_t mir_callable_size_() { return sizeof(mir_callable_struct); }
