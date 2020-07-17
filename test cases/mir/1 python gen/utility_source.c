@@ -89,11 +89,11 @@ int32_t c_a_callback(double K, void *c) { return ((c_a_callb)c)(K); };
 r_int32_a_double
 graph_utility_Utility_get_another_callable(struct graph_utility_Utility *self) {
   printf("hello from c\n");
-  r_int32_a_double callback;
-  callback.closure = c_a_closure;
-  callback.func = c_a_callback;
-  callback.free = c_free;
-  return callback;
+  r_int32_a_double *callback = r_int32_a_double_get_descr()->new_();
+  callback->closure = c_a_closure;
+  callback->func = c_a_callback;
+  callback->free = c_free;
+  return *callback;
 }
 
 typedef graph_Point *(*c_p_callb)(double K);
