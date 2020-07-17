@@ -116,7 +116,7 @@
             [(default-def? type)
                 (hash-ref type-dict (type-def-name type))]
             [(python-type-def? type)
-                (type-def-name type)]
+                (python-type-def-real-name type)]
             [else  
             (let ([env (module-def-env mod)]
                     [id  (type-def-name type)])

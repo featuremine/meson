@@ -113,7 +113,7 @@
                 (format "typedef struct ~a ~a;\n"  (get-c-type-name memb module) (get-c-type-name memb module))]
               [(python-type-def? memb)
                 (string-append  
-                  (format "typedef struct ~a ~a;\n"  (type-def-name memb ) (type-def-name memb )))
+                  (format "typedef struct ~a ~a;\n"  (python-type-def-real-name memb ) (python-type-def-real-name memb )))
                   (format "PyTypeObject * ~a;\n" (python-type-def-get-type memb))]
               [else ""]))
       (module-def-defs module))))

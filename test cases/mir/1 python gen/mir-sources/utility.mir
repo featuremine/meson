@@ -497,7 +497,7 @@
 (def-alias PythonTestAlias
     [brief "PythonTestAlias."]
     [doc  "PythonTestAlias"]
-    [type (def-python-type PythonTest)])
+    [type (def-python-type PythonTest PythonTestReal)])
 
 
 

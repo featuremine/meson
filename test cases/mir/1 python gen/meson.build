@@ -3,7 +3,11 @@ project('mir python gen', 'cpp','c')
 pymod = import('python')
 hadron = import('hadron')
 
-python = pymod.find_installation('python3.7', required: true)
+python = pymod.find_installation(required: true)
+python_version = python.language_version().split('.')
+if (python_version[0].to_int() < 3 or python_version[1].to_int() < 7)
+  error('support python version 3.7 and higher')
+endif
 
 mir_files = files(
   'mir-sources/aliases.mir',
@@ -22,7 +26,6 @@ c_sources = files(
 base_package = hadron.package('pythongen',
             dependencies : [python.dependency(embed:true)],
             mir_headers: mir_files,
-            include_directories: [incdirs],
             c_sources: c_sources,
             python: python,
             )

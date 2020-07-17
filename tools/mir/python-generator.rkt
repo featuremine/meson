@@ -196,7 +196,7 @@
  (cond [(default-def? type)
         (hash-ref to-c-dict (type-def-name type))]
       [(enum-def? type) "PyLong_AsLong(~a)"]
-      [(python-type-def? type) (format "((~a*) ~a)" (type-def-name type) "~a")]
+      [(python-type-def? type) (format "((~a*) ~a)" (python-type-def-real-name type) "~a")]
       [else (format "_get_data~a(~a)" (get-python-type-name type module) "~a")]))
 
 ;using for converting from c to python TypeObject
@@ -237,7 +237,7 @@
         (hash-ref type-dict (type-def-name type))]
       [(alias-def? type)
         (get-python-type-name (alias-def-type type) mod)]
-      [(python-type-def? type) (type-def-name type)]
+      [(python-type-def? type) (python-type-def-real-name type)]
       [(enum-def? type) "PyLong_Type"]
       [else  
       (let ([env (module-def-env mod)]
@@ -256,7 +256,7 @@
       [(alias-def? type)
         (get-python-arg-type-name (alias-def-type type) mod)]
       [(enum-def? type) "uint8_t"]
-      [(python-type-def? type) (type-def-name type)]
+      [(python-type-def? type) (python-type-def-real-name type)]
       [else   
       (let ([env (module-def-env mod)]
             [id  (type-def-name type)])
@@ -1380,7 +1380,7 @@
     [(enum-def?  arg-type) ""]
     [(callable-def? arg-type) 
       (callable-check-block arg-type (format "_pyarg_~a" arg-name)  (format "_pyargdata_~a" arg-name) (format "_py_is_python_~a" arg-name) (get-python-type-name arg-type module) (get-c-type-name arg-type module) module ret-val)]
-    [(python-type-def?  arg-type)  (type-check-return-section (format "_pyarg_~a" arg-name )   (python-type-def-get-type arg-type) (type-def-name arg-type) ret-val)]
+    [(python-type-def?  arg-type)  (type-check-return-section (format "_pyarg_~a" arg-name )   (python-type-def-get-type arg-type) (python-type-def-real-name arg-type) ret-val)]
     [else    
       (type-check-return-section (format "_pyarg_~a" arg-name )   (format "_get~a()" (get-python-arg-type-name arg-type module)) (type-def-name arg-type) ret-val)]))
 
@@ -1956,7 +1956,7 @@
     (cond
       [(python-type-def? origin-type)
         (string-append  
-          (format "typedef struct ~a ~a;\n"  (type-def-name origin-type ) (type-def-name origin-type ))
+          (format "typedef struct ~a ~a;\n"  (python-type-def-real-name origin-type ) (python-type-def-real-name origin-type ))
           (format "PyTypeObject * ~a;\n" (python-type-def-get-type origin-type)))]
       [(alias-def? memb)
         (string-append
