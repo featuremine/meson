@@ -28,6 +28,10 @@ typedef struct{
   void * _owner_; 
 }mir_object;
 
+typedef struct{
+  void * _owner_; 
+}mir_object;
+
 void mir_inc_ref(void *obj) {
   if ((mir_object*)obj != NULL && ((mir_object*)obj)->_owner_  != NULL && ((mir_object*)obj)->_owner_  != Py_None)
     Py_INCREF(((mir_object*)obj)->_owner_);
