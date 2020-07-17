@@ -19,7 +19,7 @@
 
 ;get struct word if struct as string
 (define (get-if-struct type)
-  (if (or (struct-def? type) (class-def? type)) "struct " ""))
+  (if (or (struct-def? type) (class-def? type) (python-type-def? type)) "struct " ""))
 
 ;access to module environment as hash table and find out selected id
 (define (id-find mod id)
@@ -308,9 +308,12 @@
         ;add include
         (apply string-append 
           (map (lambda (memb)
-            (if (callable-def? memb)
-              (format "#include \"~a\"\n" (get-c-callable-inc-filename memb module ))
-              "")) 
+            (cond 
+              [(callable-def? memb)
+                (format "#include \"~a\"\n" (get-c-callable-inc-filename memb module ))]
+              [(python-type-def? memb)
+                (format "#include \"~a\"\n" (python-type-def-include memb ))]
+              [else ""])) 
             (module-def-defs module)))
         (get-includes module module-map)
         "\n"
@@ -349,6 +352,8 @@
                       [(default-def? type) 
                             (format "\tdest->~a = src->~a;\n" name name)]
                       [(enum-def? type) 
+                            (format "\tdest->~a = src->~a;\n" name name)]
+                      [(python-type-def? type) 
                             (format "\tdest->~a = src->~a;\n" name name)]
                       [else
                             (if ref? 
@@ -432,12 +437,17 @@
                                 (string-append
                                   (comment (format "Set up property ~a of ~a\n" arg-name type-name))
                                   (format "void ~a_set_~a_(~a* self, ~a* ~a){\n"  type-name arg-name type-name arg-type-name arg-name)
-                                  (if (or(callable-def? orig-type) (class-def? orig-type))
+                                  (cond 
+                                    [(or(callable-def? orig-type) (class-def? orig-type))
                                       (string-append 
-                                        (format "~a_get_descr()->inc_ref_(~a);\n" orig-arg-type-name arg-name)
                                         (format "~a_get_descr()->dec_ref_(~aself->~a);\n"orig-arg-type-name (if arg-ref "" "&") arg-name)
-                                        (format "self->~a = ~a~a;\n" arg-name ref-symb  arg-name))
-                                    (format "self->~a = ~a~a;\n" arg-name ref-symb  arg-name))
+                                        (format "self->~a = ~a~a;\n" arg-name ref-symb  arg-name))]
+                                    [(python-type-def? orig-type)
+                                      (string-append 
+                                        (format "mir_inc_ref_python(~aself->~a);\n" (if arg-ref "" "&") arg-name)
+                                        (format "self->~a = ~a~a;\n" arg-name ref-symb  arg-name))]
+
+                                    [else (format "self->~a = ~a~a;\n" arg-name ref-symb  arg-name)])
                                 "}\n"))]
                             [else ""]))
                         (class-def-members memb))) 
@@ -561,9 +571,12 @@
 (define (add-c-decl memb module)
       (cond
         [(alias-def? memb)
-        (string-append
-          (add-c-decl (alias-def-type memb) module)
-          (format "typedef ~a ~a;\n" (get-c-type-name (alias-def-type memb) module) (get-c-type-name memb module) ))]
+    
+          (if (python-type-def? (alias-def-type memb))
+            (format "typedef struct ~a ~a;\n" (get-c-type-name (alias-def-type memb) module) (get-c-type-name memb module) )
+            (string-append
+              (add-c-decl (alias-def-type memb) module)
+              (format "typedef ~a ~a;\n" (get-c-type-name (alias-def-type memb) module) (get-c-type-name memb module) )))]
         [(or (class-def? memb) (struct-def? memb) (callable-def? memb))  
           (format "typedef struct ~a ~a;\n"  (get-c-type-name memb module) (get-c-type-name memb module))]
         [else ""]))

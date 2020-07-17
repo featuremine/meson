@@ -46,6 +46,14 @@ long mir_get_ref_cnt(void *obj){
   return Py_REFCNT(((mir_object*)obj)->_owner_);
   else return 0;
 }
+
+void mir_inc_ref_python(void *obj){
+  Py_DECREF(obj);
+}
+void mir_dec_ref_python(void *obj){
+  Py_INCREF(obj);
+}
+
 // void mir_callable_del_(mir_callable_struct *obj) {
 //   obj->free(obj->closure);
 //   free(obj);

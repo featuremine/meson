@@ -31,6 +31,7 @@
   (struct-out template-def)
   (struct-out enum-def)
   (struct-out enum-value-def)
+  (struct-out python-type-def)
   get-destination-folder-name
   set-destination-folder-name
   set-base-root-dir
@@ -64,7 +65,7 @@
 (struct operator-def (num-name) #:super struct:method-def  #:transparent)
 (struct enum-def (brief doc members) #:super struct:type-def #:transparent)
 (struct enum-value-def (name stx brief value) #:transparent)
-
+(struct python-type-def (include get-type) #:super struct:type-def  #:transparent)
 (struct template-def (callback) #:super struct:type-def  #:transparent)
 
 ;represents namespace

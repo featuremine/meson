@@ -494,3 +494,54 @@
             [brief "result"]
             [type bool]]])
 
+(def-alias PythonTestAlias
+    [brief "PythonTestAlias."]
+    [doc  "PythonTestAlias"]
+    [type (def-python-type PythonTest [include "python_type.h"] [get-type "_get_pys_graph_aliases_AliasClass()"])])
+
+
+
+(def-alias PythonAliasCallable
+    [brief "PythonAliasCallable."]
+    [doc  "PythonAliasCallable"]
+    [type (def-callable
+                [def-arg test
+                    [brief "PythonTestAlias"]
+                    [type PythonTestAlias]
+                    #:ref]
+                [def-return 
+                    [brief "Result."]
+                    [type PythonTestAlias]
+                      #:ref])])
+
+(def-class PythonTestClass
+    [brief "Pytho Test Class class"]
+    [doc "Pytho Test Class class"]
+    [def-constructor
+        [def-arg val
+            [brief "python test class"]
+            [type PythonTestAlias]#:ref]]
+    [def-member test
+        [brief "PythonTestAlias"]
+        [type PythonTestAlias]#:ref]
+    [def-method execute
+        [brief "test_mthd"]
+        [doc  "test_mthd"]
+        [def-arg test
+            [brief "a value"]
+            [type PythonTestAlias]#:ref]
+        [def-arg callable
+            [brief "a value"]
+            [type PythonAliasCallable]#:ref]
+        [def-return 
+            [brief "PythonTestAlias"]
+            [type PythonAliasCallable]#:ref]]
+    [def-method test_mthd
+        [brief "test_mthd"]
+        [doc  "test_mthd"]
+        [def-arg test
+            [brief "a value"]
+            [type PythonTestAlias]#:ref]
+        [def-return 
+            [brief "PythonTestAlias"]
+            [type PythonTestAlias]#:ref]])

@@ -16,6 +16,7 @@ c_sources = files(
     'point_source.c',
     'utility_source.c'
 )
+incdirs = include_directories('.')
 
 base_package = hadron.package('pythongen',
             dependencies : [python.dependency(embed:true)],

@@ -266,3 +266,31 @@ bool graph_utility_Integer_operator_less (struct graph_utility_Integer* self, st
 bool graph_utility_Integer_operator_equal (struct graph_utility_Integer* self, struct graph_utility_Integer *val){
     return   self->value == val->value;
 }
+
+void graph_utility_PythonTestClass_destructor(graph_utility_PythonTestClass *self){
+   Py_DECREF(self->test);
+}
+
+
+void graph_utility_PythonTestClass_constructor(graph_utility_PythonTestClass* self, graph_utility_PythonTestAlias* val){
+  self->test = val;
+  Py_INCREF(self->test);
+}
+
+void test_mthd(graph_utility_PythonTestClass* self, graph_utility_PythonTestAlias* test){
+  Py_INCREF(test);
+  graph_utility_PythonTestClass_set_test_(self, test);
+}
+
+graph_utility_PythonTestAlias* graph_utility_PythonTestClass_test_mthd (struct graph_utility_PythonTestClass* self, graph_utility_PythonTestAlias *test){
+  Py_INCREF(test);
+  return test;
+}
+
+graph_utility_PythonAliasCallable* graph_utility_PythonTestClass_execute (struct graph_utility_PythonTestClass* self, graph_utility_PythonTestAlias *test,graph_utility_PythonAliasCallable *callable){
+
+  void * ret = callable->func(test, callable->closure);
+  mir_dec_ref_python(ret);
+  mir_inc_ref(callable);
+  return callable;
+}
