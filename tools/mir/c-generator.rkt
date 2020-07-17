@@ -244,7 +244,7 @@
                                     [arg-type-name (get-c-type-name type module)])
                                 (string-append
                                   (comment (format "Set up property ~a of ~a\n" arg-name c-type-name))
-                                  (format "void ~a_set_~a_(~a* self, ~a* ~a);"  c-type-name arg-name c-type-name arg-type-name arg-name)))]
+                                  (format "void ~a_set_~a_(~a* self, ~a* ~a);\n"  c-type-name arg-name c-type-name arg-type-name arg-name)))]
                             [else ""]))
                         (class-def-members memb))) 
 
