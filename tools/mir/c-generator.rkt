@@ -111,6 +111,10 @@
             (cond
               [(or (class-def? memb) (struct-def? memb))  
                 (format "typedef struct ~a ~a;\n"  (get-c-type-name memb module) (get-c-type-name memb module))]
+              [(python-type-def? memb)
+                (string-append  
+                  (format "typedef struct ~a ~a;\n"  (type-def-name memb ) (type-def-name memb )))
+                  (format "PyTypeObject * ~a;\n" (python-type-def-get-type memb))]
               [else ""]))
       (module-def-defs module))))
 
@@ -311,8 +315,6 @@
             (cond 
               [(callable-def? memb)
                 (format "#include \"~a\"\n" (get-c-callable-inc-filename memb module ))]
-              [(python-type-def? memb)
-                (format "#include \"~a\"\n" (python-type-def-include memb ))]
               [else ""])) 
             (module-def-defs module)))
         (get-includes module module-map)

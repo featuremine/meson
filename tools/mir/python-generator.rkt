@@ -1951,17 +1951,18 @@
 ;generate forward declarations block for callable inc file
 (define (get-forward-decl-callable-inc-file memb module)
   (let ([c-type (get-c-type-name memb module)]
-        [py-type (get-python-type-name memb module)])
+        [py-type (get-python-type-name memb module)]
+        [origin-type (get-origin-alias-type memb)])
     (cond
+      [(python-type-def? origin-type)
+        (string-append  
+          (format "typedef struct ~a ~a;\n"  (type-def-name origin-type ) (type-def-name origin-type ))
+          (format "PyTypeObject * ~a;\n" (python-type-def-get-type origin-type)))]
       [(alias-def? memb)
-        (if (python-type-def? (alias-def-type memb))
-          (string-append
-            (format "typedef struct ~a ~a;\n" (get-c-type-name (alias-def-type memb) module) (get-c-type-name (alias-def-type memb) module))
-            (format "typedef ~a ~a;\n" (get-c-type-name (alias-def-type memb) module) (get-c-type-name memb module) ))
         (string-append
           (get-forward-decl-callable-inc-file (alias-def-type memb) module)
-          (format "typedef ~a ~a;\n" (get-c-type-name (alias-def-type memb) module) (get-c-type-name memb module) )))]
-      
+          (format "typedef ~a ~a;\n" (get-c-type-name (alias-def-type memb) module) (get-c-type-name memb module) ))]
+ 
       [(or (class-def? memb) (struct-def? memb) (callable-def? memb))  
         (let ([py-type (get-python-type-name memb module)]
               [c-type (get-c-type-name memb module)])
@@ -1989,15 +1990,6 @@
         ;includes
         "#include <Python.h>\n" 
         (format "#include \"~a\"\n" (get-c-callable-inc-filename callable module))
-
-        (apply string-append 
-          (map (lambda (arg)
-            (let ([type (get-origin-alias-type (arg-def-type arg))])
-              (cond 
-                [(python-type-def? type)
-                  (format "#include \"~a\"\n" (python-type-def-include type ))]
-                [else ""]))) 
-              (callable-def-args callable)))
 
         ;add declarations
         (apply string-append

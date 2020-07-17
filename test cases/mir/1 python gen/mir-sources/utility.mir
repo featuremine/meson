@@ -497,7 +497,7 @@
 (def-alias PythonTestAlias
     [brief "PythonTestAlias."]
     [doc  "PythonTestAlias"]
-    [type (def-python-type PythonTest [include "python_type.h"] [get-type "_get_pys_graph_aliases_AliasClass()"])])
+    [type (def-python-type PythonTest)])
 
 
 

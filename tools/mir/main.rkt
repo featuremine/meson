@@ -939,17 +939,17 @@
 ;def-python-type syntax
 (define-syntax def-python-type
   (syntax-rules ()
-    [(def-python-type id-data [include include-data] [get get-data])
+    [(def-python-type id-data)
       (lambda (mod)
         (let ([id  (get-symbol id-data)])
-              (let (
-                [name  (symbol->string id )])
+              (letrec (
+                [name  (symbol->string id )]
+                [get-data  (format "_get_py_type_~a()" name)])
                   (if (id-find mod id) 
                     id
                     (begin
                       (id-add! mod  name (python-type-def name
                                                     #'id-data
-                                                    include-data
                                                     get-data))
                         id)))))]))
                                                   

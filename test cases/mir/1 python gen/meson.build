@@ -14,9 +14,10 @@ mir_files = files(
 c_sources = files(
     'aliases_source.c',
     'point_source.c',
-    'utility_source.c'
+    'utility_source.c',
+    'python_type.c'
 )
-incdirs = include_directories('.')
+
 
 base_package = hadron.package('pythongen',
             dependencies : [python.dependency(embed:true)],
