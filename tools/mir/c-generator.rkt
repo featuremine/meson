@@ -405,6 +405,7 @@
         "#include <stdlib.h>\n"
         "#include <string.h>\n"
         (format "#include \"~a\"\n" (get-include-filename module ))
+        "#include \"mir/pythongen/utils.h\"\n" 
         "\n"
         ;add free/init functions
         (apply 
@@ -628,7 +629,6 @@
         "\n"
         ;add include guard
         (format "#include \"~a\"\n" (get-c-callable-inc-filename callable module))
-        
         (comment (format "free memory function for ~a\n" type-name))
         (format "void ~a_del_(~a *self){\n" type-name type-name)
          "\tself->free(self->closure);"
