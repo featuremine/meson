@@ -21,6 +21,7 @@ incdirs = include_directories('.')
 base_package = hadron.package('pythongen',
             dependencies : [python.dependency(embed:true)],
             mir_headers: mir_files,
+            include_directories: [incdirs],
             c_sources: c_sources,
             python: python,
             )
