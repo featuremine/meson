@@ -113,8 +113,8 @@
                 (format "typedef struct ~a ~a;\n"  (get-c-type-name memb module) (get-c-type-name memb module))]
               [(python-type-def? memb)
                 (string-append  
-                  (format "typedef struct ~a ~a;\n"  (python-type-def-real-name memb ) (python-type-def-real-name memb )))
-                  (format "PyTypeObject * ~a;\n" (python-type-def-get-type memb))]
+                  (format "typedef struct ~a ~a;\n"  (python-type-def-real-name memb ) (python-type-def-real-name memb ))
+                  (format "PyTypeObject * ~a;\n" (python-type-def-get-type memb)))]
               [else ""]))
       (module-def-defs module))))
 
@@ -573,13 +573,12 @@
 
 (define (add-c-decl memb module)
       (cond
+        [(python-type-def? memb)
+              (format "typedef struct ~a ~a;\n" (get-c-type-name memb module) (get-c-type-name memb module))]
         [(alias-def? memb)
-    
-          (if (python-type-def? (alias-def-type memb))
-            (format "typedef struct ~a ~a;\n" (get-c-type-name (alias-def-type memb) module) (get-c-type-name memb module) )
             (string-append
               (add-c-decl (alias-def-type memb) module)
-              (format "typedef ~a ~a;\n" (get-c-type-name (alias-def-type memb) module) (get-c-type-name memb module) )))]
+              (format "typedef ~a ~a;\n" (get-c-type-name (alias-def-type memb) module) (get-c-type-name memb module) ))]
         [(or (class-def? memb) (struct-def? memb) (callable-def? memb))  
           (format "typedef struct ~a ~a;\n"  (get-c-type-name memb module) (get-c-type-name memb module))]
         [else ""]))
