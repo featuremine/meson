@@ -18,8 +18,7 @@ mir_files = files(
 c_sources = files(
     'aliases_source.c',
     'point_source.c',
-    'utility_source.c',
-    'python_type.c'
+    'utility_source.c'
 )
 
 
