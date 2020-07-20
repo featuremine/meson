@@ -20,6 +20,9 @@
 # PYTHONPATH=build/lib.linux-x86_64-3.6 python3 ../test/mir/python-gen/_mir_wrapper-test.py
 import _mir_wrapper
 import sys
+import psutil
+pr = psutil.Process()
+
 def test():
     cp = _mir_wrapper.ConstPoint;
     cv = _mir_wrapper.aliases.ConstVector;
@@ -261,5 +264,38 @@ def test():
     print(sys.getrefcount(testPython2))
 
     
-test()
+    
+if __name__ == "__main__":
+    mem0 = None
+    mem10 = None
+    mem100 = None
+
+    c = 100000
+    start = pr.memory_info().rss
+    for i in range(c):
+        test()
+        if i == 0:
+            fd = pr.num_fds()
+            mem0 = pr.memory_info().rss
+        elif i == 10:
+            mem10 = pr.memory_info().rss
+        elif i == 100:
+            mem100 = pr.memory_info().rss
+
+    print("Memory allocated:", pr.memory_info())
+    print(start,mem0,mem10,mem100)
+    if mem0:
+        percentage_diff = (pr.memory_info().rss - mem0) / mem0 / (c)
+        print(percentage_diff)
+        assert percentage_diff < 0.0001
+    if mem10:
+        percentage_diff = (pr.memory_info().rss - mem10) / mem10 / (c - 10)
+        print(percentage_diff)
+        assert percentage_diff < 0.0001
+    if mem100:
+        percentage_diff = (pr.memory_info().rss - mem100) / mem100 / (c - 100)
+        print(percentage_diff)
+        assert percentage_diff < 0.0002
+        
+# test()
 print('end')
