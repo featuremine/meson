@@ -287,15 +287,14 @@ if __name__ == "__main__":
     if mem0:
         percentage_diff = (pr.memory_info().rss - mem0) / mem0 / (c)
         print(percentage_diff)
-        assert percentage_diff < 0.0001
+        assert percentage_diff < 0.0002
     if mem10:
         percentage_diff = (pr.memory_info().rss - mem10) / mem10 / (c - 10)
         print(percentage_diff)
-        assert percentage_diff < 0.0001
+        assert percentage_diff < 0.0002
     if mem100:
         percentage_diff = (pr.memory_info().rss - mem100) / mem100 / (c - 100)
         print(percentage_diff)
-        assert percentage_diff < 0.0002
+        assert percentage_diff < 0.0004
         
-# test()
 print('end')
