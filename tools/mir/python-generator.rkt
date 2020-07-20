@@ -196,7 +196,7 @@
  (cond [(default-def? type)
         (hash-ref to-c-dict (type-def-name type))]
       [(enum-def? type) "PyLong_AsLong(~a)"]
-      [(python-type-def? type) (format "((~a*) ~a)" (python-type-def-real-name type) "~a")]
+      [(python-type-def? type) (format "((~a*) ~a)" (type-def-name type) "~a")]
       [else (format "_get_data~a(~a)" (get-python-type-name type module) "~a")]))
 
 ;using for converting from c to python TypeObject
@@ -237,7 +237,7 @@
         (hash-ref type-dict (type-def-name type))]
       [(alias-def? type)
         (get-python-type-name (alias-def-type type) mod)]
-      [(python-type-def? type) (python-type-def-real-name type)]
+      [(python-type-def? type) (type-def-name type)]
       [(enum-def? type) "PyLong_Type"]
       [else  
       (let ([env (module-def-env mod)]
@@ -256,7 +256,7 @@
       [(alias-def? type)
         (get-python-arg-type-name (alias-def-type type) mod)]
       [(enum-def? type) "uint8_t"]
-      [(python-type-def? type) (python-type-def-real-name type)]
+      [(python-type-def? type) (type-def-name type)]
       [else   
       (let ([env (module-def-env mod)]
             [id  (type-def-name type)])
@@ -1327,7 +1327,6 @@
                     (cond 
                       [(default-def? type)  
                         (format "&~a"(hash-ref type-dict-python (type-def-name type)))]
-                      [(python-type-def? type)  (python-type-def-get-type type)]
                       [else
                         (format "_get~a()"  (get-python-type-name type module))]    
                   ))))]
@@ -1366,11 +1365,16 @@
       args)))
 
 ;type check return section section
-(define (type-check-return-section py-type arg-value arg-type-name ret-val)
-  (string-append
-    (format "if (!PyObject_TypeCheck(~a, ~a)) {\n" py-type arg-value )
-    (format "PyErr_SetString(PyExc_TypeError, \"Argument provided must be an ~a\");\n" arg-type-name)
-    (format "return ~a;\n}\n" ret-val)))   
+(define (type-check-return-section arg-value py-type arg-type-name ret-val [check-type #t])
+  (if check-type
+    (string-append
+      (format "if (!PyObject_TypeCheck(~a, ~a)) {\n"  arg-value py-type)
+      (format "PyErr_SetString(PyExc_TypeError, \"Argument provided must be an ~a\");\n" arg-type-name)
+      (format "return ~a;\n}\n" ret-val))
+    (string-append
+      (format "if ( strcmp(((PyObject*) ~a)->ob_type->tp_name, \"~a\")!=0 ) {\n" arg-value py-type  )
+      (format "PyErr_SetString(PyExc_TypeError, \"Argument provided must be an ~a\");\n" arg-type-name)
+      (format "return ~a;\n}\n" ret-val))))   
 
 ;add block with one argument checks
 (define (check-arg-block arg-type arg-name module ret-val)   
@@ -1380,7 +1384,7 @@
     [(enum-def?  arg-type) ""]
     [(callable-def? arg-type) 
       (callable-check-block arg-type (format "_pyarg_~a" arg-name)  (format "_pyargdata_~a" arg-name) (format "_py_is_python_~a" arg-name) (get-python-type-name arg-type module) (get-c-type-name arg-type module) module ret-val)]
-    [(python-type-def?  arg-type)  (type-check-return-section (format "_pyarg_~a" arg-name )   (python-type-def-get-type arg-type) (python-type-def-real-name arg-type) ret-val)]
+    [(python-type-def?  arg-type)  (type-check-return-section (format "_pyarg_~a" arg-name )   (python-type-def-real-name arg-type) (type-def-name arg-type) ret-val #f)]
     [else    
       (type-check-return-section (format "_pyarg_~a" arg-name )   (format "_get~a()" (get-python-arg-type-name arg-type module)) (type-def-name arg-type) ret-val)]))
 
@@ -1955,9 +1959,7 @@
         [origin-type (get-origin-alias-type memb)])
     (cond
       [(python-type-def? origin-type)
-        (string-append  
-          (format "typedef struct ~a ~a;\n"  (python-type-def-real-name origin-type ) (python-type-def-real-name origin-type ))
-          (format "PyTypeObject * ~a;\n" (python-type-def-get-type origin-type)))]
+          (format "typedef struct ~a ~a;\n"  (type-def-name origin-type ) (type-def-name origin-type ))]
       [(alias-def? memb)
         (string-append
           (get-forward-decl-callable-inc-file (alias-def-type memb) module)

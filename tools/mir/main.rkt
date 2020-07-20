@@ -944,14 +944,12 @@
         (let ([id  (get-symbol id-data)]
               [real-name-id (get-symbol real-name-data)])
               (letrec (
-                [name  (symbol->string id )]
-                [get-data  (format "_get_py_type_~a()" name)])
+                [name  (symbol->string id )])
                   (if (id-find mod id) 
                     id
                     (begin
                       (id-add! mod  name (python-type-def name
                                                     #'id-data
-                                                    real-name-id
-                                                    get-data))
+                                                    real-name-id))
                         id)))))]))
                                                   

@@ -65,7 +65,7 @@
 (struct operator-def (num-name) #:super struct:method-def  #:transparent)
 (struct enum-def (brief doc members) #:super struct:type-def #:transparent)
 (struct enum-value-def (name stx brief value) #:transparent)
-(struct python-type-def (real-name get-type) #:super struct:type-def  #:transparent)
+(struct python-type-def (real-name) #:super struct:type-def  #:transparent)
 (struct template-def (callback) #:super struct:type-def  #:transparent)
 
 ;represents namespace

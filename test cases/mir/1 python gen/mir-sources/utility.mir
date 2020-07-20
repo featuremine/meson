@@ -494,24 +494,19 @@
             [brief "result"]
             [type bool]]])
 
-(def-alias PythonTestAlias
-    [brief "PythonTestAlias."]
-    [doc  "PythonTestAlias"]
-    [type (def-python-type PythonTest PythonTestReal)])
-
-
+(def-python-type PythonTest graph.aliases.AliasClass)
 
 (def-alias PythonAliasCallable
     [brief "PythonAliasCallable."]
     [doc  "PythonAliasCallable"]
     [type (def-callable
                 [def-arg test
-                    [brief "PythonTestAlias"]
-                    [type PythonTestAlias]
+                    [brief "PythonTest"]
+                    [type PythonTest]
                     #:ref]
                 [def-return 
                     [brief "Result."]
-                    [type PythonTestAlias]
+                    [type PythonTest]
                       #:ref])])
 
 (def-class PythonTestClass
@@ -520,28 +515,28 @@
     [def-constructor
         [def-arg val
             [brief "python test class"]
-            [type PythonTestAlias]#:ref]]
+            [type PythonTest]#:ref]]
     [def-member test
-        [brief "PythonTestAlias"]
-        [type PythonTestAlias]#:ref]
+        [brief "PythonTest"]
+        [type PythonTest]#:ref]
     [def-method execute
         [brief "test_mthd"]
         [doc  "test_mthd"]
         [def-arg test
             [brief "a value"]
-            [type PythonTestAlias]#:ref]
+            [type PythonTest]#:ref]
         [def-arg callable
             [brief "a value"]
             [type PythonAliasCallable]#:ref]
         [def-return 
-            [brief "PythonTestAlias"]
+            [brief "PythonTest"]
             [type PythonAliasCallable]#:ref]]
     [def-method test_mthd
         [brief "test_mthd"]
         [doc  "test_mthd"]
         [def-arg test
             [brief "a value"]
-            [type PythonTestAlias]#:ref]
+            [type PythonTest]#:ref]
         [def-return 
-            [brief "PythonTestAlias"]
-            [type PythonTestAlias]#:ref]])
+            [brief "PythonTest"]
+            [type PythonTest]#:ref]])

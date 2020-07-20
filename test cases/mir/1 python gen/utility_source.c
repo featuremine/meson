@@ -271,23 +271,22 @@ void graph_utility_PythonTestClass_destructor(graph_utility_PythonTestClass *sel
    Py_DECREF(self->test);
 }
 
-
-void graph_utility_PythonTestClass_constructor(graph_utility_PythonTestClass* self, graph_utility_PythonTestAlias* val){
+void graph_utility_PythonTestClass_constructor(graph_utility_PythonTestClass* self, PythonTest* val){
   self->test = val;
   Py_INCREF(self->test);
 }
 
-void test_mthd(graph_utility_PythonTestClass* self, graph_utility_PythonTestAlias* test){
+void test_mthd(graph_utility_PythonTestClass* self, PythonTest* test){
   Py_INCREF(test);
   graph_utility_PythonTestClass_set_test_(self, test);
 }
 
-graph_utility_PythonTestAlias* graph_utility_PythonTestClass_test_mthd (struct graph_utility_PythonTestClass* self, graph_utility_PythonTestAlias *test){
+PythonTest* graph_utility_PythonTestClass_test_mthd (struct graph_utility_PythonTestClass* self, PythonTest* test){
   Py_INCREF(test);
   return test;
 }
 
-graph_utility_PythonAliasCallable* graph_utility_PythonTestClass_execute (struct graph_utility_PythonTestClass* self, graph_utility_PythonTestAlias *test,graph_utility_PythonAliasCallable *callable){
+graph_utility_PythonAliasCallable* graph_utility_PythonTestClass_execute (struct graph_utility_PythonTestClass* self, PythonTest* test,graph_utility_PythonAliasCallable *callable){
 
   void * ret = callable->func(test, callable->closure);
   mir_dec_ref_python(ret);

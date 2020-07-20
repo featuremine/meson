@@ -270,7 +270,7 @@ if __name__ == "__main__":
     mem10 = None
     mem100 = None
 
-    c = 100000
+    c = 1000
     start = pr.memory_info().rss
     for i in range(c):
         test()
