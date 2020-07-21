@@ -278,6 +278,7 @@
       [(callable-def? def)(bind-unbounded-callable def mod)]
       [(class-def? def)(bind-unbounded-class def mod)]
       [(enum-def? def) void]
+      [(python-type-def? def) void]
       [(template-def? def) ""]
       [else  (error (format "unprocessable entity ~a \n" def))]))))
 
@@ -387,6 +388,7 @@
          def-template
          def-enum
          def-enum-value
+         def-python-type
          generate-source
          get-source-info
          last
@@ -933,3 +935,21 @@
                                                   doc-txt
                                                   (list (member mod ctx) ...)
                                                   ))))))]))
+
+;def-python-type syntax
+(define-syntax def-python-type
+  (syntax-rules ()
+    [(def-python-type id-data real-name-data)
+      (lambda (mod)
+        (let ([id  (get-symbol id-data)]
+              [real-name-id (get-symbol real-name-data)])
+              (letrec (
+                [name  (symbol->string id )])
+                  (if (id-find mod id) 
+                    id
+                    (begin
+                      (id-add! mod  name (python-type-def name
+                                                    #'id-data
+                                                    real-name-id))
+                        id)))))]))
+                                                  

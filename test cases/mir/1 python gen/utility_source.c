@@ -6,7 +6,10 @@
 struct graph_Point
 graph_utility_Utility_multiply_points(struct graph_utility_Utility *self,
                                       struct graph_Point *point, double K) {
-  return (struct graph_Point){NULL, point->x * K, point->y * K};
+  graph_Point * ret = graph_Point_get_descr()->new_();
+    ret->x = point->x * K;
+    ret->y = point->y * K;
+    return *ret;
 }
 
 double graph_utility_Utility_divide(struct graph_utility_Utility *self,
@@ -39,12 +42,14 @@ graph_utility_Utility_pointSum(struct graph_utility_Utility *self,
 }
 
 int32_t
-graph_utility_Utility_add_callable(struct graph_utility_Utility *self,
+graph_utility_Utility_execute_callable(struct graph_utility_Utility *self,
                                    struct graph_Point *point,
                                    r_int32_a_double_al_graph_Point *callable) {
   printf("hello from c\n");
+    printf("ref count %ld \n", mir_get_ref_cnt(callable));
   int32_t ret = callable->func(1.0, point, callable->closure);
-  callable->free(callable->closure);
+    printf("ref count %ld \n", mir_get_ref_cnt(callable));
+
   // free(callable);
   return ret;
 }
@@ -65,6 +70,7 @@ graph_utility_Utility_get_callable(struct graph_utility_Utility *self,
                                    struct graph_Point *point, int16_t int16) {
   printf("hello from graph_utility_Utility_get_callable\n");
   r_int32_a_double_al_graph_Point callback;
+  callback._owner_ = NULL;
   callback.closure = c_closure;
   callback.func = c_callback;
   callback.free = c_free;
@@ -83,11 +89,11 @@ int32_t c_a_callback(double K, void *c) { return ((c_a_callb)c)(K); };
 r_int32_a_double
 graph_utility_Utility_get_another_callable(struct graph_utility_Utility *self) {
   printf("hello from c\n");
-  r_int32_a_double callback;
-  callback.closure = c_a_closure;
-  callback.func = c_a_callback;
-  callback.free = c_free;
-  return callback;
+  r_int32_a_double *callback = r_int32_a_double_get_descr()->new_();
+  callback->closure = c_a_closure;
+  callback->func = c_a_callback;
+  callback->free = c_free;
+  return *callback;
 }
 
 typedef graph_Point *(*c_p_callb)(double K);
@@ -106,7 +112,7 @@ graph_Point *c_p_callback(double K, void *c) { return ((c_p_callb)c)(K); };
 rl_graph_Point_a_double *graph_utility_Utility_get_callable_with_ref(
     struct graph_utility_Utility *self) {
   printf("hello from c\n");
-  rl_graph_Point_a_double *callback = malloc(sizeof(rl_graph_Point_a_double));
+  rl_graph_Point_a_double *callback = rl_graph_Point_a_double_get_descr()->new_();
   callback->closure = c_p_closure;
   callback->func = c_p_callback;
   callback->free = c_free;
@@ -176,13 +182,21 @@ char graph_utility_Checker_check_char(struct graph_utility_Checker *self,
 }
 char *graph_utility_Checker_check_string(struct graph_utility_Checker *self,
                                          char *a) {
-  return a;
+
+  char *result = malloc(strlen(a)+1);
+  strcpy(result, a);
+  return result;
 }
 
 // del
-void graph_utility_Utility_destructor(graph_utility_Utility *self) {}
+void graph_utility_Utility_destructor(graph_utility_Utility *self) {
+    printf("Utility destructor\n");
+}
 // new
-void graph_utility_Utility_constructor(graph_utility_Utility *self) {}
+void graph_utility_Utility_constructor(graph_utility_Utility *self) {
+  self->calwithoutret= NULL;
+  mir_inc_ref(self);
+}
 // del
 void graph_utility_EmptyClass_destructor(graph_utility_EmptyClass *self) {}
 // new
@@ -237,6 +251,7 @@ graph_utility_TestEnum graph_utility_EnumClass_set_enum (struct graph_utility_En
   return testEnum;
 }
 struct graph_utility_EnumClass graph_utility_EnumClass_getHimSelf (struct graph_utility_EnumClass* self, struct graph_utility_EnumClass data){
+  graph_utility_EnumClass_get_descr()->inc_ref_(&data);
   return data;
 }
 
@@ -253,4 +268,31 @@ bool graph_utility_Integer_operator_less (struct graph_utility_Integer* self, st
 
 bool graph_utility_Integer_operator_equal (struct graph_utility_Integer* self, struct graph_utility_Integer *val){
     return   self->value == val->value;
+}
+
+void graph_utility_PythonTestClass_destructor(graph_utility_PythonTestClass *self){
+   Py_DECREF(self->test);
+}
+
+void graph_utility_PythonTestClass_constructor(graph_utility_PythonTestClass* self, PythonTest* val){
+  self->test = val;
+  Py_INCREF(self->test);
+}
+
+void test_mthd(graph_utility_PythonTestClass* self, PythonTest* test){
+  Py_INCREF(test);
+  graph_utility_PythonTestClass_set_test_(self, test);
+}
+
+PythonTest* graph_utility_PythonTestClass_test_mthd (struct graph_utility_PythonTestClass* self, PythonTest* test){
+  Py_INCREF(test);
+  return test;
+}
+
+graph_utility_PythonAliasCallable* graph_utility_PythonTestClass_execute (struct graph_utility_PythonTestClass* self, PythonTest* test,graph_utility_PythonAliasCallable *callable){
+
+  void * ret = callable->func(test, callable->closure);
+  mir_dec_ref_python(ret);
+  mir_inc_ref(callable);
+  return callable;
 }

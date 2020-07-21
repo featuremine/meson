@@ -48,7 +48,7 @@
             [brief "Result."]
             [type graph.Point]]]
 
-    [def-method add_callable
+    [def-method execute_callable
         [brief "Scalar multiplication"]
         [doc  "Make multiplication of point and salar coeficient."]
         [def-arg point
@@ -494,3 +494,49 @@
             [brief "result"]
             [type bool]]])
 
+(def-python-type PythonTest graph.aliases.AliasClass)
+
+(def-alias PythonAliasCallable
+    [brief "PythonAliasCallable."]
+    [doc  "PythonAliasCallable"]
+    [type (def-callable
+                [def-arg test
+                    [brief "PythonTest"]
+                    [type PythonTest]
+                    #:ref]
+                [def-return 
+                    [brief "Result."]
+                    [type PythonTest]
+                      #:ref])])
+
+(def-class PythonTestClass
+    [brief "Pytho Test Class class"]
+    [doc "Pytho Test Class class"]
+    [def-constructor
+        [def-arg val
+            [brief "python test class"]
+            [type PythonTest]#:ref]]
+    [def-member test
+        [brief "PythonTest"]
+        [type PythonTest]#:ref]
+    [def-method execute
+        [brief "test_mthd"]
+        [doc  "test_mthd"]
+        [def-arg test
+            [brief "a value"]
+            [type PythonTest]#:ref]
+        [def-arg callable
+            [brief "a value"]
+            [type PythonAliasCallable]#:ref]
+        [def-return 
+            [brief "PythonTest"]
+            [type PythonAliasCallable]#:ref]]
+    [def-method test_mthd
+        [brief "test_mthd"]
+        [doc  "test_mthd"]
+        [def-arg test
+            [brief "a value"]
+            [type PythonTest]#:ref]
+        [def-return 
+            [brief "PythonTest"]
+            [type PythonTest]#:ref]])
