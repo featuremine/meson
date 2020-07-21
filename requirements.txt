@@ -3,3 +3,4 @@ findimports==1.5.2
 pandas==1.0.5
 mypy==0.782
 pylint==2.5.3
+psutil==5.7.2
