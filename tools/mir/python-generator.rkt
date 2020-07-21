@@ -1376,7 +1376,7 @@
       args)))
 
 ;type check return section section
-(define (type-check-return-section arg-value py-type arg-type-name ret-val [check-type #t])
+(define (type-check-return-section arg-value py-type arg-type-name ret-val [check-type #t][check #t])
   (if check-type
     (string-append
       (format "if (!PyObject_TypeCheck(~a, ~a)) {\n"  arg-value py-type)
@@ -1395,7 +1395,10 @@
     [(enum-def?  arg-type) ""]
     [(callable-def? arg-type) 
       (callable-check-block arg-type (format "_pyarg_~a" arg-name)  (format "_pyargdata_~a" arg-name) (format "_py_is_python_~a" arg-name) (get-python-type-name arg-type module) (get-c-type-name arg-type module) module ret-val)]
-    [(python-type-def?  arg-type)  (type-check-return-section (format "_pyarg_~a" arg-name )   (python-type-def-real-name arg-type) (type-def-name arg-type) ret-val #f)]
+    [(python-type-def?  arg-type) 
+      (if (not (equal? (python-type-def-real-name arg-type) "any"))
+        (type-check-return-section (format "_pyarg_~a" arg-name )   (python-type-def-real-name arg-type) (type-def-name arg-type) ret-val #f)
+        "")]
     [else    
       (type-check-return-section (format "_pyarg_~a" arg-name )   (format "_get~a()" (get-python-arg-type-name arg-type module)) (type-def-name arg-type) ret-val)]))
 
