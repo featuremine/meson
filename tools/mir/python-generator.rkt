@@ -140,7 +140,7 @@
     #f]))
 
 ;build return block of code for several places in python wrapper
-(define (build-return-section data type module ref [after-section ""])
+(define (build-return-section data type module ref [after-section ""] [return-none #t])
   (let ([real-type (get-origin-alias-type type)]
     [python-t (to-python-type type)])
     (if python-t 
@@ -148,7 +148,16 @@
         [(equal? (type-def-name type) "char")
           (format "char _pycharret_data = ~a;\n~a return ~a;\n" data after-section (format python-t "&_pycharret_data"))]
         [(equal? (type-def-name type) "none")
-          (format "~a;\n~aPy_RETURN_NONE;\n" data after-section)]
+          (if return-none
+            (format "~a;\n~aPy_RETURN_NONE;\n" data after-section)
+            (format "~a;\n~aPy_INCREF(self);\nreturn (PyObject*) self;\n" data after-section))]
+        [(equal? (type-def-name type) "string")
+          (string-append 
+            (format "char * _py_string_ret_= ~a;\n"data)
+            (format "PyObject* _pyret_ = ~a;\n"(format python-t "_py_string_ret_"))
+            "free(_py_string_ret_);\n"
+            after-section         
+            "return (PyObject*) _pyret_;\n")]
         [(python-type-def? real-type) 
           (string-append 
             (format "~a* _pyret_ = ~a;\n"(get-python-type-name type module)(format python-t data))
@@ -1063,6 +1072,7 @@
                                               (format "~a* ~a = (~a*) obj;\n" arg-py-type  arg-value-name arg-py-type)
                                               (check-arg-block (arg-def-type (car args)) (arg-def-name (car args)) module "NULL")))
                                           ;return section
+                                   
                                           (build-return-section             
                                             (string-append
                                               (format "~a(&self->data, " c-mthd-name)
@@ -1085,7 +1095,8 @@
                                                         [(callable-def? origin-type)
                                                           (free-py-callable-section (format "_py_is_python_~a" arg-name) (format "_pyargdata_~a" arg-name))]
                                                         [else ""])))
-                                                args)))  
+                                                args))
+                                            #f)  
 
                                           "}\n" ))
                                       (error (format "in method ~a of ~a should be exactly one input argument" name c-type)))))))

@@ -182,7 +182,10 @@ char graph_utility_Checker_check_char(struct graph_utility_Checker *self,
 }
 char *graph_utility_Checker_check_string(struct graph_utility_Checker *self,
                                          char *a) {
-  return a;
+
+  char *result = malloc(strlen(a)+1);
+  strcpy(result, a);
+  return result;
 }
 
 // del

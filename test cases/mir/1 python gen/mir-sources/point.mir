@@ -49,8 +49,8 @@
             [brief "point"]
             [type Point] #:ref]
         [def-return 
-            [brief "point."]
-            [type Point] #:ref]]
+            [brief "no return."]
+            [type none]]]
     [def-operator /=
         [brief "Divide"]
         [doc  "Divide."]
@@ -58,8 +58,8 @@
             [brief "val"]
             [type int64]]
         [def-return 
-            [brief "point."]
-            [type Point] #:ref]]
+            [brief "no return."]
+            [type none]]]
     [def-method norm 
         [brief "Norm"]
         [doc  "Calculate the norm value of point."]

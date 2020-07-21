@@ -226,7 +226,7 @@ def test():
 
     assert(op_pt1.x==2 and op_pt1.y==2  )
     op_pt1/=0
-    assert(op_pt1 == None)
+    assert(op_pt1.x == 0, op_pt1.y == 0)
 
 
     int1 = _mir_wrapper.utility.Integer(1)
