@@ -44,7 +44,7 @@ if sys.platform != 'win32':
                   ('share/polkit-1/actions', ['data/com.mesonbuild.install.policy'])]
 
 # include mir staff
-data_files +=  [('tools/mir/', ['tools/mir/utils.rkt',
+data_files +=  [('tools/mir', ['tools/mir/utils.rkt',
                                 'tools/mir/c-generator.rkt',
                                 'tools/mir/mir-generator.rkt',
                                 'tools/mir/main.rkt',
