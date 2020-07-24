@@ -71,7 +71,9 @@ class PythonDependency(ExternalDependency):
             pkg_libdir = self.variables.get('LIBPC')
 
             # If python-X.Y.pc exists in LIBPC, we will try to use it
-            if pkg_libdir is not None and Path(os.path.join(pkg_libdir, 'python-{}.pc'.format(pkg_version))).is_file():
+            embed = "-embed" if "embed" in kwargs and kwargs["embed"] else ""
+            pc_file = 'python-{}{}'.format(pkg_version, embed)
+            if pkg_libdir is not None and Path(os.path.join(pkg_libdir, pc_file + ".pc")).is_file():
                 old_pkg_libdir = os.environ.get('PKG_CONFIG_LIBDIR')
                 old_pkg_path = os.environ.get('PKG_CONFIG_PATH')
 
@@ -81,7 +83,7 @@ class PythonDependency(ExternalDependency):
                     os.environ['PKG_CONFIG_LIBDIR'] = pkg_libdir
 
                 try:
-                    self.pkgdep = PkgConfigDependency('python-{}'.format(pkg_version), environment, kwargs)
+                    self.pkgdep = PkgConfigDependency(pc_file, environment, kwargs)
                     mlog.debug('Found "python-{}" via pkgconfig lookup in LIBPC ({})'.format(pkg_version, pkg_libdir))
                     py_lookup_method = 'pkgconfig'
                 except MesonException as e:
@@ -131,7 +133,6 @@ class PythonDependency(ExternalDependency):
             mlog.log('Dependency', mlog.bold(self.name), 'found:', mlog.green('YES ({})'.format(py_lookup_method)))
         else:
             mlog.log('Dependency', mlog.bold(self.name), 'found:', [mlog.red('NO')])
-
     def _find_libpy(self, python_holder, environment):
         if python_holder.is_pypy:
             if self.major_version == 3:
