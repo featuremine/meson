@@ -36,24 +36,27 @@ packages = ['mesonbuild',
             'mesonbuild.modules',
             'mesonbuild.scripts',
             'mesonbuild.wrap']
-package_data = {'mesonbuild.dependencies': ['data/CMakeLists.txt', 'data/CMakeListsLLVM.txt', 'data/CMakePathInfo.txt']}
+
+# include mir staff
+mir_data = ['tools/mir/utils.rkt',
+            'tools/mir/c-generator.rkt',
+            'tools/mir/mir-generator.rkt',
+            'tools/mir/main.rkt',
+            'tools/mir/common-c.rkt',
+            'tools/mir/core.rkt',
+            'tools/mir/python-generator.rkt',
+            'tools/mir/pythongen/common_c.h',
+            'tools/mir/pythongen/utils.h',
+            'tools/mir/pythongen/utils.c']
+
+package_data = {'mesonbuild': mir_data,
+                'mesonbuild.dependencies': ['data/CMakeLists.txt', 'data/CMakeListsLLVM.txt', 'data/CMakePathInfo.txt']}
+
 data_files = []
 if sys.platform != 'win32':
     # Only useful on UNIX-like systems
     data_files = [('share/man/man1', ['man/meson.1']),
                   ('share/polkit-1/actions', ['data/com.mesonbuild.install.policy'])]
-
-# include mir staff
-data_files +=  [('tools/mir', ['tools/mir/utils.rkt',
-                                'tools/mir/c-generator.rkt',
-                                'tools/mir/mir-generator.rkt',
-                                'tools/mir/main.rkt',
-                                'tools/mir/common-c.rkt',
-                                'tools/mir/core.rkt',
-                                'tools/mir/python-generator.rkt']),
-                ('tools/mir/pythongen', ['tools/mir/pythongen/common_c.h',
-                                         'tools/mir/pythongen/utils.h',
-                                         'tools/mir/pythongen/utils.c'])]
 
 # load requirements
 lib_path = os.path.dirname(os.path.realpath(__file__))

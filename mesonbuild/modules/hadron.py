@@ -43,6 +43,7 @@ from typing import List
 hadron_package_kwargs = set([
     'version',
     'mir_headers',
+    'mir_includes',
     'c_sources',
     'py_sources',
     'root_files',
@@ -59,6 +60,7 @@ hadron_package_kwargs = set([
 # these will be removed if not require for shlib
 hadron_special_kwargs = set([
     'mir_headers',
+    'mir_includes',
     'c_sources',
     'py_sources',
     'root_files',
@@ -108,6 +110,7 @@ class HadronModule(ExtensionModule):
             self.name = args[0]
         self.version = kwargs.get('version', '')
         self.mir_headers = kwargs.get('mir_headers', [])
+        self.mir_includes = kwargs.get('mir_includes', [])
         self.c_sources = kwargs.get('c_sources', [])
         self.py_sources = kwargs.get('py_sources', [])
         self.root_files = kwargs.get('root_files', [])
@@ -391,11 +394,13 @@ class HadronModule(ExtensionModule):
         Return common command line for mir generator.
         """
 
-        root_module_path = Path(os.path.dirname(mesonbuild.__file__)).parent
+        root_module_path = Path(os.path.dirname(mesonbuild.__file__))
         tools_dir = os.path.join(root_module_path, 'tools')
         mir_gen = os.path.join(tools_dir, 'mir', 'mir-generator.rkt')
         dest_dir = self.api_gen_dir
-        return ['racket', '-S', tools_dir, mir_gen, '-d', dest_dir, '-r', os.path.join(self.source_dir, self.subdir)]
+        includes = list( map(lambda inc: ['-I',inc],self.mir_includes))
+        merged_includes = [item for sublist in includes for item in sublist]
+        return ['racket', '-S', tools_dir, mir_gen, '-d', dest_dir, '-r', os.path.join(self.source_dir, self.subdir),]+merged_includes
 
     def run_mir_generation(self):
         self.make_api_gen_dir()
@@ -466,7 +471,7 @@ class HadronModule(ExtensionModule):
         for key in hadron_special_kwargs:
             remove_key(key)
 
-        root_module_path = Path(os.path.dirname(mesonbuild.__file__)).parent
+        root_module_path = Path(os.path.dirname(mesonbuild.__file__))
         tools_path = os.path.join(root_module_path, 'tools')
         utils_file = mesonlib.File.from_absolute_file(os.path.join(tools_path, 'mir/pythongen/utils.c'))
 

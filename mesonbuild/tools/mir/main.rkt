@@ -77,7 +77,7 @@
   ;iterate over all in env
   (let([curr-env (module-def-env module)])
     (hash-map env (lambda (k v)
-      (if (not (default-def? v))
+      (if (not (or (default-def? v) (python-type-def? v)))
         (let ([var (id-find module (string->symbol k))])
           (if (not var)
             ;insert defenition
