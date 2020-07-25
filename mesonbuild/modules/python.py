@@ -84,11 +84,21 @@ class PythonDependency(ExternalDependency):
 
                 try:
                     self.pkgdep = PkgConfigDependency(pc_file, environment, kwargs)
-                    mlog.debug('Found "python-{}" via pkgconfig lookup in LIBPC ({})'.format(pkg_version, pkg_libdir))
+                    mlog.debug('Found "{}" via pkgconfig lookup in LIBPC ({})'.format(pc_file, pkg_libdir))
                     py_lookup_method = 'pkgconfig'
                 except MesonException as e:
-                    mlog.debug('"python-{}" could not be found in LIBPC ({})'.format(pkg_version, pkg_libdir))
+                    mlog.debug('"{}" could not be found in LIBPC ({})'.format(pc_file, pkg_libdir))
                     mlog.debug(e)
+
+                    # try the non embed one just in case
+                    if embed:
+                        try:
+                            self.pkgdep = PkgConfigDependency('python-{}'.format(pkg_version), environment, kwargs)
+                            mlog.debug('Found "python-{}" via pkgconfig lookup in LIBPC ({})'.format(pkg_version, pkg_libdir))
+                            py_lookup_method = 'pkgconfig'
+                        except MesonException as e:
+                            mlog.debug('"python-{}" could not be found in LIBPC ({})'.format(pkg_version, pkg_libdir))
+                            mlog.debug(e)
 
                 if old_pkg_path is not None:
                     os.environ['PKG_CONFIG_PATH'] = old_pkg_path
