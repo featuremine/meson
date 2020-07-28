@@ -78,7 +78,7 @@ class PythonDependency(ExternalDependency):
                     pc_file=f
                     break
 
-            if pkg_libdir is not None and Path(os.path.join(pkg_libdir, pc_file + ".pc")).is_file():
+            if pkg_libdir is not None and pc_file:
                 old_pkg_libdir = os.environ.get('PKG_CONFIG_LIBDIR')
                 old_pkg_path = os.environ.get('PKG_CONFIG_PATH')
 
