@@ -72,8 +72,22 @@ class PythonDependency(ExternalDependency):
 
             # If python-X.Y.pc exists in LIBPC, we will try to use it
             embed = "-embed" if "embed" in kwargs and kwargs["embed"] else ""
+            python_cases = []
+            if embed:
+                python_cases.append('python-{}{}'.format(pkg_version, embed))
+            python_cases.append('python-{}'.format(pkg_version))
+            if len(pkg_version)>0:
+                corrected_pkg_version = ''
+                if pkg_version[-1] == 'm':
+                    corrected_pkg_version = pkg_version[0:-1]
+                else:
+                    corrected_pkg_version =pkg_version+ 'm'
+                if embed:
+                    python_cases.append('python-{}{}'.format(corrected_pkg_version, embed))
+                python_cases.append('python-{}'.format(corrected_pkg_version))
+                    
             pc_file = ''
-            for f in ['python-{}{}'.format(pkg_version, embed), 'python-{}'.format(pkg_version)]:
+            for f in python_cases:
                 if Path(os.path.join(pkg_libdir, f + ".pc")).is_file():
                     pc_file=f
                     break
