@@ -70,64 +70,64 @@ class PythonDependency(ExternalDependency):
             pkg_version = self.variables.get('LDVERSION') or self.version
             pkg_libdir = self.variables.get('LIBPC')
 
-            # If python-X.Y.pc exists in LIBPC, we will try to use it
-            embed = "-embed" if "embed" in kwargs and kwargs["embed"] else ""
-            python_cases = []
-            if embed:
-                python_cases.append('python-{}{}'.format(pkg_version, embed))
-            python_cases.append('python-{}'.format(pkg_version))
-            if len(pkg_version)>0:
-                corrected_pkg_version = ''
-                if pkg_version[-1] == 'm':
-                    corrected_pkg_version = pkg_version[0:-1]
+            if pkg_libdir is not None:
+                # If python-X.Y.pc exists in LIBPC, we will try to use it
+                embed = "-embed" if "embed" in kwargs and kwargs["embed"] else ""
+                python_cases = [
+                    'python-{}{}'.format(pkg_version, embed),
+                    'python{}{}'.format(pkg_version, embed),
+                    'python-{}'.format(pkg_version),
+                    'python{}'.format(pkg_version),
+                    'python-{}{}'.format(pkg_version + 'm', embed),
+                    'python{}{}'.format(pkg_version + 'm', embed),
+                    'python-{}'.format(pkg_version + 'm'),
+                    'python{}'.format(pkg_version + 'm')
+                ]
+
+                pc_file = ''
+                for f in python_cases:
+                    if Path(os.path.join(pkg_libdir, f + ".pc")).is_file():
+                        pc_file=f
+                        break
+
+                if pc_file:
+                    old_pkg_libdir = os.environ.get('PKG_CONFIG_LIBDIR')
+                    old_pkg_path = os.environ.get('PKG_CONFIG_PATH')
+
+                    os.environ.pop('PKG_CONFIG_PATH', None)
+
+                    if pkg_libdir:
+                        os.environ['PKG_CONFIG_LIBDIR'] = pkg_libdir
+
+                    try:
+                        self.pkgdep = PkgConfigDependency(pc_file, environment, kwargs)
+                        mlog.debug('Found "{}" via pkgconfig lookup in LIBPC ({})'.format(pc_file, pkg_libdir))
+                        py_lookup_method = 'pkgconfig'
+                    except MesonException as e:
+                        mlog.debug('"{}" could not be found in LIBPC ({})'.format(pc_file, pkg_libdir))
+                        mlog.debug(e)
+
+                        # try the non embed one just in case
+                        if embed:
+                            try:
+                                self.pkgdep = PkgConfigDependency('python-{}'.format(pkg_version), environment, kwargs)
+                                mlog.debug('Found "python-{}" via pkgconfig lookup in LIBPC ({})'.format(pkg_version, pkg_libdir))
+                                py_lookup_method = 'pkgconfig'
+                            except MesonException as e:
+                                mlog.debug('"python-{}" could not be found in LIBPC ({})'.format(pkg_version, pkg_libdir))
+                                mlog.debug(e)
+
+                    if old_pkg_path is not None:
+                        os.environ['PKG_CONFIG_PATH'] = old_pkg_path
+
+                    if old_pkg_libdir is not None:
+                        os.environ['PKG_CONFIG_LIBDIR'] = old_pkg_libdir
+                    else:
+                        os.environ.pop('PKG_CONFIG_LIBDIR', None)
                 else:
-                    corrected_pkg_version =pkg_version+ 'm'
-                if embed:
-                    python_cases.append('python-{}{}'.format(corrected_pkg_version, embed))
-                python_cases.append('python-{}'.format(corrected_pkg_version))
-                    
-            pc_file = ''
-            for f in python_cases:
-                if Path(os.path.join(pkg_libdir, f + ".pc")).is_file():
-                    pc_file=f
-                    break
-
-            if pkg_libdir is not None and pc_file:
-                old_pkg_libdir = os.environ.get('PKG_CONFIG_LIBDIR')
-                old_pkg_path = os.environ.get('PKG_CONFIG_PATH')
-
-                os.environ.pop('PKG_CONFIG_PATH', None)
-
-                if pkg_libdir:
-                    os.environ['PKG_CONFIG_LIBDIR'] = pkg_libdir
-
-                try:
-                    self.pkgdep = PkgConfigDependency(pc_file, environment, kwargs)
-                    mlog.debug('Found "{}" via pkgconfig lookup in LIBPC ({})'.format(pc_file, pkg_libdir))
-                    py_lookup_method = 'pkgconfig'
-                except MesonException as e:
-                    mlog.debug('"{}" could not be found in LIBPC ({})'.format(pc_file, pkg_libdir))
-                    mlog.debug(e)
-
-                    # try the non embed one just in case
-                    if embed:
-                        try:
-                            self.pkgdep = PkgConfigDependency('python-{}'.format(pkg_version), environment, kwargs)
-                            mlog.debug('Found "python-{}" via pkgconfig lookup in LIBPC ({})'.format(pkg_version, pkg_libdir))
-                            py_lookup_method = 'pkgconfig'
-                        except MesonException as e:
-                            mlog.debug('"python-{}" could not be found in LIBPC ({})'.format(pkg_version, pkg_libdir))
-                            mlog.debug(e)
-
-                if old_pkg_path is not None:
-                    os.environ['PKG_CONFIG_PATH'] = old_pkg_path
-
-                if old_pkg_libdir is not None:
-                    os.environ['PKG_CONFIG_LIBDIR'] = old_pkg_libdir
-                else:
-                    os.environ.pop('PKG_CONFIG_LIBDIR', None)
+                    mlog.debug('"python-{}" could not be found in LIBPC ({}), this is likely due to a relocated python installation'.format(pkg_version, pkg_libdir))
             else:
-                mlog.debug('"python-{}" could not be found in LIBPC ({}), this is likely due to a relocated python installation'.format(pkg_version, pkg_libdir))
+                mlog.debug('pkg_libdir is None')
 
             # If lookup via LIBPC failed, try to use fallback PKG_CONFIG_LIBDIR/PKG_CONFIG_PATH mechanisms
             if self.pkgdep is None or not self.pkgdep.found():
