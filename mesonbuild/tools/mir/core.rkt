@@ -69,7 +69,7 @@
 (struct template-def (callback) #:super struct:type-def  #:transparent)
 
 ;represents namespace
-(struct namespace-def ([brief #:mutable] [doc #:mutable] namespaces members [child-nss #:mutable]))
+(struct namespace-def ([brief #:mutable] [doc #:mutable] namespaces [members #:mutable] [child-nss #:mutable]))
 
 (define base-folder-def "api-gen")
 (define (set-destination-folder-name name) (set! base-folder-def name))

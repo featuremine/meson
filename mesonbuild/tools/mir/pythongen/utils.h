@@ -25,6 +25,7 @@ extern "C"
 {
 #endif
 #include <Python.h>
+#include "stdbool.h"
        void free_closure(void *closure);
        typedef struct
        {
@@ -39,6 +40,13 @@ extern "C"
        void mir_dec_ref_python(void *obj);
 
        long mir_get_ref_cnt(void *obj);
+       typedef enum
+       {
+              mir_exception_VALUE_ERROR,
+              mir_exception_RuntimeError
+       } mir_exception;
+       void mir_error_set(mir_exception err, const char *message);
+       bool mir_error_occured();
 
 #ifdef __cplusplus
 }

@@ -51,3 +51,27 @@ long mir_get_ref_cnt(void *obj) {
 
 void mir_inc_ref_python(void *obj) { Py_DECREF(obj); }
 void mir_dec_ref_python(void *obj) { Py_INCREF(obj); }
+
+PyObject *get_mir_error_type(mir_exception err) {
+  switch (err) {
+  case mir_exception_VALUE_ERROR:
+    return PyExc_ValueError;
+    break;
+  case mir_exception_RuntimeError:
+    return PyExc_RuntimeError;
+    break;
+  default:
+    return PyExc_Exception;
+  }
+}
+
+void mir_error_set(mir_exception err, const char *message) {
+  PyErr_SetString(get_mir_error_type(err), "ERROR: _raise_error_mixup()");
+}
+bool mir_error_occured() {
+  if (PyErr_Occurred()) {
+    return true;
+  } else {
+    return false;
+  }
+}

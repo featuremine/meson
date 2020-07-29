@@ -55,6 +55,7 @@
 (define (get-typing-python  type)
   (cond 
     [(default-def? type) (hash-ref typing-python (type-def-name type))]
+    [(python-type-def? type) "typing.Any" ]
     [(callable-def? type) 
       (string-append
         "typing.Callable[["
@@ -65,7 +66,6 @@
             (callable-def-args type))
           ", ")
         (format "], ~a]"(get-typing-python (return-def-type (callable-def-return type)))))]
-    [(enum-def? type) "int"]
     [else (format "~a"(string-join (cdr (string-split (type-def-name type) ".")) "."))]))
 
 ;use as arguments for Pytuple
@@ -1468,40 +1468,49 @@
 (define (get-module-namespaces main-module module-map)
   (let ([ns-map (make-hash)]
         [get-namespaces (lambda(ns-list)
-                          (let ([curr-ns (car ns-list)]
+                          (let* ([curr-ns (car ns-list)]
                                [namespaces (cdr ns-list)])
                           (append (list curr-ns)
                             (map 
                               (lambda (ns)
-                              (format "~a_~a" curr-ns ns))
+                                (begin 
+                                  (set! curr-ns (format "~a_~a" curr-ns ns))
+                                  curr-ns))
                               namespaces)
                             )))])
+               
     (map 
       (lambda (mod)
-        (let ([nss (get-namespaces (module-def-ns mod))]
+        (let* ([nss (get-namespaces (module-def-ns mod))]
+              [parent #f]
               [members  (if (hash-has-key? ns-map (get-namespace-name (module-def-ns mod)))
                           (namespace-def-members (hash-ref!  ns-map  (get-namespace-name (module-def-ns mod)) #f))
                           (list))])
-             
+
           ;add all namespaces
           (for ([ns nss]) 
-            (if (not (hash-has-key? ns-map ns ))
-              (let* ( [ns-list  (string-split ns "_")]
-                      [parent-ns (if (>(length ns-list) 1) (cadr (reverse ns-list)) #f)])
-                (hash-set! ns-map ns (namespace-def ns ns (string-split ns "_") (list) (mutable-set)))
-                (if  parent-ns
-                  (set-add! (namespace-def-child-nss (hash-ref! ns-map parent-ns #f)) ns)
+            (begin
+              (if (not (hash-has-key? ns-map ns ))
+                  (begin       
+                    (hash-set! ns-map ns (namespace-def ns ns (string-split ns "_") (list) (mutable-set)))
+                    (if  parent 
+                      (set-add! (namespace-def-child-nss (hash-ref! ns-map parent #f)) ns)
+                      void))
                   void))
-              void
-          ))
+              (set! parent ns))
 
           ;add main namespace
-          (hash-set! ns-map (string-join (module-def-ns mod)"_") (namespace-def (module-def-brief mod) (module-def-doc mod) (module-def-ns mod) (append (module-def-defs mod) members) (mutable-set)))
-          
-          ))
+           (letrec ([main-ns-name (string-join (module-def-ns mod)"_")]
+                [main-ns (hash-ref ns-map main-ns-name #f)])
+
+          (if (hash-has-key? ns-map main-ns-name)
+              (begin
+                (set-namespace-def-members! main-ns(append (module-def-defs mod) members))
+                (set-namespace-def-brief! main-ns (module-def-brief mod))
+                (set-namespace-def-doc!  main-ns (module-def-doc mod)))
+              (hash-set! ns-map main-ns-name (namespace-def (module-def-brief mod) (module-def-doc mod) (module-def-ns mod) (append (module-def-defs mod) members) (mutable-set)))))))
       (append (list main-module) (hash-values module-map)))
     ns-map))
-
 ;return members of python module file block    
 (define (get-members-module module module-map)
   (let ([ns-map (get-module-namespaces module module-map)]
@@ -2085,6 +2094,7 @@
                       (add-typeinfo-namespace ns ns-map module (+ indent 1)))
                     "")))
                 child-nss))
+
             ;process members
             (string-append 
               (apply string-append 
@@ -2114,7 +2124,19 @@
                           (if (callable-def? (alias-def-type memb))
                             (gen-indent indent (format "~a = ~a\n" name python_type))
                             (gen-indent indent (format "~a = typing.NewType(\"~a\",~a)\n" name name python_type))))]
-
+                        [(enum-def? memb)
+                          (string-append
+                            (gen-indent indent (format "class ~a(Enum) :\n" (car(reverse(string-split (type-def-name memb) ".")))))
+                            (apply string-append
+                              (map 
+                                (lambda (m) 
+                                  (gen-indent (+ indent 1) (format "~a~a\n" (enum-value-def-name m) (if (enum-value-def-value m) (format " = ~a" (enum-value-def-value m)) "= auto()") )))
+                                (enum-def-members memb)))
+                            (if (= (length (enum-def-members memb))0) (gen-indent (+ indent 1) "pass\n") ""))]
+                        [(python-type-def? memb)
+                          (let 
+                            ([name (car(reverse(string-split(type-def-name memb) ".")))])
+                            (gen-indent indent (format "~a = typing.Any #~a\n" name (python-type-def-real-name memb))))]
                       [(const-def? memb)
                         (let 
                           ([name (car(reverse(string-split(const-def-name memb) ".")))]
@@ -2144,7 +2166,8 @@
         "\t\tauthorization Featuremine Corporation.\n"
         "\"\"\"\n\n"
         ;add import
-        "import typing\n\n"
+        "import typing\n"
+        "from enum import Enum, auto\n\n"
         (apply string-append
           (hash-map ns-map 
             (lambda (key ns)
