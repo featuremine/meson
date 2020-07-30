@@ -66,7 +66,7 @@ PyObject *get_mir_error_type(mir_exception err) {
 }
 
 void mir_error_set(mir_exception err, const char *message) {
-  PyErr_SetString(get_mir_error_type(err), "ERROR: _raise_error_mixup()");
+  PyErr_SetString(get_mir_error_type(err), message);
 }
 bool mir_error_occured() {
   if (PyErr_Occurred()) {
