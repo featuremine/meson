@@ -184,8 +184,8 @@
 
 ;using for converting from c to python
 (define to-c-dict '#hash(
-  ("char" . "*PyString_AsString(~a)") 
-  ("string" . "PyString_AsString(~a)") 
+  ("char" . "*PyUnicode_AsUTF8(~a)") 
+  ("string" . "(char*) PyUnicode_AsUTF8(~a)") 
   ("int8" . "PyLong_AsLong(~a)") 
   ("int16" . "PyLong_AsLong(~a)") 
   ("int32" . "PyLong_AsLong(~a)") 

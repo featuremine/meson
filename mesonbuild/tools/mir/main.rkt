@@ -715,7 +715,7 @@
 (define (get-template-type-id template-id type-id mod)
   (let ([template (id-find mod template-id)])
     (if template 
-      (letrec ([template-symbol (string->symbol(format "~a~a"  (symbol->string type-id) (symbol->string template-id)))]
+      (letrec ([template-symbol (string->symbol(format "~a~a"  (symbol->string type-id) (car (reverse (string-split (symbol->string template-id) ".")))))]
               [template-callback (template-def-callback template)]
               [template-type (id-find mod template-symbol)])
          (if template-type 
