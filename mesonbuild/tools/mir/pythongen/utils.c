@@ -17,14 +17,16 @@
  * @author Vitaut Tryputsin
  * @date 02 Jun 2020
  */
-
+#include <string.h>
 #include "mir/pythongen/common_c.h"
 #include "mir/pythongen/utils.h"
+
 void free_closure(void *closure) { Py_DECREF(closure); }
 
 typedef struct {
   void *_owner_;
 } mir_object;
+
 
 void mir_inc_ref(void *obj) {
   if ((mir_object *)obj != NULL && ((mir_object *)obj)->_owner_ != NULL &&
@@ -74,4 +76,11 @@ bool mir_error_occured() {
   } else {
     return false;
   }
+}
+
+char *mir_str_clone(const char *s) {
+    size_t len = strlen(s) + 1;
+    size_t *n = malloc(len);
+    memcpy(n, s, len);
+    return (char *)n;
 }

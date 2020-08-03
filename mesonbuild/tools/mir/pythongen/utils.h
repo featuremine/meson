@@ -47,6 +47,7 @@ extern "C"
        } mir_exception;
        void mir_error_set(mir_exception err, const char *message);
        bool mir_error_occured();
+       char *mir_str_clone(const char *s);
 
 #ifdef __cplusplus
 }
