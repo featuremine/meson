@@ -83,7 +83,10 @@ class Imports:
     def get_imports(self, path):
         sys.stderr = open(os.devnull, 'w')
         graph = findimports.ModuleGraph()
-        graph.parsePathname(path)
+        try:
+            graph.parsePathname(path)
+        except:
+            raise mesonlib.MesonException(f"{colors.RED}hadron{colors.NC} while looking for imports, could not parse module {path}")
         res = {}
         for module in graph.listModules():
           if graph.external_dependencies:
@@ -141,7 +144,6 @@ class HadronModule(ExtensionModule):
         ret = cpy_trgts_list + root_targets + mir_targets + ext_targets
 
         shalib_target = self.generate_sharedlib(mir_targets, kwargs)
-
 
         if shalib_target is not None:
             init_target = self.gen_init_trgt(cpy_trgts_list + root_targets + ext_deps + ext_targets, shalib_target)
