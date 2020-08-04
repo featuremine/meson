@@ -597,15 +597,12 @@ class HadronModule(ExtensionModule):
                     'command': ['cp', '@INPUT@', '@OUTPUT@'],
                     'build_by_default': True
                 }
-                self.sources[os.path.join(self.name)].append( os.path.join(self.pkg_dir, extension.fname))
+                self.sources[self.name].append( os.path.join(self.pkg_dir, extension.fname))
                 targets.append(build.CustomTarget(path.replace('/', '_'), os.path.join(self.pkg_dir), self.subproject, custom_kwargs))
             elif isinstance(extension, build.BuildTarget):
                 subdir = extension.get_subdir()
-                subdir_ = ''
-                if subdir != 'lib':
-                    subdir_ = subdir[subdir.find('/')+1:]
                 for output in extension.get_outputs():
-                    self.sources[os.path.join(self.name, subdir_)].append(os.path.join(self.build_dir, subdir, output))
+                    self.sources[self.name].append(os.path.join(self.build_dir, subdir, output))
                 deps.append(extension)
                 custom_kwargs = {
                     'input': extension,
@@ -624,7 +621,7 @@ class HadronModule(ExtensionModule):
                         'command': ['cp', '@INPUT@', self.pkg_dir],
                         'build_by_default' : True
                     }
-                    self.sources[os.path.join(self.name)].append(os.path.join(self.pkg_dir, name))
+                    self.sources[self.name].append(os.path.join(self.pkg_dir, name))
                     targets.append(build.CustomTarget("_".join(['copy', name]), self.pkg_dir, self.subproject, custom_kwargs))
             elif isinstance(extension, list):
                 t, d = self.process_extensions(extension)
