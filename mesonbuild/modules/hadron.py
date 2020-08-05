@@ -57,7 +57,7 @@ hadron_package_kwargs = set([
     'python',
     'link_args',
     'samples',
-    'doxygen',
+    'documentation',
     'style'
 ])
 
@@ -76,7 +76,7 @@ hadron_special_kwargs = set([
     'python',
     'install',
     'samples',
-    'doxygen',
+    'documentation',
     'style'
 ])
 
