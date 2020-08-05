@@ -56,7 +56,9 @@ hadron_package_kwargs = set([
     'verify',
     'python',
     'link_args',
-    'samples'
+    'samples',
+    'doxygen',
+    'style'
 ])
 
 # these will be removed if not require for shlib
@@ -73,7 +75,9 @@ hadron_special_kwargs = set([
     'verify',
     'python',
     'install',
-    'samples'
+    'samples',
+    'doxygen',
+    'style'
 ])
 
 class colors:
@@ -109,6 +113,7 @@ class HadronModule(ExtensionModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.snippets.add('package')
+        self.snippets.add('add_doc')
 
     @permittedKwargs(hadron_package_kwargs)
     def package(self, interpr, state, args, kwargs):
@@ -126,6 +131,8 @@ class HadronModule(ExtensionModule):
         self.suffix = kwargs.get('suffix', '')
         self.install = kwargs.get('install', False)
         self.verify = kwargs.get('verify', False)
+        self.doxygen = kwargs.get('doxygen', False)
+        self.style = kwargs.get('style', False)
         self.samples = kwargs.get('samples', None)
         self.environment = state.environment
         self.pkg_dir = os.path.join(state.environment.build_dir, 'package', self.version + self.suffix, self.name)
@@ -172,6 +179,19 @@ class HadronModule(ExtensionModule):
             if isinstance(target, interpreter.SharedModuleHolder):
                 continue
             interpr.add_target(target.name, target)
+
+        if self.doxygen:
+            doc_script = 'if [[ ! -f $MESON_SOURCE_ROOT/Doxyfile ]]; then doxygen -g $MESON_SOURCE_ROOT/Doxyfile; fi; doxygen $MESON_SOURCE_ROOT/Doxyfile;'
+            cmd = ['bash', '-c', doc_script]
+            target = build.RunTarget('doc', cmd[0], cmd[1:], [], self.subdir, self.subproject)
+            interpr.add_target(target.name, target)
+
+        if self.style:
+            style_script = 'clang-format -i **/**.h(N) **/**.c(N) **/**.hpp(N) **/**.cpp(N)'
+            cmd = ['bash', '-c', style_script]
+            target = build.RunTarget('style', cmd[0], cmd[1:], [], self.subdir, self.subproject)
+            interpr.add_target(target.name, target)
+
         return interpr.holderify(init_target)
 
     def add_doctest_test(self, path, deps):
