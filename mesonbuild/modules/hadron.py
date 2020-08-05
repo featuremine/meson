@@ -54,7 +54,9 @@ hadron_package_kwargs = set([
     'include_directories',
     'install',
     'verify',
-    'python'
+    'python',
+    'link_args',
+    'samples'
 ])
 
 # these will be removed if not require for shlib
@@ -70,7 +72,8 @@ hadron_special_kwargs = set([
     'version',
     'verify',
     'python',
-    'install'
+    'install',
+    'samples'
 ])
 
 class colors:
@@ -123,6 +126,7 @@ class HadronModule(ExtensionModule):
         self.suffix = kwargs.get('suffix', '')
         self.install = kwargs.get('install', False)
         self.verify = kwargs.get('verify', False)
+        self.samples = kwargs.get('samples', None)
         self.environment = state.environment
         self.pkg_dir = os.path.join(state.environment.build_dir, 'package', self.version + self.suffix, self.name)
         self.api_gen_dir = os.path.join(state.environment.build_dir, 'api-gen', self.name, self.version + self.suffix)
@@ -151,6 +155,10 @@ class HadronModule(ExtensionModule):
         else:
             init_target = self.gen_init_trgt(cpy_trgts_list + root_targets + ext_deps + ext_targets)
             ret += [init_target]
+
+        if self.samples is not None:
+            for sample in self.samples:
+                self.sources[os.path.join(self.name,'samples')].append(os.path.join(self.source_dir, sample.subdir, sample.fname))
 
         if self.install:
             self.gen_wheel()
