@@ -182,14 +182,14 @@ class HadronModule(ExtensionModule):
 
         if self.doxygen:
             doc_script = 'if [[ ! -f $MESON_SOURCE_ROOT/Doxyfile ]]; then doxygen -g $MESON_SOURCE_ROOT/Doxyfile; fi; doxygen $MESON_SOURCE_ROOT/Doxyfile;'
-            cmd = ['bash', '-c', doc_script]
-            target = build.RunTarget('doc', cmd[0], cmd[1:], [], self.subdir, self.subproject)
+            cmd = ['/bin/bash', '-c', doc_script]
+            target = build.RunTarget('doc', cmd[0], cmd[1:], [], '', self.subproject)
             interpr.add_target(target.name, target)
 
         if self.style:
             style_script = 'clang-format -i **/**.h(N) **/**.c(N) **/**.hpp(N) **/**.cpp(N)'
-            cmd = ['bash', '-c', style_script]
-            target = build.RunTarget('style', cmd[0], cmd[1:], [], self.subdir, self.subproject)
+            cmd = ['/bin/zsh', '-c', style_script]
+            target = build.RunTarget('style', cmd[0], cmd[1:], [], '', self.subproject)
             interpr.add_target(target.name, target)
 
         return interpr.holderify(init_target)
