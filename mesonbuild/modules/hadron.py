@@ -131,7 +131,7 @@ class HadronModule(ExtensionModule):
         self.suffix = kwargs.get('suffix', '')
         self.install = kwargs.get('install', False)
         self.verify = kwargs.get('verify', False)
-        self.doxygen = kwargs.get('doxygen', False)
+        self.documentation = kwargs.get('documentation', False)
         self.style = kwargs.get('style', False)
         self.samples = kwargs.get('samples', None)
         self.environment = state.environment
@@ -180,8 +180,8 @@ class HadronModule(ExtensionModule):
                 continue
             interpr.add_target(target.name, target)
 
-        if self.doxygen:
-            doc_script = 'if [[ ! -f $MESON_SOURCE_ROOT/Doxyfile ]]; then doxygen -g $MESON_SOURCE_ROOT/Doxyfile; fi; doxygen $MESON_SOURCE_ROOT/Doxyfile;'
+        if self.documentation:
+            doc_script = 'echo "Generating docs..."'
             cmd = ['/bin/bash', '-c', doc_script]
             target = build.RunTarget('doc', cmd[0], cmd[1:], [], '', self.subproject)
             interpr.add_target(target.name, target)
