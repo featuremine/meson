@@ -113,7 +113,6 @@ class HadronModule(ExtensionModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.snippets.add('package')
-        self.snippets.add('add_doc')
 
     @permittedKwargs(hadron_package_kwargs)
     def package(self, interpr, state, args, kwargs):
