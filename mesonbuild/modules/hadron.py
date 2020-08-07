@@ -148,6 +148,7 @@ class HadronModule(ExtensionModule):
         self.mir_targets_map = defaultdict(list)
         self.interpreter = interpr
         self.python3 = self.python3_inst.method_call('path', [], {})
+        self.mir_sources = set()
 
         py_copy_targets = self.gen_copy_trgts()
         cpy_trgts_list = [trgt for _, trgt in py_copy_targets.items()]
@@ -465,7 +466,11 @@ class HadronModule(ExtensionModule):
             return self.mir_targets_map[name]
         cmd = base_cmd + ['-s', mir_path]
         sources = self.run_mir_subprocess(cmd + ['-i'])
-        relative_sources = [os.path.relpath(source, self.build_dir) for source in sources]
+        relative_sources = []
+        for source in sources:
+            if source not in self.mir_sources:
+                self.mir_sources.add(source)
+                relative_sources.append(os.path.relpath(source, self.build_dir))
         dependencies = self.run_mir_subprocess(cmd + ['-m'])
         deps = []
         for dep in dependencies:
