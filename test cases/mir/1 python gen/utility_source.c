@@ -65,7 +65,7 @@ int32_t c_closure(double K, struct graph_Point *point) {
 };
 typedef int32_t (*c_callb)(double K, struct graph_Point *);
 int32_t c_callback(double K, struct graph_Point *point, void *c) {
-  return ((c_callb)c)(K, point);
+  return c_closure(K, point);
 };
 
 
@@ -75,7 +75,7 @@ graph_utility_Utility_get_callable(struct graph_utility_Utility *self,
   printf("hello from graph_utility_Utility_get_callable\n");
   r_int32_a_double_al_graph_Point * pCallback = r_int32_a_double_al_graph_Point_new_();
   r_int32_a_double_al_graph_Point_t * callback = r_int32_a_double_al_graph_Point_data_(pCallback);
-  callback->closure = c_closure;
+  callback->closure = NULL;
   callback->func = c_callback;
   return pCallback;
 }
@@ -87,14 +87,14 @@ int32_t c_a_closure(double K) {
   return K;
 };
 
-int32_t c_a_callback(double K, void *c) { return ((c_a_callb)c)(K); };
+int32_t c_a_callback(double K, void *c) { return c_a_closure(K); };
 
 r_int32_a_double*
 graph_utility_Utility_get_another_callable(struct graph_utility_Utility *self) {
   printf("hello from c\n");
   r_int32_a_double * pCallback = r_int32_a_double_new_();
   r_int32_a_double_t * callback = r_int32_a_double_data_(pCallback);
-  callback->closure = c_a_closure;
+  callback->closure = NULL;
   callback->func = c_a_callback;
   return pCallback;
 }
@@ -109,7 +109,7 @@ graph_Point *c_p_closure(double K) {
   return p;
 };
 
-graph_Point *c_p_callback(double K, void *c) { return ((c_p_callb)c)(K); };
+graph_Point *c_p_callback(double K, void *c) { return c_p_closure(K); };
 
 rl_graph_Point_a_double *graph_utility_Utility_get_callable_with_ref(
     struct graph_utility_Utility *self) {
@@ -117,7 +117,7 @@ rl_graph_Point_a_double *graph_utility_Utility_get_callable_with_ref(
     rl_graph_Point_a_double * pCallback = rl_graph_Point_a_double_new_();
   rl_graph_Point_a_double_t * callback = rl_graph_Point_a_double_data_(pCallback);
 
-  callback->closure = c_p_closure;
+  callback->closure = NULL;
   callback->func = c_p_callback;
   return pCallback;
 }

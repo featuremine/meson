@@ -29,8 +29,9 @@ graph_Point * get_mir_const_graph_ConstPoint(){
 
 void graph_Point_operator_inplace_add (struct graph_Point* self, struct graph_Point *point){
   graph_Point_t *data = graph_Point_data_(self);
-  data->x = data->x+data->x;
-  data->y = data->y+data->y;
+  graph_Point_t * pt = graph_Point_data_(point);
+  data->x = data->x+pt->x;
+  data->y = data->y+pt->y;
 }
 
 void graph_Point_operator_inplace_divide (struct graph_Point* self, int64_t val){

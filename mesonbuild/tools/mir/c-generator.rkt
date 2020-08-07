@@ -532,8 +532,6 @@
     ");\n"
     (comment "closure pointer on closure\n")
     "\tvoid *closure;\n"
-    (comment "free function for closure\n")
-    "\tvoid (*free)(void*closure);\n"
     "};\n" 
     (comment (format "create new ~a\n" type-name))
     (format "~a * ~a_new_();\n" type-name type-name )
@@ -635,7 +633,6 @@
         (format "~a_t * dest = ~a_data_(pDest);\n" type-name type-name)
         "dest->func=src->func;\n"
         "dest->closure=src->closure;\n"
-        "dest->free=src->free;\n"
         "}\n"
          
         (comment (format "make new copy of ~a\n" type-name))

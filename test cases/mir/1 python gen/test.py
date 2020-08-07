@@ -220,7 +220,7 @@ def test():
     op_pt1 = _mir_wrapper.Point(3, 3)
     op_pt2 = _mir_wrapper.Point(1, 1)
     op_pt1 += op_pt2
-
+ 
     assert(op_pt1.x==4 and op_pt1.y==4  )
     op_pt1/=2
 

@@ -1231,7 +1231,7 @@
                       "if(data==NULL) return NULL;\n"
                       (format "return &((~a*)data)->data;\n}\n" py-type)
                       
-                      ;new with owner
+                      ;new 
                       (format "~a * ~a_new_(){\n" c-type c-type )
                       (format "PyTypeObject *type = &~a;\n" (type_of_py_object memb module))
                       (format "~a *self;\n" py-type)
@@ -1690,7 +1690,7 @@
           "static void\n"
           (format "_dealloc~a(~a *self)\n" py-type py-type)
           "{\n"
-          "if (self->data.closure && self->data.free) self->data.free(self->data.closure);\n"
+          "if (self->data.closure) Py_DECREF(self->data.closure);\n"
           "\tPy_TYPE(self)->tp_free((PyObject *)self);\n}\n"
           
           "//TODO: add description for call function\n"
