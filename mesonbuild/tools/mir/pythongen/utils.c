@@ -29,30 +29,18 @@ typedef struct {
 
 
 void mir_inc_ref(void *obj) {
-  if ((mir_object *)obj != NULL && ((mir_object *)obj)->_owner_ != NULL &&
-      ((mir_object *)obj)->_owner_ != Py_None)
-    Py_INCREF(((mir_object *)obj)->_owner_);
+    Py_XINCREF(obj);
 }
 void mir_dec_ref(void *obj) {
-  if ((mir_object *)obj != NULL && ((mir_object *)obj)->_owner_ != NULL &&
-      ((mir_object *)obj)->_owner_ != Py_None) {
-    Py_DECREF(((mir_object *)obj)->_owner_);
-  }
+    Py_XDECREF(obj);
 }
 
 void mir_inc_ref_struct(void *obj) {}
 
 void mir_dec_ref_struct(void *obj) {}
 long mir_get_ref_cnt(void *obj) {
-  if ((mir_object *)obj != NULL && ((mir_object *)obj)->_owner_ != NULL &&
-      ((mir_object *)obj)->_owner_ != Py_None)
-    return Py_REFCNT(((mir_object *)obj)->_owner_);
-  else
-    return 0;
+    return Py_REFCNT(obj);
 }
-
-void mir_inc_ref_python(void *obj) { Py_DECREF(obj); }
-void mir_dec_ref_python(void *obj) { Py_INCREF(obj); }
 
 PyObject *get_mir_error_type(mir_exception err) {
   switch (err) {

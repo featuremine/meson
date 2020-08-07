@@ -72,5 +72,6 @@
     [brief "Point."]
     [doc "Conatant point"]
     [type Point]
-    [val 0])
+    [val 0]
+    #:ref)
 

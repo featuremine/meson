@@ -2,19 +2,23 @@
 #include <math.h>
 #include <stdio.h>
 double graph_Point_dist(struct graph_Point *self, struct graph_Point *point) {
-  return hypot(self->x - point->x, self->y - point->y);
+  graph_Point_t *data = graph_Point_data_(self);
+  graph_Point_t *point_data = graph_Point_data_(point);
+  return hypot(data->x - point_data->x, data->y - point_data->y);
 }
 
 double graph_Point_norm(struct graph_Point *self) {
-  return hypot(self->x, self->y);
+  graph_Point_t *data = graph_Point_data_(self);
+  return hypot(data->x, data->y);
 }
 
 // del
 void graph_Point_destructor(graph_Point *self) {}
 // new
 void graph_Point_constructor(graph_Point *self, double x, double y) {
-  self->x = x;
-  self->y = y;
+  graph_Point_t *data = graph_Point_data_(self);
+  data->x = x;
+  data->y = y;
 }
 
 graph_Point * get_mir_const_graph_ConstPoint(){
@@ -24,16 +28,18 @@ graph_Point * get_mir_const_graph_ConstPoint(){
 }
 
 void graph_Point_operator_inplace_add (struct graph_Point* self, struct graph_Point *point){
-  self->x = self->x+point->x;
-  self->y = self->y+point->y;
+  graph_Point_t *data = graph_Point_data_(self);
+  data->x = data->x+data->x;
+  data->y = data->y+data->y;
 }
 
 void graph_Point_operator_inplace_divide (struct graph_Point* self, int64_t val){
+  graph_Point_t *data = graph_Point_data_(self);
   if (val==0){
-    self->x = 0;
-    self->y = 0;
+    data->x = 0;
+    data->y = 0;
     return;
   }
-  self->x = self->x/val;
-  self->y = self->y/val;
+  data->x = data->x/val;
+  data->y = data->y/val;
 }

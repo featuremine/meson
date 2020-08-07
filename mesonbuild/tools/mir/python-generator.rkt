@@ -448,7 +448,7 @@
                       [py-type (get-python-type-name memb module)])
                 (string-append
                   (comment (list (class-def-brief memb) (class-def-doc memb)))
-                  (format "struct ~a {\nPyObject_HEAD\nstruct ~a data;\n};\n" 
+                  (format "struct ~a {\nPyObject_HEAD\nstruct ~a_t data;\n};\n" 
                        py-type c-type )
                     (format "PyTypeObject * _get_pys_~a();\n" c-type)
                     (format "~a* _get_data~a(~a *);\n" c-type py-type py-type) 
@@ -500,9 +500,7 @@
         "")
        (cond 
           [(or(class-def? origin-type) (callable-def? origin-type))
-            (if member-ref?
-                (format "if(self->data.~a->_owner_) Py_INCREF(self->data.~a->_owner_);\n" name name)
-                (format "if(self->data.~a._owner_) Py_INCREF(self->data.~a._owner_);\n" name name))]
+            (format "if(self->data.~a) Py_INCREF(self->data.~a);\n" name name)]
           [(python-type-def? origin-type)
             (format "Py_INCREF(self->data.~a);\n" name)]
           [else ""])
@@ -541,11 +539,8 @@
           
             (cond  
               [(or(class-def? origin-type) (callable-def? origin-type))
-                (if member-ref?
                   (string-append
-                    (format "if(self->data.~a->_owner_) Py_DECREF(self->data.~a->_owner_);\n" name name))
-                  (string-append
-                    (format "if(self->data.~a._owner_) Py_DECREF(self->data.~a._owner_);\n" name name)))]
+                    (format "if(self->data.~a) Py_DECREF(self->data.~a);\n" name name))]
               [(python-type-def? origin-type)
                 (if member-ref?
                   (string-append
@@ -614,7 +609,7 @@
           ;return section
           (build-return-section             
             (string-append
-              (format "~a(&self->data, " c-mthd-name)
+              (format "~a((~a*)self, " c-mthd-name type-name)
                 (string-join 
                   (map 
                     (lambda (arg)
@@ -645,7 +640,7 @@
         (string-append
           (format "static PyObject* _method~a(~a* self) {\n" struct-mthd-name struct_name)
           (build-return-section  
-            (format "~a(&self->data)" c-mthd-name) ret-type module ret-ref)))
+            (format "~a((~a*)self)" c-mthd-name type-name) ret-type module ret-ref)))
       "}\n")))
 
 ;return operators hashtable from members list
@@ -866,8 +861,8 @@
                     "0,                         /* tp_new */\n"
                     "};\n"
 
-                    (format "PyTypeObject * _get~a(){return (PyTypeObject*) &~a;};\n" py-type (type_of_py_object memb module) )
-                    (format "~a * _get_data_pys_~a(~a * data) {return &data->data; };\n" c-type c-type py-type)
+                    (format "PyTypeObject * _get~a(){\nreturn (PyTypeObject*) &~a;\n};\n" py-type (type_of_py_object memb module) )
+                    (format "~a * _get_data_pys_~a(~a * data) {\nreturn &data->data; };\n" c-type c-type py-type)
 
                     ;from data
                     (format "PyObject * _from_data_pys_~a(~a * data){\n"  c-type c-type)
@@ -953,7 +948,7 @@
                             ;call constructor
                             (format "\t~a_constructor(" c-type)
                             (string-join
-                              (append (list "&self->data")
+                              (append (list (format "(~a*) self" c-type))
                                 (map 
                                   (lambda (arg)
                                     (let (
@@ -978,9 +973,8 @@
                                           (free-py-callable-section (format "_py_is_python_~a" arg-name) (format "_pyargdata_~a" arg-name))]
                                         [else ""])))
                                 args)))
-                          (format "\t~a_constructor(&self->data);\n" c-type)))
+                          (format "\t~a_constructor((~a *)self);\n" c-type c-type) ))
 
-                          "self->data._owner_ = self;"
                       "\treturn 0;\n}\n"
                       
                       ;dealloc function
@@ -988,7 +982,7 @@
                       "static void\n"
                       (format "_dealloc~a(~a *self)\n" py-type py-type)
                       "{\n"
-                      (format "\t~a_destructor(&self->data);\n" c-type)
+                      (format "\t~a_destructor((~a*)self);\n" c-type c-type)
                       "\tPy_TYPE(self)->tp_free((PyObject *)self);\n}\n"
                         
                       "//getsets\n"
@@ -1075,7 +1069,7 @@
                                    
                                           (build-return-section             
                                             (string-append
-                                              (format "~a(&self->data, " c-mthd-name)
+                                              (format "~a((~a*)self, " c-mthd-name c-type)
                                                 (string-join 
                                                   (map 
                                                     (lambda (arg)
@@ -1224,28 +1218,31 @@
                       "0,                         /* tp_new */\n"
                       "};\n"
 
-                      (format "PyTypeObject * _get~a(){return (PyTypeObject*) &~a;};" py-type (type_of_py_object memb module) )
-                      (format "~a * _get_data_pys_~a(~a * data) {return &data->data; };\n" c-type c-type py-type)
+                      (format "PyTypeObject * _get~a()\n{\nreturn (PyTypeObject*) &~a;\n};\n" py-type (type_of_py_object memb module) )
+                      (format "~a * _get_data_pys_~a(~a * data) {return(~a*) data; };\n" c-type c-type py-type c-type )
+                      
+                      (comment (format "return size of ~a\n" c-type))
+                      (format "size_t ~a_size_(){\n" c-type)
+                      (format "\treturn sizeof(~a);\n" py-type)
+                      "}\n"
 
+                      ;data
+                      (format "~a_t * ~a_data_(~a * data){\n" c-type c-type c-type)
+                      "if(data==NULL) return NULL;\n"
+                      (format "return &((~a*)data)->data;\n}\n" py-type)
+                      
                       ;new with owner
-                      (format "~a * _new_with_owner_~a(){\n" c-type c-type )
+                      (format "~a * ~a_new_(){\n" c-type c-type )
                       (format "PyTypeObject *type = &~a;\n" (type_of_py_object memb module))
                       (format "~a *self;\n" py-type)
                       (format "self = (~a *)type->tp_alloc(type, 0);\n" py-type)
                       "if (self == NULL) return NULL;\n"
-                      "self->data._owner_ = self;\n"
-                      "return &self->data;\n}\n";
+                      (format "return (~a*)self;\n}\n" c-type )
 
                       ;from data
                       (format "PyObject * _from_data_pys_~a(~a * data){\n" c-type c-type)
                       "if(data==NULL) Py_RETURN_NONE;\n"
-                      "if(data->_owner_) return (PyObject * )data->_owner_;\n"
-                      (format "~a* new_data = _new_with_owner_~a();"c-type c-type)
-                      "if (new_data == NULL) Py_RETURN_NONE;\n"
-                      (format "~a * self = (~a *) new_data->_owner_;\n"py-type py-type)
-                      (format "memcpy (&self->data, data, sizeof(~a));\n" c-type)
-                      "self->data._owner_ = self;\n"
-                      "return(PyObject *) self;\n}\n";
+                      "return(PyObject *) data;\n}\n"
 
                   ))]
               [else ""]))
@@ -1687,7 +1684,6 @@
           "static int\n"
           (format "_init~a(~a *self, PyObject * args, PyObject *kwds)\n" py-type py-type)
           "{\n"
-          "\tself->data._owner_ = self;\n"
           "\treturn 0;\n}\n"
 
           "//dealloc function\n"
@@ -1806,38 +1802,41 @@
           "};\n"
 
           (format "PyTypeObject * _get~a(){return (PyTypeObject*) &~a;};" py-type (type_of_py_object memb module) )
-          (format "~a * _get_data_pys_~a(~a * data) {return &data->data; };\n" c-type c-type py-type)
+          (format "~a * _get_data_pys_~a(~a * data) {return (~a*) data;\n };\n" c-type c-type py-type c-type )
           (format "~a * _new_pys_~a()\n{  return malloc(sizeof(~a)); }\n" py-type c-type py-type)
           (format "void _free_pys_~a(~a * callable)\n{  free (callable); }\n" c-type py-type)
 
-          ;new with owner
-          (format "~a * _new_with_owner_~a(){\n" c-type c-type )
+          (comment (format "return size of ~a\n" c-type))
+          (format "size_t ~a_size_(){\n" c-type)
+          (format "\treturn sizeof(~a);\n" py-type)
+          "}\n"
+
+          ;new implementation
+          (format "~a * ~a_new_(){\n" c-type c-type )
             (format "PyTypeObject *type = &~a;\n" (type_of_py_object memb module))
             (format "~a *self;\n" py-type)
             (format "self = (~a *)type->tp_alloc(type, 0);\n" py-type)
             "if (self == NULL) return NULL;\n"
-            "self->data._owner_ = self;\n"
-            "return &self->data;\n}\n";
-          
+            (format "return (~a*)self;\n}\n" c-type )
+
+          ;data
+          (format "~a_t * ~a_data_(~a * data){\n" c-type c-type c-type)
+          "if(data==NULL) return NULL;\n"
+          (format "return &((~a*)data)->data;\n}\n" py-type)
+
           ;from data
           (format "PyObject * _from_data_pys_~a(~a * data){\n" c-type c-type)
           "if(data==NULL) Py_RETURN_NONE;\n"
-          "if(data->_owner_) return (PyObject * )data->_owner_;\n"
-          (format "~a* new_data = _new_with_owner_~a();"c-type c-type)
-          "if (new_data == NULL) Py_RETURN_NONE;\n"
-          (format "~a * self = (~a *) new_data->_owner_;\n"py-type py-type)
-          (format "memcpy (&self->data, data, sizeof(~a));\n" c-type)
-          "self->data._owner_ = self;\n"
-          "return(PyObject *) self;\n}\n";
+          "return(PyObject *) data;\n}\n";
 
           ;from py callable
           (format "~a * _from_py_callable~a(PyObject * cb){\n" c-type c-type)
           "if(cb==NULL) return NULL;\n"
           "Py_INCREF(cb);\n"
-          (format "~a* _pyret = _new_with_owner_~a();"c-type c-type)
-          (format "_pyret->func = &_wrap~a;\n" py-type) 
-          "_pyret->closure = cb;\n" 
-          "_pyret->free = free_closure;\n" 
+          (format "~a* _pyret = ~a_new_();\n"c-type c-type)
+          (format "~a_t* _pyret_data = ~a_data_(_pyret);\n"c-type c-type)
+          (format "_pyret_data->func = &_wrap~a;\n" py-type) 
+          "_pyret_data->closure = cb;\n" 
           "return _pyret;\n}\n"
 
           ;wrapper for callable
@@ -1906,7 +1905,7 @@
         [ret-type   (get-c-type-name (return-def-type (callable-def-return memb )) module)]
         )
     (string-append
-        (format "struct ~a{\nPyObject_HEAD\n ~a data;\n};\n" py-type c-type )
+        (format "struct ~a{\nPyObject_HEAD\n ~a_t data;\n};\n" py-type c-type )
         (format "void _free_pys_~a(~a * callable);\n" c-type py-type)
         (format "~a~a _wrap_pys_~a(~a);\n" ret-type (if ret-ref "*" "") c-type 
           (string-join 

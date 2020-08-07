@@ -4,9 +4,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-double graph_aliases_AliasClass_dist(struct graph_aliases_AliasClass *self,
-                                     graph_aliases_Vector2d point) {
-  return hypot(self->obj.x - point.x, self->obj.y - point.y);
+double graph_aliases_AliasClass_dist(struct graph_aliases_AliasClass *pSelf,
+                                     graph_aliases_Vector2d *pPoint) {
+  graph_aliases_AliasClass_t * self = graph_aliases_AliasClass_data_(pSelf);
+  graph_Point_t * obj = graph_Point_data_(self->obj);
+  graph_Point_t * point = graph_Point_data_(pPoint);
+  return hypot(obj->x - point->x, obj->y - point->y);
 }
 
 typedef graph_aliases_Vector2d *(*c_pr_callb)(graph_aliases_Vector2d *point);
@@ -19,15 +22,18 @@ graph_aliases_Vector2d *c_pr_callback(graph_aliases_Vector2d *point, void *c) {
 
 graph_aliases_Vector2d *graph_aliases_AliasClass_setCallable(
     struct graph_aliases_AliasClass *self,
-    rl_graph_aliases_Vector2d_al_graph_aliases_Vector2d *callable) {
-  graph_aliases_Vector2d *point =  graph_Point_get_descr()->new_();
+    rl_graph_aliases_Vector2d_al_graph_aliases_Vector2d *pCallable) {
+  graph_aliases_Vector2d *point =  graph_Point_new_();
+  rl_graph_aliases_Vector2d_al_graph_aliases_Vector2d_t * callable = rl_graph_aliases_Vector2d_al_graph_aliases_Vector2d_data_(pCallable);
   graph_aliases_Vector2d *ret = callable->func(point, callable->closure);
   return ret;
 };
 
 graph_aliases_VectorCallable *graph_aliases_AliasClass_setAliasCallable(
-    struct graph_aliases_AliasClass *self,
+    struct graph_aliases_AliasClass *pSelf,
     graph_aliases_VectorCallable *aCallable) {
+
+  graph_aliases_AliasClass_t * self = graph_aliases_AliasClass_data_(pSelf);
   self->aliasCallable = aCallable;
   rl_graph_aliases_VectorCallable_al_graph_aliases_VectorCallable_get_descr()->inc_ref_(aCallable);
   return aCallable;
@@ -36,20 +42,25 @@ graph_aliases_VectorCallable *graph_aliases_AliasClass_setAliasCallable(
 // del
 void graph_aliases_ClassWithRef_destructor(graph_aliases_ClassWithRef *self) {}
 // new
-void graph_aliases_ClassWithRef_constructor(graph_aliases_ClassWithRef *self,
-                                            graph_Point *ref, graph_Point obj) {
+void graph_aliases_ClassWithRef_constructor(graph_aliases_ClassWithRef *pSelf,
+                                            graph_Point *ref, graph_Point * obj) {
+  graph_aliases_ClassWithRef_t * self = graph_aliases_ClassWithRef_data_(pSelf);                                           
   self->ref = ref;
   graph_Point_get_descr()->inc_ref_(ref);
   self->obj = obj;
-  graph_Point_get_descr()->inc_ref_(&obj);
+  graph_Point_get_descr()->inc_ref_(obj);
 }
 // del
-void graph_aliases_AliasClass_destructor(graph_aliases_AliasClass *self) {}
+void graph_aliases_AliasClass_destructor(graph_aliases_AliasClass *pSelf) {
+ graph_aliases_AliasClass_t * self = graph_aliases_AliasClass_data_(pSelf);    
+ graph_Point_get_descr()->inc_ref_(self->obj);
+}
 // new
-void graph_aliases_AliasClass_constructor(graph_aliases_AliasClass *self,
-                                          graph_aliases_Vector2d obj) {
+void graph_aliases_AliasClass_constructor(graph_aliases_AliasClass *pSelf,
+                                          graph_aliases_Vector2d *obj) {
+  graph_aliases_AliasClass_t * self = graph_aliases_AliasClass_data_(pSelf);        
   self->obj = obj;
-  graph_Point_get_descr()->inc_ref_(&obj);
+  graph_Point_get_descr()->inc_ref_(obj);
 }
 
 graph_aliases_Vector2d * get_mir_const_graph_aliases_ConstVector(){

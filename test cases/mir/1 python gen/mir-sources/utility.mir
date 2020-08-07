@@ -46,7 +46,7 @@
             [type double]]
         [def-return 
             [brief "Result."]
-            [type graph.Point]]]
+            [type graph.Point]#:ref]]
 
     [def-method execute_callable
         [brief "Scalar multiplication"]
@@ -129,7 +129,7 @@
                     #:ref]
                 [def-return 
                     [brief "Result."]
-                    [type int32]])]]]
+                    [type int32]])] #:ref]]
 
     [def-method get_another_callable
         [brief "Scalar multiplication"]
@@ -142,7 +142,7 @@
                     [type double]]
                 [def-return 
                     [brief "Result."]
-                    [type int32]])]]]
+                    [type int32]])]#:ref]]
 
     [def-method get_callable_with_ref
         [brief "Scalar multiplication"]
@@ -233,7 +233,7 @@
             #:ref] 
         [def-return 
             [brief "sum point"]
-            [type graph.Point]]])
+            [type graph.Point] #:ref]])
 
 (def-class EmptyClass
     [brief "Empty class"]
@@ -446,10 +446,10 @@
         [doc  "data"]
         [def-arg data
             [brief "data"]
-            [type EnumClass]]
+            [type EnumClass]#:ref]
         [def-return 
             [brief "result"]
-            [type EnumClass]]]
+            [type EnumClass]#:ref]]
 
     [def-member testEnum
         [brief "testEnum"]

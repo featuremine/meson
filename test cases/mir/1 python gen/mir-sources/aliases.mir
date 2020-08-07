@@ -62,21 +62,21 @@
             #:ref]
         [def-arg obj
             [brief "obj"]
-            [type graph.Point ]]]
+            [type graph.Point ]  #:ref]]
     [def-member ref
         [brief "ref"]
         [type graph.Point ] 
         #:ref]
     [def-member obj
         [brief "obj"]
-        [type graph.Point ]])
+        [type graph.Point ]  #:ref])
 
 (def-struct AliasStruct
     [brief "Alias struct"]
     [doc "Alias struct"]
     [def-member obj
         [brief "obj"]
-        [type Vector2d ]])
+        [type Vector2d ]  #:ref])
 
 (def-class AliasClass
     [brief "Alias struct"]
@@ -84,10 +84,10 @@
     [def-constructor     
         [def-arg obj
             [brief "obj"]
-            [type Vector2d ]]]
+            [type Vector2d ]  #:ref]]
     [def-member obj
         [brief "obj"]
-        [type Vector2d ]]
+        [type Vector2d ]  #:ref]
     [def-member aliasCallable
             [brief "obj"]  
             [type VectorCallable ]
@@ -136,7 +136,7 @@
         [doc  "Calculate distance from current point to selected."]
         [def-arg point
             [brief "point"]
-            [type Vector2d]]
+            [type Vector2d]  #:ref]
         [def-return 
             [brief "Distance."]
             [type double]]])
@@ -145,5 +145,6 @@
     [brief "Point."]
     [doc "Conatant vector"]
     [type Vector2d]
-    [val 0])
+    [val 0]
+    #:ref)
     

@@ -26,7 +26,6 @@ extern "C"
         void *(*copy_new_)(void *);
         size_t (*size_)();
         void (*copy_inplace_)(void *dest, void *obj);
-        void (*del_)(void *);
         void *(*new_)();
         void (*inc_ref_)(void *);
         void (*dec_ref_)(void *);

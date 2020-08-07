@@ -36,8 +36,6 @@ extern "C"
        } mir_callable_struct;
        void mir_inc_ref_struct(void *obj);
        void mir_dec_ref_struct(void *obj);
-       void mir_inc_ref_python(void *obj);
-       void mir_dec_ref_python(void *obj);
 
        long mir_get_ref_cnt(void *obj);
        typedef enum

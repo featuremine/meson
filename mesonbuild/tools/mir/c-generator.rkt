@@ -109,7 +109,9 @@
     string-append
     (map (lambda (memb) 
             (cond
-              [(or (class-def? memb) (struct-def? memb))  
+              [(class-def? memb) 
+                (format "typedef struct ~a ~a;\n"  (get-c-type-name memb module) (get-c-type-name memb module))]
+              [(struct-def? memb)  
                 (format "typedef struct ~a ~a;\n"  (get-c-type-name memb module) (get-c-type-name memb module))]
               [(python-type-def? memb)
                   (format "typedef struct ~a ~a;\n"  (type-def-name memb ) (type-def-name memb ))]
@@ -183,8 +185,6 @@
                     "};\n"
                       (comment (format "return type descriptor structure for ~a\n" type-name))
                       (format "mir_type_descr* ~a_get_descr();\n" type-name)
-                      (comment (format "free memory function for ~a\n" type-name))
-                      (format "void ~a_del_(~a *self);\n" type-name type-name) 
                       (comment (format "alloc memory function for ~a\n" type-name))
                       (format "~a * ~a_new_();\n" type-name type-name)
                     ))]
@@ -192,9 +192,8 @@
                 (let ([c-type-name (get-c-type-name memb module)])
                   (string-append
                     (comment (list (class-def-brief memb) (class-def-doc memb)))
-                    (format "struct ~a {\n" c-type-name)
-                    (comment "wrapper owner for this class\n")
-                    "void *_owner_;\n"
+                    (format "typedef struct ~a_t ~a_t;\n" c-type-name c-type-name)
+                    (format "struct ~a_t {\n" c-type-name)
                     (apply string-append  
                       (map 
                         (lambda (memb)
@@ -212,10 +211,10 @@
                           (string-append
                             (comment (format "return type descriptor structure for ~a\n" type-name))
                             (format "mir_type_descr* ~a_get_descr();\n" type-name)
-                            (comment (format "free memory function for ~a\n" type-name))
-                            (format "void ~a_del_(~a *self);\n" type-name type-name) 
                             (comment (format "alloc memory function for ~a\n" type-name))
                             (format "~a * ~a_new_();\n" type-name type-name)
+                            (comment (format "return data for ~a\n" type-name))
+                            (format "~a_t * ~a_data_(~a* obj);\n" type-name type-name type-name)
                             (comment (format "destructor must be implement manually for ~a\n" type-name))
                             (format "void ~a_destructor(~a *self);\n" type-name type-name)
                             (comment (format "constructor must be implement manually for ~a\n" type-name))
@@ -338,7 +337,18 @@
       (string-append
 
         (comment (format "make copy inplace for ~a\n" type-name))
-        (format "void ~a_copy_inplace_(~a* dest, ~a* src ){\n" type-name type-name type-name)
+
+
+        (if (struct-def? orig-type)
+          (format "void ~a_copy_inplace_(~a* dest, ~a* src ){\n" type-name type-name type-name)
+          (string-append
+            (format "void ~a_copy_inplace_(~a* pDest, ~a* pSrc ){\n" type-name type-name type-name)
+            (if (>(length  (filter member-def? members))0)
+              (string-append 
+                (format "~a_t * src = ~a_data_(pSrc);\n" type-name type-name)
+                (format "~a_t * dest = ~a_data_(pDest);\n" type-name type-name))
+              "")))
+
         (apply string-append  
           (map 
             (lambda (memb)
@@ -369,11 +379,14 @@
         (format "\t~a_copy_inplace_ (copy, obj);\n" type-name)
         "\treturn copy;\n"
         "}\n"
-
         (comment (format "return size of ~a\n" type-name))
-        (format "size_t ~a_size_(){\n" type-name)
-        (format "\treturn sizeof(~a);\n" type-name)
-        "}\n")
+        (format "size_t ~a_size_()"type-name)
+        (if (struct-def? orig-type)
+          (string-append
+            "{\n"
+            (format "\treturn sizeof(~a);\n" type-name)
+            "}\n")
+          ";\n"))
       "")
 
     ;type descriptor structure
@@ -382,7 +395,6 @@
     (format "\t(void *(*)(void *))~a_copy_new_,\n" orig-type-name)
     (format "\t~a_size_,\n" orig-type-name)
     (format "\t(void (*)(void *, void *))~a_copy_inplace_,\n" orig-type-name)
-    (format "\t(void (*)(void *))~a_del_,\n" orig-type-name)
     (format "\t(void *(*)())~a_new_,\n" orig-type-name)
     (format "\t~a,\n" mir-inc-ref)
     (format "\t~a\n" mir-dec-ref)
@@ -416,11 +428,6 @@
                 (let ([type-name (get-c-type-name memb module)]
                       [members (class-def-members memb)])
                   (string-append
-                    (comment (format "free memory function for ~a\n" type-name))
-                    (format "void ~a_del_(~a *self){\n" type-name type-name)
-                    (format "\t~a_destructor(self);\n" type-name)
-                    "\tfree(self);\n"
-                    "}\n"
 
                     ;add property setters
                     (apply string-append  
@@ -437,7 +444,8 @@
                                       [orig-arg-type-name (get-c-type-name orig-type module)])
                                 (string-append
                                   (comment (format "Set up property ~a of ~a\n" arg-name type-name))
-                                  (format "void ~a_set_~a_(~a* self, ~a* ~a){\n"  type-name arg-name type-name arg-type-name arg-name)
+                                  (format "void ~a_set_~a_(~a* pSelf, ~a* ~a){\n"  type-name arg-name type-name arg-type-name arg-name)
+                                  (format "~a_t * self = ~a_data_(pSelf);\n" type-name type-name)
                                   (cond 
                                     [(or(callable-def? orig-type) (class-def? orig-type))
                                       (string-append 
@@ -445,7 +453,7 @@
                                         (format "self->~a = ~a~a;\n" arg-name ref-symb  arg-name))]
                                     [(python-type-def? orig-type)
                                       (string-append 
-                                        (format "mir_inc_ref_python(~aself->~a);\n" (if arg-ref "" "&") arg-name)
+                                        (format "mir_inc_ref(~aself->~a);\n" (if arg-ref "" "&") arg-name)
                                         (format "self->~a = ~a~a;\n" arg-name ref-symb  arg-name))]
 
                                     [else (format "self->~a = ~a~a;\n" arg-name ref-symb  arg-name)])
@@ -453,24 +461,12 @@
                             [else ""]))
                         (class-def-members memb))) 
 
-                    (comment (format "memory allocation with owner should be declare in extension for ~a\n" type-name))
-                    (format "~a * _new_with_owner_~a();\n" type-name type-name) 
-
-                    (comment (format "memory allocation function for ~a\n" type-name))
-                    (format "~a * ~a_new_(){\n" type-name type-name)
-                    (format "\t~a* _obj =	_new_with_owner_~a();\n" type-name type-name)
-                    "\treturn _obj;\n"
-                    "}\n"
                     (get-c-type-description-structure type-name type-name memb members module)
                    ))]
               [(struct-def? memb)  
                 (let ([type-name (get-c-type-name memb module)]
                       [members (struct-def-members memb)])
                         (string-append
-                          (comment (format "free memory function for ~a\n" type-name))
-                          (format "void ~a_del_(~a *self){\n" type-name type-name)
-                          "\tfree(self);\n"
-                          "}\n"
                           (comment (format "memory allocation function for ~a\n" type-name))
                           (format "~a * ~a_new_(){\n" type-name type-name)
                           
@@ -510,9 +506,8 @@
   (let ([type-name (get-c-type-name memb module)])
   (string-append
     (comment "structure which represents callable\n")
-    (format "struct ~a {\n"  type-name)
-    (comment "wrapper owner for this class\n")
-    "\tvoid *_owner_;\n"
+    (format "typedef struct ~a_t ~a_t;\n" type-name type-name)
+    (format "struct ~a_t {\n"  type-name)
     (if (callable-def-return memb) 
       (string-append (comment "allows to call stored callback wit arguments\n")
         (format "\t~a~a~a (*func)("
@@ -540,6 +535,10 @@
     (comment "free function for closure\n")
     "\tvoid (*free)(void*closure);\n"
     "};\n" 
+    (comment (format "create new ~a\n" type-name))
+    (format "~a * ~a_new_();\n" type-name type-name )
+    (comment (format "return data for ~a\n" type-name))
+    (format "~a_t * ~a_data_(~a* obj);\n" type-name type-name type-name)
     (comment (format "return type descriptor structure for ~a\n" type-name))
     (format "mir_type_descr* ~a_get_descr();\n" type-name))))
 
@@ -628,26 +627,12 @@
         "\n"
         ;add include guard
         (format "#include \"~a\"\n" (get-c-callable-inc-filename callable module))
-        (comment (format "free memory function for ~a\n" type-name))
-        (format "void ~a_del_(~a *self){\n" type-name type-name)
-         "\tself->free(self->closure);"
-         "\tfree(self);"
-        "}\n"
 
-        (comment (format "memory allocation with owner should be declare in extension for ~a\n" type-name))
-        (format "~a * _new_with_owner_~a();\n" type-name type-name) 
-
-        (comment (format "memory allocation function for ~a\n" type-name))
-        (format "~a * ~a_new_(){\n" type-name type-name)
-        (format "\t~a* _obj =	_new_with_owner_~a();\n" type-name type-name)
-        "\treturn _obj;\n"
-        "}\n"
-
-        (comment (format "memory allocation with owner should be declare in extension for ~a\n" type-name))
-        (format "~a * _new_with_owner_~a();\n" type-name type-name) 
 
         (comment (format "make copy inplace for ~a\n" type-name))
-        (format "void ~a_copy_inplace_(~a* dest, ~a* src ){\n" type-name type-name type-name)
+        (format "void ~a_copy_inplace_(~a* pDest, ~a* pSrc ){\n" type-name type-name type-name)
+        (format "~a_t * src = ~a_data_(pSrc);\n" type-name type-name)
+        (format "~a_t * dest = ~a_data_(pDest);\n" type-name type-name)
         "dest->func=src->func;\n"
         "dest->closure=src->closure;\n"
         "dest->free=src->free;\n"
@@ -659,18 +644,17 @@
         (format "\t~a_copy_inplace_ (copy, obj);\n" type-name)
         "\treturn copy;\n"
         "}\n"
+        (comment (format "return size of ~a\n" type-name))
+        (format "size_t ~a_size_();"type-name)
 
         (comment (format "return size of ~a\n" type-name))
-        (format "size_t ~a_size_(){\n" type-name)
-        (format "\treturn sizeof(~a);\n" type-name)
-        "}\n"
+        (format "size_t ~a_size_();\n" type-name)
         ;type descriptor structure
         (comment (format "type descriptor structure for ~a\n" type-name))
         (format "static mir_type_descr type_descr~a ={\n" type-name)
         (format "\t(void *(*)(void *))~a_copy_new_,\n" type-name)
         (format "\t~a_size_,\n" type-name)
         (format "\t(void (*)(void *, void *))~a_copy_inplace_,\n" type-name)
-        (format "\t(void (*)(void *))~a_del_,\n" type-name)
         (format "\t(void *(*)())~a_new_,\n" type-name)
         "\tmir_inc_ref,\n"
         "\tmir_dec_ref\n"
