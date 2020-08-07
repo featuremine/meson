@@ -21,6 +21,8 @@ extern "C"
 #include <stdlib.h>
     void mir_inc_ref(void *obj);
     void mir_dec_ref(void *obj);
+    void mir_inc_ref_callable(void *obj);
+    void mir_dec_ref_callable(void *obj);
     typedef struct
     {
         void *(*copy_new_)(void *);

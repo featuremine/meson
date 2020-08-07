@@ -48,15 +48,10 @@ graph_utility_Utility_pointSum(struct graph_utility_Utility *self,
 int32_t
 graph_utility_Utility_execute_callable(struct graph_utility_Utility *self,
                                    struct graph_Point *point,
-                                   r_int32_a_double_al_graph_Point *pCallable) {
-  r_int32_a_double_al_graph_Point_t * callable = r_int32_a_double_al_graph_Point_data_(pCallable);
-  printf("hello from c\n");
-    printf("ref count %ld \n", mir_get_ref_cnt(callable));
-  
-  int32_t ret = callable->func(1.0, point, callable->closure);
-    printf("ref count %ld \n", mir_get_ref_cnt(callable));
-
-  // free(callable);
+                                   r_int32_a_double_al_graph_Point callable) {
+  printf("ref count %ld \n",callable.closure? mir_get_ref_cnt(callable.closure):0);
+  int32_t ret = callable.func(1.0, point, callable.closure);
+  printf("ref count %ld \n", callable.closure? mir_get_ref_cnt(callable.closure):0);
   return ret;
 }
 
@@ -69,15 +64,14 @@ int32_t c_callback(double K, struct graph_Point *point, void *c) {
 };
 
 
-r_int32_a_double_al_graph_Point * 
+r_int32_a_double_al_graph_Point 
 graph_utility_Utility_get_callable(struct graph_utility_Utility *self,
                                    struct graph_Point *point, int16_t int16) {
   printf("hello from graph_utility_Utility_get_callable\n");
-  r_int32_a_double_al_graph_Point * pCallback = r_int32_a_double_al_graph_Point_new_();
-  r_int32_a_double_al_graph_Point_t * callback = r_int32_a_double_al_graph_Point_data_(pCallback);
-  callback->closure = NULL;
-  callback->func = c_callback;
-  return pCallback;
+  r_int32_a_double_al_graph_Point callback;
+  callback.closure = NULL;
+  callback.func = c_callback;
+  return callback;
 }
 
 typedef int32_t (*c_a_callb)(double K);
@@ -89,14 +83,13 @@ int32_t c_a_closure(double K) {
 
 int32_t c_a_callback(double K, void *c) { return c_a_closure(K); };
 
-r_int32_a_double*
+r_int32_a_double
 graph_utility_Utility_get_another_callable(struct graph_utility_Utility *self) {
   printf("hello from c\n");
-  r_int32_a_double * pCallback = r_int32_a_double_new_();
-  r_int32_a_double_t * callback = r_int32_a_double_data_(pCallback);
-  callback->closure = NULL;
-  callback->func = c_a_callback;
-  return pCallback;
+  r_int32_a_double callback;
+  callback.closure = NULL;
+  callback.func = c_a_callback;
+  return callback;
 }
 
 typedef graph_Point *(*c_p_callb)(double K);
@@ -111,20 +104,18 @@ graph_Point *c_p_closure(double K) {
 
 graph_Point *c_p_callback(double K, void *c) { return c_p_closure(K); };
 
-rl_graph_Point_a_double *graph_utility_Utility_get_callable_with_ref(
+rl_graph_Point_a_double graph_utility_Utility_get_callable_with_ref(
     struct graph_utility_Utility *self) {
   printf("hello from c\n");
-    rl_graph_Point_a_double * pCallback = rl_graph_Point_a_double_new_();
-  rl_graph_Point_a_double_t * callback = rl_graph_Point_a_double_data_(pCallback);
-
-  callback->closure = NULL;
-  callback->func = c_p_callback;
-  return pCallback;
+    rl_graph_Point_a_double callback;
+  callback.closure = NULL;
+  callback.func = c_p_callback;
+  return callback;
 }
 
 int32_t graph_utility_Utility_add_callable2(
     struct graph_utility_Utility *self,
-    r_none_a_double_al_graph_Point *callableWithoutRet) {
+    r_none_a_double_al_graph_Point callableWithoutRet) {
   return 1;
 }
 
@@ -196,8 +187,8 @@ void graph_utility_Utility_destructor(graph_utility_Utility *self) {
 }
 // new
 void graph_utility_Utility_constructor(graph_utility_Utility *self) {
-  graph_utility_Utility_t * data = graph_utility_Utility_data_(self);
-  data->calwithoutret= NULL;
+  graph_utility_Utility_t* data = graph_utility_Utility_data_(self);
+  data->calwithoutret.closure=NULL;
 }
 // del
 void graph_utility_EmptyClass_destructor(graph_utility_EmptyClass *self) {}
@@ -302,10 +293,8 @@ PythonTest* graph_utility_PythonTestClass_test_mthd (struct graph_utility_Python
   return test;
 }
 
-graph_utility_PythonAliasCallable* graph_utility_PythonTestClass_execute (struct graph_utility_PythonTestClass* self, PythonTest* test,graph_utility_PythonAliasCallable *pCallable){
-  rl_PythonTest_al_PythonTest_t * callable = rl_PythonTest_al_PythonTest_data_(pCallable);  
-  void * ret = callable->func(test, callable->closure);
-  mir_dec_ref(ret);
-  mir_inc_ref(pCallable);
-  return pCallable;
+graph_utility_PythonAliasCallable graph_utility_PythonTestClass_execute (struct graph_utility_PythonTestClass* self, PythonTest* test,graph_utility_PythonAliasCallable callable){
+  callable.func(test, callable.closure);
+  mir_inc_ref(callable.closure);
+  return callable;
 }

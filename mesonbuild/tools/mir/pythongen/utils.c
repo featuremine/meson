@@ -21,11 +21,11 @@
 #include "mir/pythongen/common_c.h"
 #include "mir/pythongen/utils.h"
 
-void free_closure(void *closure) { Py_DECREF(closure); }
 
 typedef struct {
-  void *_owner_;
-} mir_object;
+  void *func;
+  void *closure;
+} mir_callable;
 
 
 void mir_inc_ref(void *obj) {
@@ -33,6 +33,12 @@ void mir_inc_ref(void *obj) {
 }
 void mir_dec_ref(void *obj) {
     Py_XDECREF(obj);
+}
+void mir_inc_ref_callable(void *obj) {
+    if (obj)Py_XINCREF(((mir_callable*)obj)->closure);
+}
+void mir_dec_ref_callable(void *obj) {
+    if (obj)Py_XDECREF(((mir_callable*)obj)->closure);
 }
 
 void mir_inc_ref_struct(void *obj) {}

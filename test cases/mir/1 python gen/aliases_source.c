@@ -22,21 +22,19 @@ graph_aliases_Vector2d *c_pr_callback(graph_aliases_Vector2d *point, void *c) {
 
 graph_aliases_Vector2d *graph_aliases_AliasClass_setCallable(
     struct graph_aliases_AliasClass *self,
-    rl_graph_aliases_Vector2d_al_graph_aliases_Vector2d *pCallable) {
+    rl_graph_aliases_Vector2d_al_graph_aliases_Vector2d callable) {
   graph_aliases_Vector2d *point =  graph_Point_new_();
-  rl_graph_aliases_Vector2d_al_graph_aliases_Vector2d_t * callable = rl_graph_aliases_Vector2d_al_graph_aliases_Vector2d_data_(pCallable);
-  graph_aliases_Vector2d *ret = callable->func(point, callable->closure);
+  graph_aliases_Vector2d *ret = callable.func(point, callable.closure);
   return ret;
 };
 
-graph_aliases_VectorCallable *graph_aliases_AliasClass_setAliasCallable(
+graph_aliases_VectorCallable graph_aliases_AliasClass_setAliasCallable(
     struct graph_aliases_AliasClass *pSelf,
-    graph_aliases_VectorCallable *aCallable) {
-
+    graph_aliases_VectorCallable callable) {
   graph_aliases_AliasClass_t * self = graph_aliases_AliasClass_data_(pSelf);
-  self->aliasCallable = aCallable;
-  rl_graph_aliases_VectorCallable_al_graph_aliases_VectorCallable_get_descr()->inc_ref_(aCallable);
-  return aCallable;
+  self->aliasCallable = callable;
+  mir_inc_ref(callable.closure);
+  return callable;
 };
 
 // del

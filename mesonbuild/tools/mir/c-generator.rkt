@@ -506,8 +506,8 @@
   (let ([type-name (get-c-type-name memb module)])
   (string-append
     (comment "structure which represents callable\n")
-    (format "typedef struct ~a_t ~a_t;\n" type-name type-name)
-    (format "struct ~a_t {\n"  type-name)
+    (format "typedef struct ~a ~a;\n" type-name type-name)
+    (format "struct ~a {\n"  type-name)
     (if (callable-def-return memb) 
       (string-append (comment "allows to call stored callback wit arguments\n")
         (format "\t~a~a~a (*func)("
@@ -535,8 +535,6 @@
     "};\n" 
     (comment (format "create new ~a\n" type-name))
     (format "~a * ~a_new_();\n" type-name type-name )
-    (comment (format "return data for ~a\n" type-name))
-    (format "~a_t * ~a_data_(~a* obj);\n" type-name type-name type-name)
     (comment (format "return type descriptor structure for ~a\n" type-name))
     (format "mir_type_descr* ~a_get_descr();\n" type-name))))
 
@@ -596,12 +594,28 @@
         "#include \"stdbool.h\"\n" 
         "#include \"mir/pythongen/utils.h\"\n" 
         "#include \"mir/pythongen/common_c.h\"\n" 
+        (apply string-append 
+          (map (lambda (c) (format "#include \"~a\"\n" (get-c-callable-inc-filename c module)))
+            (filter callable-def? 
+              (append (list (get-origin-alias-type(return-def-type(callable-def-return callable))))
+                (map (lambda(a)
+                  (get-origin-alias-type (arg-def-type a)))
+                  (callable-def-args callable))))))
+
         ;add declarations
         (apply string-append
-          (hash-map (collect-callable-defs callable (make-hash)) 
-            (lambda(key memb)
-              (add-c-decl memb module))))
-   
+            (hash-map (collect-callable-defs callable (make-hash)) 
+              (lambda(key memb)
+                (add-c-decl memb module))))
+
+        (apply string-append 
+          (map (lambda (c) (format "typedef ~a ~a;\n" (get-c-type-name c module) (get-c-type-name (get-origin-alias-type c) module)))
+            (filter (lambda (m) (and (alias-def? m) (callable-def? (get-origin-alias-type m))))
+              (append (list (return-def-type(callable-def-return callable)))
+                (map (lambda(a)
+                  (arg-def-type a))
+                  (callable-def-args callable))))))
+
         ;add members
         (get-callable-decl callable module)
 
@@ -628,9 +642,7 @@
 
 
         (comment (format "make copy inplace for ~a\n" type-name))
-        (format "void ~a_copy_inplace_(~a* pDest, ~a* pSrc ){\n" type-name type-name type-name)
-        (format "~a_t * src = ~a_data_(pSrc);\n" type-name type-name)
-        (format "~a_t * dest = ~a_data_(pDest);\n" type-name type-name)
+        (format "void ~a_copy_inplace_(~a* dest, ~a* src ){\n" type-name type-name type-name)
         "dest->func=src->func;\n"
         "dest->closure=src->closure;\n"
         "}\n"
@@ -653,8 +665,8 @@
         (format "\t~a_size_,\n" type-name)
         (format "\t(void (*)(void *, void *))~a_copy_inplace_,\n" type-name)
         (format "\t(void *(*)())~a_new_,\n" type-name)
-        "\tmir_inc_ref,\n"
-        "\tmir_dec_ref\n"
+        "\tmir_inc_ref_callable,\n"
+        "\tmir_dec_ref_callable\n"
         "};\n"
         ;return type descriptor
         (comment (format "return type descriptor structure for ~a\n" type-name))  

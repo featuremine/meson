@@ -45,12 +45,10 @@
     [type (def-callable
         [def-arg point
             [brief "point"]
-            [type VectorCallable]
-            #:ref]
+            [type VectorCallable]]
         [def-return 
             [brief "Result."]
-            [type VectorCallable]
-            #:ref])])
+            [type VectorCallable]])])
 
 (def-class ClassWithRef
     [brief "Class with ref"]
@@ -90,8 +88,7 @@
         [type Vector2d ]  #:ref]
     [def-member aliasCallable
             [brief "obj"]  
-            [type VectorCallable ]
-            #:ref]
+            [type VectorCallable ]]
     [def-member boolVal
             [brief "bool val"]  
             [type bool ]]
@@ -101,12 +98,10 @@
             [doc  "setAliasCallable" ]
             [def-arg aCallable
                 [brief "callable"]
-                [type VectorCallable]
-                #:ref]
+                [type VectorCallable]]
             [def-return 
                 [brief "Distance."]
-                [type VectorCallable]
-                #:ref]]     
+                [type VectorCallable]]]     
 
     
     [def-method setCallable
@@ -122,8 +117,7 @@
                 [def-return 
                     [brief "Result."]
                     [type Vector2d]
-                    #:ref])]
-            #:ref]
+                    #:ref])]]
         [def-return 
             [brief "Distance."]
             [type Vector2d]

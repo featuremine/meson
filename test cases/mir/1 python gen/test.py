@@ -127,6 +127,7 @@ def test():
 
     # test c callback
     cb = util.get_callable(p1, 1)
+    print(cb)
     assert(sys.getrefcount(cb)==2)
     print('cb', cb)
     assert(cb(1, p1) == 3)
@@ -141,6 +142,7 @@ def test():
 
     assert(sys.getrefcount(call_me)==2)
     assert(util.execute_callable(p1, call_me) == 3)
+    print(sys.getrefcount(call_me))
     assert(sys.getrefcount(call_me)==2)
 
     #test send c callback back to c

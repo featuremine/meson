@@ -67,8 +67,7 @@
                     #:ref]
                 [def-return 
                     [brief "Result."]
-                    [type int32]])]
-                    #:ref]
+                    [type int32]])]]
             
         [def-return 
             [brief "Result."]
@@ -86,8 +85,7 @@
                 #:ref]
             [def-return 
                 [brief "Result."]
-                [type int32]])]
-                #:ref]
+                [type int32]])]]
     
     [def-method add_callable2
         [brief "Scalar multiplication"]
@@ -101,8 +99,7 @@
                 [def-arg point
                     [brief "point"]
                     [type graph.Point]
-                    #:ref])]
-                #:ref]
+                    #:ref])]]
         [def-return 
             [brief "Result."]
             [type int32]]]
@@ -129,7 +126,7 @@
                     #:ref]
                 [def-return 
                     [brief "Result."]
-                    [type int32]])] #:ref]]
+                    [type int32]])]]]
 
     [def-method get_another_callable
         [brief "Scalar multiplication"]
@@ -142,7 +139,7 @@
                     [type double]]
                 [def-return 
                     [brief "Result."]
-                    [type int32]])]#:ref]]
+                    [type int32]])]]]
 
     [def-method get_callable_with_ref
         [brief "Scalar multiplication"]
@@ -156,8 +153,7 @@
                 [def-return 
                     [brief "Result."]
                     [type graph.Point] 
-                    #:ref])]
-            #:ref]]
+                    #:ref])]]]
 
     [def-method get_point_ref
         [brief "Return reference to point"]
@@ -527,10 +523,10 @@
             [type PythonTest]#:ref]
         [def-arg callable
             [brief "a value"]
-            [type PythonAliasCallable]#:ref]
+            [type PythonAliasCallable]]
         [def-return 
             [brief "PythonTest"]
-            [type PythonAliasCallable]#:ref]]
+            [type PythonAliasCallable]]]
     [def-method test_mthd
         [brief "test_mthd"]
         [doc  "test_mthd"]

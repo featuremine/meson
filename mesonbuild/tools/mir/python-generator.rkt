@@ -499,10 +499,12 @@
         (format " if(self->data.~a==NULL)return Py_None;\n" name)
         "")
        (cond 
-          [(or(class-def? origin-type) (callable-def? origin-type))
-            (format "if(self->data.~a) Py_INCREF(self->data.~a);\n" name name)]
+          [(class-def? origin-type)
+            (format "Py_XINCREF(self->data.~a);" name )]
+          [(callable-def? origin-type)
+            (format "Py_XINCREF(self->data.~a.closure);" name )]
           [(python-type-def? origin-type)
-            (format "Py_INCREF(self->data.~a);\n" name)]
+            (format "Py_XINCREF(self->data.~a);" name )]
           [else ""])
       (build-return-section
         (format "~aself->data.~a"
@@ -538,15 +540,18 @@
 
           
             (cond  
-              [(or(class-def? origin-type) (callable-def? origin-type))
+              [(class-def? origin-type)
                   (string-append
-                    (format "if(self->data.~a) Py_DECREF(self->data.~a);\n" name name))]
+                    (format "Py_XDECREF(self->data.~a);\n" name ))]
+              [(callable-def? origin-type)
+                  (string-append
+                    (format "Py_XDECREF(self->data.~a.closure);\n" name ))]
               [(python-type-def? origin-type)
                 (if member-ref?
                   (string-append
-                    (format "if(self->data.~a) Py_DECREF(self->data.~a);\n" name name))
+                    (format "Py_XDECREF(self->data.~a);\n" name ))
                   (string-append
-                    (format "Py_DECREF(&self->data.~a);\n" name )))]       
+                    (format "Py_XDECREF(&self->data.~a);\n" name )))]       
             [else ""])
           (format "self->data.~a = val;\n" name)
           "return 0;\n}\n"))))
@@ -1417,7 +1422,7 @@
                       [(default-def? arg-type) 
                             (format "_pyarg_~a" arg-name)]
                       [(callable-def? arg-type) 
-                            (format "_pyargdata_~a" arg-name)]
+                            (format "*_pyargdata_~a" arg-name)]
                       [(enum-def? arg-type) 
                             (format "_pyarg_~a" arg-name)]
                       [(python-type-def? arg-type) 
@@ -1802,7 +1807,7 @@
           "};\n"
 
           (format "PyTypeObject * _get~a(){return (PyTypeObject*) &~a;};" py-type (type_of_py_object memb module) )
-          (format "~a * _get_data_pys_~a(~a * data) {return (~a*) data;\n };\n" c-type c-type py-type c-type )
+          (format "~a * _get_data_pys_~a(~a * data) {return  &data->data;\n };\n" c-type c-type py-type  )
           (format "~a * _new_pys_~a()\n{  return malloc(sizeof(~a)); }\n" py-type c-type py-type)
           (format "void _free_pys_~a(~a * callable)\n{  free (callable); }\n" c-type py-type)
 
@@ -1820,23 +1825,24 @@
             (format "return (~a*)self;\n}\n" c-type )
 
           ;data
-          (format "~a_t * ~a_data_(~a * data){\n" c-type c-type c-type)
+          (format "~a * ~a_data_(~a * data){\n" c-type c-type c-type)
           "if(data==NULL) return NULL;\n"
           (format "return &((~a*)data)->data;\n}\n" py-type)
 
           ;from data
           (format "PyObject * _from_data_pys_~a(~a * data){\n" c-type c-type)
           "if(data==NULL) Py_RETURN_NONE;\n"
-          "return(PyObject *) data;\n}\n";
+          (format "PyTypeObject *type = &~a;\n" (type_of_py_object memb module))
+          (format "~a * self = (~a *)type->tp_alloc(type, 0);\n" py-type py-type)
+          "self->data = *data;\n"
+          "return(PyObject *) self;\n}\n";
 
           ;from py callable
           (format "~a * _from_py_callable~a(PyObject * cb){\n" c-type c-type)
           "if(cb==NULL) return NULL;\n"
-          "Py_INCREF(cb);\n"
           (format "~a* _pyret = ~a_new_();\n"c-type c-type)
-          (format "~a_t* _pyret_data = ~a_data_(_pyret);\n"c-type c-type)
-          (format "_pyret_data->func = &_wrap~a;\n" py-type) 
-          "_pyret_data->closure = cb;\n" 
+          (format "_pyret->func = &_wrap~a;\n" py-type) 
+          "_pyret->closure = cb;\n" 
           "return _pyret;\n}\n"
 
           ;wrapper for callable
@@ -1870,6 +1876,10 @@
                         (string-append 
                               (format "Py_INCREF(~a);\n" arg-name) 
                               (format "PyTuple_SetItem(_pytarg_tuple, ~a, (PyObject*)~a);\n" num arg-name)  )]
+                        [(callable-def? real-arg-type)
+                          (string-append 
+                                (format "~a *_pyarg~a=(~a *) _from_data~a(&~a);\n" python-arg-type python-arg-type python-arg-type python-arg-type arg-name)
+                                (format "PyTuple_SetItem(_pytarg_tuple, ~a, (PyObject*)_pyarg~a);\n" num python-arg-type)  )]
                         [else
                           (string-append 
                               (format "~a *_pyarg~a=(~a *) _from_data~a(~a);\n" python-arg-type python-arg-type python-arg-type python-arg-type arg-name)
@@ -1881,6 +1891,16 @@
             (cond 
               [(and (default-def? real-ret-type) (equal? (type-def-name real-ret-type) "none"))
                 "PyObject_CallObject(callable, _pytarg_tuple);\n    Py_DECREF(_pytarg_tuple);\nreturn;\n"]
+              [(callable-def? real-ret-type) 
+                (string-append
+                  "PyObject *_pyret_ret = PyObject_CallObject(callable, _pytarg_tuple);\n"
+                  "Py_DECREF(_pytarg_tuple);\n"
+                  (format "~a * ret_val = ~a;\nreturn *ret_val;\n"  (get-c-type-name ret-type module) 
+                    (format (to-c-type real-ret-type module) 
+                      (format "~a _pyret_ret"
+                        (if (not (default-def? real-ret-type))
+                          (format "(~a *)" ret-python-type-name)
+                          "")))))]
               [else 
                 (string-append
                   "PyObject *_pyret_ret = PyObject_CallObject(callable, _pytarg_tuple);\n"
@@ -1891,7 +1911,7 @@
                         (if (not (default-def? real-ret-type))
                           (format "(~a *)" ret-python-type-name)
                           "")))))])
-
+      
             "}\n"
 
       )))
@@ -1905,7 +1925,7 @@
         [ret-type   (get-c-type-name (return-def-type (callable-def-return memb )) module)]
         )
     (string-append
-        (format "struct ~a{\nPyObject_HEAD\n ~a_t data;\n};\n" py-type c-type )
+        (format "struct ~a{\nPyObject_HEAD\n ~a data;\n};\n" py-type c-type )
         (format "void _free_pys_~a(~a * callable);\n" c-type py-type)
         (format "~a~a _wrap_pys_~a(~a);\n" ret-type (if ret-ref "*" "") c-type 
           (string-join 
