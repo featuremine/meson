@@ -57,6 +57,7 @@ hadron_package_kwargs = set([
     'python',
     'link_args',
     'samples',
+    'tests',
     'documentation',
     'style'
 ])
@@ -76,6 +77,7 @@ hadron_special_kwargs = set([
     'python',
     'install',
     'samples',
+    'tests',
     'documentation',
     'style'
 ])
@@ -133,6 +135,7 @@ class HadronModule(ExtensionModule):
         self.documentation = kwargs.get('documentation', False)
         self.style = kwargs.get('style', False)
         self.samples = kwargs.get('samples', None)
+        self.tests = kwargs.get('tests', None)
         self.environment = state.environment
         self.pkg_dir = os.path.join(state.environment.build_dir, 'package', self.version + self.suffix, self.name)
         self.api_gen_dir = os.path.join(state.environment.build_dir, 'api-gen', self.name, self.version + self.suffix)
@@ -165,6 +168,12 @@ class HadronModule(ExtensionModule):
         if self.samples is not None:
             for sample in self.samples:
                 self.sources[os.path.join(self.name,'samples')].append(os.path.join(self.source_dir, sample.subdir, sample.fname))
+
+        if self.tests is not None:
+            for test in self.tests:
+                in_path = os.path.abspath(os.path.join(self.source_dir, test.subdir, test.fname))
+                out_dir = os.path.join(self.name,os.path.dirname(in_path[len(self.source_dir)+1:]))
+                self.sources[out_dir].append(in_path)
 
         if self.install:
             self.gen_wheel()
