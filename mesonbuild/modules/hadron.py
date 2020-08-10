@@ -54,7 +54,12 @@ hadron_package_kwargs = set([
     'include_directories',
     'install',
     'verify',
-    'python'
+    'python',
+    'link_args',
+    'samples',
+    'tests',
+    'documentation',
+    'style'
 ])
 
 # these will be removed if not require for shlib
@@ -70,7 +75,11 @@ hadron_special_kwargs = set([
     'version',
     'verify',
     'python',
-    'install'
+    'install',
+    'samples',
+    'tests',
+    'documentation',
+    'style'
 ])
 
 class colors:
@@ -83,7 +92,10 @@ class Imports:
     def get_imports(self, path):
         sys.stderr = open(os.devnull, 'w')
         graph = findimports.ModuleGraph()
-        graph.parsePathname(path)
+        try:
+            graph.parsePathname(path)
+        except:
+            raise mesonlib.MesonException(f"{colors.RED}hadron{colors.NC} while looking for imports, could not parse module {path}")
         res = {}
         for module in graph.listModules():
           if graph.external_dependencies:
@@ -120,6 +132,10 @@ class HadronModule(ExtensionModule):
         self.suffix = kwargs.get('suffix', '')
         self.install = kwargs.get('install', False)
         self.verify = kwargs.get('verify', False)
+        self.documentation = kwargs.get('documentation', False)
+        self.style = kwargs.get('style', False)
+        self.samples = kwargs.get('samples', None)
+        self.tests = kwargs.get('tests', None)
         self.environment = state.environment
         self.pkg_dir = os.path.join(state.environment.build_dir, 'package', self.version + self.suffix, self.name)
         self.api_gen_dir = os.path.join(state.environment.build_dir, 'api-gen', self.name, self.version + self.suffix)
@@ -132,6 +148,7 @@ class HadronModule(ExtensionModule):
         self.mir_targets_map = defaultdict(list)
         self.interpreter = interpr
         self.python3 = self.python3_inst.method_call('path', [], {})
+        self.mir_sources = set()
 
         py_copy_targets = self.gen_copy_trgts()
         cpy_trgts_list = [trgt for _, trgt in py_copy_targets.items()]
@@ -142,13 +159,22 @@ class HadronModule(ExtensionModule):
 
         shalib_target = self.generate_sharedlib(mir_targets, kwargs)
 
-
         if shalib_target is not None:
             init_target = self.gen_init_trgt(cpy_trgts_list + root_targets + ext_deps + ext_targets, shalib_target)
             ret += [init_target, shalib_target]
         else:
             init_target = self.gen_init_trgt(cpy_trgts_list + root_targets + ext_deps + ext_targets)
             ret += [init_target]
+
+        if self.samples is not None:
+            for sample in self.samples:
+                self.sources[os.path.join(self.name,'samples')].append(os.path.join(self.source_dir, sample.subdir, sample.fname))
+
+        if self.tests is not None:
+            for test in self.tests:
+                in_path = os.path.abspath(os.path.join(self.source_dir, test.subdir, test.fname))
+                out_dir = os.path.join(self.name,os.path.dirname(in_path[len(self.source_dir)+1:]))
+                self.sources[out_dir].append(in_path)
 
         if self.install:
             self.gen_wheel()
@@ -162,6 +188,19 @@ class HadronModule(ExtensionModule):
             if isinstance(target, interpreter.SharedModuleHolder):
                 continue
             interpr.add_target(target.name, target)
+
+        if self.documentation:
+            doc_script = 'echo "Generating docs..."'
+            cmd = ['/bin/bash', '-c', doc_script]
+            target = build.RunTarget('doc', cmd[0], cmd[1:], [], '', self.subproject)
+            interpr.add_target(target.name, target)
+
+        if self.style:
+            style_script = 'clang-format -i **/**.h(N) **/**.c(N) **/**.hpp(N) **/**.cpp(N)'
+            cmd = ['/bin/zsh', '-c', style_script]
+            target = build.RunTarget('style', cmd[0], cmd[1:], [], '', self.subproject)
+            interpr.add_target(target.name, target)
+
         return interpr.holderify(init_target)
 
     def add_doctest_test(self, path, deps):
@@ -427,7 +466,11 @@ class HadronModule(ExtensionModule):
             return self.mir_targets_map[name]
         cmd = base_cmd + ['-s', mir_path]
         sources = self.run_mir_subprocess(cmd + ['-i'])
-        relative_sources = [os.path.relpath(source, self.build_dir) for source in sources]
+        relative_sources = []
+        for source in sources:
+            if source not in self.mir_sources:
+                self.mir_sources.add(source)
+                relative_sources.append(os.path.relpath(source, self.build_dir))
         dependencies = self.run_mir_subprocess(cmd + ['-m'])
         deps = []
         for dep in dependencies:
@@ -562,6 +605,8 @@ class HadronModule(ExtensionModule):
                 '--build_dir', self.build_dir,
                 '--sources', self.get_dictionary_as_str(src_copy)]
 
+        wheel_pkg = build.RunTarget('wheel-package', cmd[0], cmd[1:], [], self.subdir, self.subproject)
+        self.interpreter.add_target(wheel_pkg.name, wheel_pkg)
         self.interpreter.builtin['meson'].add_install_script_method(cmd, None)
 
     def gen_conda(self):
@@ -579,6 +624,8 @@ class HadronModule(ExtensionModule):
                 '--build_dir', self.build_dir,
                 '--sources', self.get_dictionary_as_str(src_copy)]
 
+        wheel_pkg = build.RunTarget('conda-package', cmd[0], cmd[1:], [], self.subdir, self.subproject)
+        self.interpreter.add_target(wheel_pkg.name, wheel_pkg)
         self.interpreter.builtin['meson'].add_install_script_method(cmd, None)
 
     def process_extensions(self, extensions):
@@ -595,15 +642,12 @@ class HadronModule(ExtensionModule):
                     'command': ['cp', '@INPUT@', '@OUTPUT@'],
                     'build_by_default': True
                 }
-                self.sources[os.path.join(self.name)].append( os.path.join(self.pkg_dir, extension.fname))
+                self.sources[self.name].append( os.path.join(self.pkg_dir, extension.fname))
                 targets.append(build.CustomTarget(path.replace('/', '_'), os.path.join(self.pkg_dir), self.subproject, custom_kwargs))
             elif isinstance(extension, build.BuildTarget):
                 subdir = extension.get_subdir()
-                subdir_ = ''
-                if subdir != 'lib':
-                    subdir_ = subdir[subdir.find('/')+1:]
                 for output in extension.get_outputs():
-                    self.sources[os.path.join(self.name, subdir_)].append(os.path.join(self.build_dir, subdir, output))
+                    self.sources[self.name].append(os.path.join(self.build_dir, subdir, output))
                 deps.append(extension)
                 custom_kwargs = {
                     'input': extension,
@@ -622,7 +666,7 @@ class HadronModule(ExtensionModule):
                         'command': ['cp', '@INPUT@', self.pkg_dir],
                         'build_by_default' : True
                     }
-                    self.sources[os.path.join(self.name)].append(os.path.join(self.pkg_dir, name))
+                    self.sources[self.name].append(os.path.join(self.pkg_dir, name))
                     targets.append(build.CustomTarget("_".join(['copy', name]), self.pkg_dir, self.subproject, custom_kwargs))
             elif isinstance(extension, list):
                 t, d = self.process_extensions(extension)
