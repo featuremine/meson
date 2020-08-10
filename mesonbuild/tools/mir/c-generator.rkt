@@ -168,7 +168,7 @@
                     (format "#define ~a ~a\n\n" 
                       (get-c-type-name-from-string (const-def-name memb)) 
                       (const-def-val memb))
-                    (format "~a * get_mir_const_~a();\n" (get-c-type-name (const-def-type memb) module) (get-c-type-name-from-string (const-def-name memb)))))]
+                    (format "~a ~a get_mir_const_~a();\n" (get-c-type-name (const-def-type memb) module)  (if (const-def-ref memb) "*" "")  (get-c-type-name-from-string (const-def-name memb)))))]
 
               [(struct-def? memb)  
                 (let ([type-name (get-c-type-name memb module)])

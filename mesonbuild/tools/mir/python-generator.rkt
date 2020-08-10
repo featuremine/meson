@@ -1315,13 +1315,21 @@
         (let ([ns (string-join (module-def-ns module) "_")])
           (cond
             [(const-def? memb)  
-              (format "add_const_to_module(_pyargmod_~a, \"~a\", ~a);\n" 
-                ns 
-                (car (reverse (string-split (const-def-name memb) ".")) )
-                (if (default-def? (const-def-type memb))
-                  (format (to-python-type (const-def-type memb))  (string-replace (const-def-name memb) "." "_"))
-                  (let([c-type (get-c-type-name (get-origin-alias-type (const-def-type memb)) module)])
-                        (format (format "_from_data_pys_~a(get_mir_const_~a())\n" c-type (get-c-type-name-from-string (const-def-name memb)))))))]
+              (letrec ([type (const-def-type memb)]
+                       [real-type (get-origin-alias-type type)]
+                       [name  (car (reverse (string-split (const-def-name memb) ".")) )]    
+                       [absolute-name (string-replace (const-def-name memb) "." "_")]
+                       [c-type (get-c-type-name type module)]
+                       [c-type-real (get-c-type-name real-type module)])
+                       (cond
+                          [(default-def? real-type)
+                            (format "add_const_to_module(_pyargmod_~a, \"~a\", ~a);\n" ns name 
+                              (format (to-python-type (const-def-type memb)) absolute-name))]
+                          [else 
+                              (string-append 
+                                (format "~a ~a const_data_~a = get_mir_const_~a();\n" c-type (if (const-def-ref memb) "*" "") c-type (get-c-type-name-from-string (const-def-name memb)))
+                                (format "add_const_to_module(_pyargmod_~a, \"~a\", ~a);\n" ns name
+                                  (format "_from_data_pys_~a(~aconst_data_~a)"c-type-real (if (const-def-ref memb) "" "&") c-type)))]))]
             [else ""])))
         (module-def-defs module))))
 
