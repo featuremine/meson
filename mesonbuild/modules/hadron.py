@@ -472,23 +472,17 @@ class HadronModule(ExtensionModule):
                 self.mir_sources.add(source)
                 relative_sources.append(os.path.relpath(source, self.build_dir))
         dependencies = self.run_mir_subprocess(cmd + ['-m'])
-        deps = []
+        depend_files = []
         for dep in dependencies:
-            target = self.make_racket_targets(base_cmd, dep)
-            if target is not None:
-                deps.append(target)
-            else:
-                dep_mir_path = os.path.join(self.source_dir, 'lib', dep)
-                dep_name = self.make_relpath(dep_mir_path).replace('/', '_')
-                deps.append(self.mir_targets_map[dep_name])
+            depend_files += self.make_racket_targets(base_cmd, dep).sources
         custom_kwargs = {
             'input': mir_path,
             'output': relative_sources,
             'command': cmd,
             'build_by_default': True,
-            'depends': deps
+            'depend_files': depend_files
         }
-        target = build.CustomTarget(name, '', self.subproject, custom_kwargs)
+        target = build.CustomTarget(name=name,subdir='',subproject=self.subproject,kwargs=custom_kwargs)
         self.mir_targets_map[name] = target
         return target
 
@@ -554,14 +548,17 @@ class HadronModule(ExtensionModule):
         cmd = self.get_racket_base_cmd() + cmd
         sources = self.run_mir_subprocess(cmd + ['-i', '-c'])
         relative_sources = [os.path.relpath(source, self.build_dir) for source in sources]
+        depend_files = []
+        for target in mir_targets:
+            depend_files += target.sources
         custom_kwargs = {
             'input': headers,
             'output': relative_sources,
             'command': cmd + ['-c'],
             'build_by_default': True,
-            'depends': mir_targets
+            'depend_files': depend_files
         }
-        return build.CustomTarget('common_mir_target_'+self.name+self.version+self.suffix, '', self.subproject, custom_kwargs)
+        return build.CustomTarget(name='common_mir_target_'+self.name+self.version+self.suffix,subdir='',subproject=self.subproject,kwargs=custom_kwargs)
 
     def run_mir_subprocess(self, cmd):
         output = self.run_subprocess(cmd)
