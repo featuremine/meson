@@ -146,11 +146,25 @@
     (if python-t 
       (cond 
         [(equal? (type-def-name type) "char")
-          (format "char _pycharret_data = ~a;\n~a return ~a;\n" data after-section (format python-t "&_pycharret_data"))]
+          (string-append
+              (format "char _pycharret_data = ~a;\n" data)
+              (format "PyObject* _pyret_ = ~a;\n"(format python-t "&_pycharret_data"))
+              after-section
+              "return _pyret_;\n")]
         [(equal? (type-def-name type) "none")
           (if return-none
-            (format "~a;\n~aPy_RETURN_NONE;\n" data after-section)
-            (format "~a;\n~aPy_INCREF(self);\nreturn (PyObject*) self;\n" data after-section))]
+            (string-append
+              (format "~a;\n" data)
+              "PyObject* _pyret_ = Py_None;\n"
+              "Py_INCREF(_pyret_);\n"
+              after-section
+              "return (PyObject*) _pyret_;\n")
+            (string-append
+              (format "~a;\n" data)
+              "PyObject* _pyret_ =(PyObject*) self;\n"
+              "Py_INCREF(_pyret_)\n"
+              after-section
+              "return (PyObject*) _pyret_;\n"))]
         [(equal? (type-def-name type) "string")
           (string-append 
             (format "char * _py_string_ret_= ~a;\n"data)
@@ -576,6 +590,7 @@
         [struct-mthd-name (format "~a_~a" struct_name (method-def-name mthd))]
         [c-mthd-name (format "~a_~a" type-name (method-def-name mthd))]
         [args (method-def-args mthd)]
+        [err-check "if (PyErr_Occurred()) {\n   Py_XDECREF(_pyret_);\n   Py_RETURN_NONE;\n}\n"]
         [ret-type (return-def-type (method-def-return mthd))]
         [ret-ref (return-def-ref (method-def-return mthd))])
     (string-append
@@ -628,24 +643,23 @@
               
             ;free python callable
             (apply string-append
-                (map 
-                  (lambda (arg)
-                    (let ([origin-type (get-origin-alias-type (arg-def-type arg))]
-                        [arg-name (arg-def-name arg)])
-                      (cond 
-                        [(callable-def? origin-type)
-                          (free-py-callable-section (format "_py_is_python_~a" arg-name) (format "_pyargdata_~a" arg-name))]
-                        [else ""])))
-                args))))
+                (append
+                  (map 
+                    (lambda (arg)
+                      (let ([origin-type (get-origin-alias-type (arg-def-type arg))]
+                          [arg-name (arg-def-name arg)])
+                        (cond 
+                          [(callable-def? origin-type)
+                            (free-py-callable-section (format "_py_is_python_~a" arg-name) (format "_pyargdata_~a" arg-name))]
+                          [else ""])))
+                  args)
+                (list err-check)))))
               
-  
-
-
         ;if doesn't have members
         (string-append
           (format "static PyObject* _method~a(~a* self) {\n" struct-mthd-name struct_name)
           (build-return-section  
-            (format "~a((~a*)self)" c-mthd-name type-name) ret-type module ret-ref)))
+            (format "~a((~a*)self)" c-mthd-name type-name) ret-type module ret-ref err-check)))
       "}\n")))
 
 ;return operators hashtable from members list
