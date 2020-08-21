@@ -590,7 +590,7 @@
         [struct-mthd-name (format "~a_~a" struct_name (method-def-name mthd))]
         [c-mthd-name (format "~a_~a" type-name (method-def-name mthd))]
         [args (method-def-args mthd)]
-        [err-check "if (PyErr_Occurred()) {\n   Py_XDECREF(_pyret_);\n   Py_RETURN_NONE;\n}\n"]
+        [err-check "if (PyErr_Occurred()) {\n   Py_XDECREF(_pyret_);\n   return NULL;\n}\n"]
         [ret-type (return-def-type (method-def-return mthd))]
         [ret-ref (return-def-ref (method-def-return mthd))])
     (string-append
