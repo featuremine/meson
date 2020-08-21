@@ -162,7 +162,7 @@
             (string-append
               (format "~a;\n" data)
               "PyObject* _pyret_ =(PyObject*) self;\n"
-              "Py_INCREF(_pyret_)\n"
+              "Py_INCREF(_pyret_);\n"
               after-section
               "return (PyObject*) _pyret_;\n"))]
         [(equal? (type-def-name type) "string")
@@ -694,6 +694,7 @@
                 (letrec ([py-type   (get-python-type-name memb module)]
                       [c-type   (get-c-type-name memb module)]
                       [memb-mmbrs  (struct-def-members memb)]
+                      [operators (get-operators memb-mmbrs)]
                       [args (filter member-def? memb-mmbrs)])
                   (string-append
                       (comment (list (struct-def-brief memb) (struct-def-doc memb)))
