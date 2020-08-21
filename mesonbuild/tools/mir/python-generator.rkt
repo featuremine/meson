@@ -1870,19 +1870,21 @@
                                   (format "PyTuple_SetItem(_pytarg_tuple, ~a, (PyObject*)_pyarg~a);\n" num python-arg-type)  )])))
                     args))))
                 "")  
-            "//TODO: add type check\n"
+
+            (if (> arg-count 0)
+              (string-append
+                "PyObject *_pyret_ret = PyObject_CallObject(callable, _pytarg_tuple);\n"
+                "Py_DECREF(_pytarg_tuple);\n")
+              "PyObject *_pyret_ret = PyObject_CallObject(callable, NULL);\n")
+
             (cond 
               [(and (default-def? real-ret-type) (equal? (type-def-name real-ret-type) "none"))
                 (string-append
-                  "PyObject *_pyret_ret = PyObject_CallObject(callable, _pytarg_tuple);\n"
                   "Py_XDECREF(_pyret_ret);\n"
-                  "Py_DECREF(_pytarg_tuple);\nreturn;\n"
                   )]
               [(callable-def? real-ret-type) 
                 (string-append
-                  "PyObject *_pyret_ret = PyObject_CallObject(callable, _pytarg_tuple);\n"
-                  "Py_DECREF(_pytarg_tuple);\n"
-                  (format "if (PyErr_Occurred()) {\n   Py_XDECREF(_pyret_ret);\n ~a ret_val;\n  return ret_val;\n}\n" (get-c-type-name ret-type module))
+                  (format "if (PyErr_Occurred()) {\n   Py_XDECREF(_pyret_ret);\n ~a ret_val={0};\n  return ret_val;\n}\n" (get-c-type-name ret-type module) )
                   (format "~a * ret_val = ~a;\nreturn *ret_val;\n"  (get-c-type-name ret-type module) 
                     (format (to-c-type real-ret-type module) 
                       (format "~a _pyret_ret"
@@ -1891,8 +1893,6 @@
                           "")))))]
               [else 
                 (string-append
-                  "PyObject *_pyret_ret = PyObject_CallObject(callable, _pytarg_tuple);\n"
-                  "Py_DECREF(_pytarg_tuple);\n"
                   "if (PyErr_Occurred()) {\n"
                   "   Py_XDECREF(_pyret_ret);\n"
                   (if ret-ref 
