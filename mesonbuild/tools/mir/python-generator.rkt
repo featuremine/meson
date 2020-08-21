@@ -812,7 +812,59 @@
         "}};\n"))
     ""))
 
+(define (method-implementation-section memb memb-has-mmbrs memb-has-mthds memb-mmbrs py-type c-type  module)
+  (string-append
+    (if memb-has-mmbrs 
+      (string-append
+      "//getsets\n"
+        (apply string-append  
+          (map 
+            (lambda (m)
+              (cond 
+                [(member-def? m)  
+                (get-member-get-sets-python (get-python-type-name memb module) m module)]
+                [else ""]
+                ))
+            memb-mmbrs))  
+        "//members\n"
+        (format "static PyGetSetDef _getsets~a[] = {\n" py-type)
+        (apply string-append  
+          (map 
+            (lambda (m)
+              (cond 
+                [(member-def? m)  
+                (get-member-def-python (get-python-type-name memb module) m module)]
+                [else ""]
+                ))
+            memb-mmbrs))  
+        "{ NULL }\n};\n")
+      "")
 
+    "//methods\n"
+    (if memb-has-mthds  
+      (string-append
+        (apply string-append  
+          (map 
+            (lambda (m)
+              (cond 
+                [(and (method-def? m) (not (operator-def? m)))  
+                (get-method-impl-python (get-c-type-name memb module) (get-python-type-name memb module) m module)]
+                [else ""]
+                ))
+            memb-mmbrs))  
+          "//PyMethodDef\n"
+          (format "static PyMethodDef _methods~a[] = {\n" py-type)
+          (apply string-append  
+            (map 
+              (lambda (m)
+                (cond 
+                  [(and (method-def? m) (not (operator-def? m)))   
+                  (get-method-def-python (get-python-type-name memb module) m module)]
+                  [else ""]
+                  ))
+              memb-mmbrs))  
+          "{NULL, NULL, 0, NULL}\n};\n")
+        "")))
 
 ;return members definition block for python object
 (define (get-members-source module )
@@ -834,6 +886,16 @@
                       [c-type   (get-c-type-name memb module)]
                       [memb-mmbrs  (struct-def-members memb)]
                       [operators (get-operators memb-mmbrs)]
+                      [memb-has-mthds  (> (apply + (map 
+                                                    (lambda (m) 
+                                                      (if (method-def? m) 1 0))
+                                                        (struct-def-members  memb)))
+                                          0)]
+                      [memb-has-mmbrs   (> (apply + (map 
+                                                (lambda (m) 
+                                                  (if (member-def? m) 1 0))
+                                                    (struct-def-members  memb)))
+                                            0)]
                       [args (filter member-def? memb-mmbrs)])
                   (string-append
                       (comment (list (struct-def-brief memb) (struct-def-doc memb)))
@@ -954,30 +1016,8 @@
                               args))
                         "")
                     "\tPy_TYPE(self)->tp_free((PyObject *)self);\n}\n"
-
-                    "//getsets\n"
-                    (apply string-append  
-                      (map 
-                        (lambda (m)
-                          (cond 
-                            [(member-def? m)
-                            (get-member-get-sets-python (get-python-type-name memb module) m module)]
-                            [else ""]
-                            ))
-                        (struct-def-members memb)))  
-                    "//members\n"
-                    (format "static PyGetSetDef _getsets~a[] = {\n" py-type)
-                    (apply string-append  
-                      (map 
-                        (lambda (m)
-                          (cond 
-                            [(member-def? m)  
-                            (get-member-def-python (get-python-type-name memb module) m module)]
-                            [else ""]
-                            ))
-                        (struct-def-members memb)))  
-                    "{ NULL }\n};\n"
-
+                    
+                    (method-implementation-section memb memb-has-mmbrs memb-has-mthds memb-mmbrs py-type c-type  module)
                     (operators-implementation-section operators py-type c-type module)
                     "//py-typeobject\n"
                     "static PyTypeObject\n"
@@ -991,7 +1031,7 @@
                     "0,                         /* tp_setattr */\n"
                     "0,                         /* tp_compare */\n"
                     "0,                         /* tp_repr */\n"
-                    "0,                         /* tp_as_number */\n"
+                    (format "~a,                         /* tp_as_number */\n" (if operators  (format "num_methods~a"py-type) "0"))
                     "0,                         /* tp_as_sequence */\n"
                     "0,                         /* tp_as_mapping */\n"
                     "0,                         /* tp_hash */\n"
@@ -1004,11 +1044,13 @@
                     (format "\"~a\\n~a\",          /* tp_doc */\n" (struct-def-brief memb) (struct-def-doc memb))
                     "0,                         /* tp_traverse */\n"
                     "0,                         /* tp_clear */\n"
-                    "0,                         /* tp_richcompare */\n"
+                    (format "~a,                /* tp_richcompare */\n" (if (and operators (or (hash-has-key? operators "==") (hash-has-key? operators "<")) ) (format "rich_compare~a"py-type) "0"))
                     "0,                         /* tp_weaklistoffset */\n"
                     "0,                         /* tp_iter */\n"
                     "0,                         /* tp_iternext */\n"
-                    "0,                         /* tp_methods */\n"
+                     (if memb-has-mthds  
+                        (format "_methods~a,                         /* tp_methods */\n" py-type)
+                        "0,                         /* tp_methods */\n")
                     "0,                         /* tp_members */\n" 
                     (format "_getsets~a,                         /* tp_getset */\n"py-type)
                     "0,                         /* tp_base */\n"
@@ -1145,58 +1187,8 @@
                       (format "\t~a_destructor((~a*)self);\n" c-type c-type)
                       "\tPy_TYPE(self)->tp_free((PyObject *)self);\n}\n"
                         
-                      "//getsets\n"
-                      (if memb-has-mmbrs 
-                        (string-append
-                          (apply string-append  
-                            (map 
-                              (lambda (m)
-                                (cond 
-                                  [(member-def? m)  
-                                  (get-member-get-sets-python (get-python-type-name memb module) m module)]
-                                  [else ""]
-                                  ))
-                              memb-mmbrs))  
-                          "//members\n"
-                          (format "static PyGetSetDef _getsets~a[] = {\n" py-type)
-                          (apply string-append  
-                            (map 
-                              (lambda (m)
-                                (cond 
-                                  [(member-def? m)  
-                                  (get-member-def-python (get-python-type-name memb module) m module)]
-                                  [else ""]
-                                  ))
-                              memb-mmbrs))  
-                          "{ NULL }\n};\n")
-                        "")
-
-                      "//methods\n"
-                      (if memb-has-mthds  
-                        (string-append
-                          (apply string-append  
-                            (map 
-                              (lambda (m)
-                                (cond 
-                                  [(and (method-def? m) (not (operator-def? m)))  
-                                  (get-method-impl-python (get-c-type-name memb module) (get-python-type-name memb module) m module)]
-                                  [else ""]
-                                  ))
-                              memb-mmbrs))  
-                            "//PyMethodDef\n"
-                            (format "static PyMethodDef _methods~a[] = {\n" py-type)
-                            (apply string-append  
-                              (map 
-                                (lambda (m)
-                                  (cond 
-                                    [(and (method-def? m) (not (operator-def? m)))   
-                                    (get-method-def-python (get-python-type-name memb module) m module)]
-                                    [else ""]
-                                    ))
-                                memb-mmbrs))  
-                            "{NULL, NULL, 0, NULL}\n};\n")
-                         "")
                  
+                      (method-implementation-section memb memb-has-mmbrs memb-has-mthds memb-mmbrs py-type c-type  module)
 
                       (operators-implementation-section operators py-type c-type  module)
                       "//py-typeobject\n"
