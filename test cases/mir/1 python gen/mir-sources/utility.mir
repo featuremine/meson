@@ -490,6 +490,7 @@
             [brief "result"]
             [type bool]]])
 
+
 (def-python-type PythonTest graph.aliases.AliasClass)
 
 (def-alias PythonAliasCallable

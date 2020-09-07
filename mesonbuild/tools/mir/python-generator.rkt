@@ -1050,7 +1050,9 @@
                         (format "_methods~a,                         /* tp_methods */\n" py-type)
                         "0,                         /* tp_methods */\n")
                     "0,                         /* tp_members */\n" 
-                    (format "_getsets~a,                         /* tp_getset */\n"py-type)
+                    (if memb-has-mmbrs 
+                        (format "_getsets~a,                         /* tp_getset */\n" py-type)
+                        "0,                         /* tp_getset */\n")
                     "0,                         /* tp_base */\n"
                     "0,                         /* tp_dict */\n"
                     "0,                         /* tp_descr_get */\n"

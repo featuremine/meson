@@ -265,6 +265,10 @@ def test():
     ret = pc.execute(testPython,retSelf)
     print(sys.getrefcount(testPython2))
 
+    # struct methods and operators which don't change struct
+    
+
+
     
     
 if __name__ == "__main__":

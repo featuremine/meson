@@ -171,7 +171,7 @@
                     (format "~a ~a get_mir_const_~a();\n" (get-c-type-name (const-def-type memb) module)  (if (const-def-ref memb) "*" "")  (get-c-type-name-from-string (const-def-name memb)))))]
 
               [(struct-def? memb)  
-                (let ([type-name (get-c-type-name memb module)])
+                (let ([c-type-name (get-c-type-name memb module)])
                   (string-append
                     (comment (list (struct-def-brief memb) (struct-def-doc memb)))
                     (format "struct ~a {\n" 
@@ -179,15 +179,76 @@
                     (string-join  
                     (map 
                       (lambda (memb)
-                        (get-member-def memb module))
+                        (cond 
+                          [(member-def? memb)  
+                          (get-member-def memb module)]
+                          [else ""]))
                       (struct-def-members memb))
                     "")  
                     "};\n"
-                      (comment (format "return type descriptor structure for ~a\n" type-name))
-                      (format "mir_type_descr* ~a_get_descr();\n" type-name)
-                      (comment (format "alloc memory function for ~a\n" type-name))
-                      (format "~a * ~a_new_();\n" type-name type-name)
-                    ))]
+                      (comment (format "return type descriptor structure for ~a\n" c-type-name))
+                      (format "mir_type_descr* ~a_get_descr();\n" c-type-name)
+                      (comment (format "alloc memory function for ~a\n" c-type-name))
+                      (format "~a * ~a_new_();\n" c-type-name c-type-name)
+                     ;add property setters
+                    (apply string-append  
+                      (map 
+                        (lambda (arg)
+                          (cond 
+                            [(member-def? arg)  
+                              (letrec ([type (member-def-type arg)]
+                                    [arg-name (member-def-name arg)]
+                                    [arg-type-name (get-c-type-name type module)])
+                                (string-append
+                                  (comment (format "Set up property ~a of ~a\n" arg-name c-type-name))
+                                  (format "void ~a_set_~a_(~a* self, ~a* ~a);\n"  c-type-name arg-name c-type-name arg-type-name arg-name)))]
+                            [else ""]))
+                        (struct-def-members memb))) 
+
+                    ;add methods of struct  
+                    (apply string-append  
+                      (map 
+                        (lambda (mthd)
+                          (cond 
+                            [(method-def? mthd)  
+                              (let ([return-type (return-def-type (method-def-return mthd))]
+                                    [c-type (get-c-type-name memb module)]
+                                    [return-ref (return-def-ref (method-def-return mthd))]
+                                    [return-c-type (get-c-type-name (return-def-type (method-def-return mthd)) module)])
+                                (string-append
+                                  (comment 
+                                    (append
+                                      (list
+                                        (method-def-brief mthd) 
+                                        (method-def-doc mthd))
+                                      (list(format "@param ~a" (struct-def-brief memb)))
+                                      (map 
+                                        (lambda (inp)
+                                          (format "@param ~a" (arg-def-brief inp)))
+                                        (method-def-args mthd))
+                                      (list (format "@return ~a" (return-def-brief(method-def-return  mthd))))))
+                                (if (method-def-return mthd)
+                                  ;return value 
+                                  (format  "~a~a~a"(get-if-struct return-type) return-c-type  (if return-ref "*" ""))
+                                  "void")
+                                (format " ~a_~a (struct ~a* self" c-type (method-def-name mthd) c-type)
+                                (cond 
+                                  [(> (length (method-def-args mthd)) 0)
+                                    (string-append
+                                      ", "
+                                      (string-join  
+                                        (map 
+                                          (lambda (inp)
+                                            (string-append
+                                              (format "~a~a " (get-if-struct (arg-def-type inp)) (get-c-type-name (arg-def-type inp) module) )
+                                              (if (arg-def-ref inp) "*" "")
+                                                (arg-def-name inp)))
+                                          (method-def-args mthd))
+                                        ","))]
+                                  [else ""])
+                                ");\n"))]
+                            [else ""]))
+                        (struct-def-members memb)))))]
               [(class-def? memb)  
                 (let ([c-type-name (get-c-type-name memb module)])
                   (string-append

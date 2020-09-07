@@ -37,6 +37,10 @@
 
 ;hash of operator symbols
 (define operator-dict-python '#hash(
+  (+ . "add") 
+  (- . "substract") 
+  (/ . "divide") 
+  (* . "multiply") 
   (+= . "inplace_add") 
   (-= . "inplace_substract") 
   (/= . "inplace_divide") 
@@ -146,9 +150,10 @@
     (for ([def defs])
       (cond
         [(member-def? def)(bind-unbounded-member def mod)]
+        [(method-def? def)(bind-unbounded-method def (type-def-name obj) mod)]
         [else  (error (format "unprocessable entity ~a \n"  def))]))))
 
-;bind unbounded in struct
+;bind unbounded in class
 (define (bind-unbounded-class obj mod)(
   let ([defs (class-def-members obj)]
       [env (module-def-env mod)]
@@ -266,9 +271,8 @@
           (set-return-def-type! return (hash-ref env (unbound-id-sym (return-def-type return))))]))))
 
 ;bind unbounded in module
-(define (bind-unbounded-module mod)(
-  let ([defs (module-def-defs mod)])
-
+(define (bind-unbounded-module mod)
+(let ([defs (module-def-defs mod)])
   (for ([def defs])
     (cond
       [(struct-def? def)(bind-unbounded-struct def mod)]

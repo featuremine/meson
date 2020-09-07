@@ -298,3 +298,20 @@ graph_utility_PythonAliasCallable graph_utility_PythonTestClass_execute (struct 
   mir_inc_ref(callable.closure);
   return callable;
 }
+
+// double graph_utility_Decimal_to_double (struct graph_utility_Decimal* self){
+//   return ((double)self->value)/1000000000.0;
+// }
+
+// struct graph_utility_Decimal graph_utility_Decimal_operator_add (struct graph_utility_Decimal* self, struct graph_utility_Decimal val){
+//   graph_utility_Decimal ret = {self->value-val.value};
+//   return ret;
+// }
+
+// bool graph_utility_Decimal_operator_less (struct graph_utility_Decimal* self, struct graph_utility_Decimal val){
+//   return self->value < val.value;
+// }
+
+// bool graph_utility_Decimal_operator_equal (struct graph_utility_Decimal* self, struct graph_utility_Decimal val){
+//   return self->value == val.value;
+// }
