@@ -609,10 +609,12 @@
       (format "\"~a\\n~a\"},\n" (method-def-brief mthd) (method-def-doc mthd)))))
 
 ;return block with implementation for python method
-(define (get-method-impl-python type-name struct_name mthd module)
+(define (get-method-impl-python type-name struct_name mthd module memb is-struct)
   (let ([name (method-def-name mthd)]
         [struct-mthd-name (format "~a_~a" struct_name (method-def-name mthd))]
         [c-mthd-name (format "~a_~a" type-name (method-def-name mthd))]
+        [c-type (get-c-type-name memb module)]
+        [py-type (get-python-type-name memb module)]
         [args (method-def-args mthd)]
         [err-check "if (PyErr_Occurred()) {\n   Py_XDECREF(_pyret_);\n   return NULL;\n}\n"]
         [ret-type (return-def-type (method-def-return mthd))]
@@ -653,7 +655,9 @@
           ;return section
           (build-return-section             
             (string-append
-              (format "~a((~a*)self, " c-mthd-name type-name)
+              (if is-struct
+                (format "~a(&((~a*)self)->data, " c-mthd-name py-type)
+                (format "~a((~a*)self, " c-mthd-name c-type))
                 (string-join 
                   (map 
                     (lambda (arg)
@@ -669,7 +673,10 @@
         (string-append
           (format "static PyObject* _method~a(~a* self) {\n" struct-mthd-name struct_name)
           (build-return-section  
-            (format "~a((~a*)self)" c-mthd-name type-name) ret-type module ret-ref err-check)))
+              (if is-struct
+                (format "~a(&((~a*)self)->data)" c-mthd-name py-type)
+                (format "~a((~a*)self) " c-mthd-name c-type))
+           ret-type module ret-ref err-check)))
       "}\n")))
 
 ;return operators hashtable from members list
@@ -686,7 +693,7 @@
     (format "if(~a)  mir_dec_ref(~a);\n" is_python arg_name))
 
 
-(define (operators-implementation-section operators py-type c-type  module)
+(define (operators-implementation-section operators py-type c-type  module is-struct)
   (if operators 
     (let ([get-method (lambda(symb [f "~a"][return "NULL"])
                         (if (hash-has-key? operators symb) (format f (format "(PyObject* (*) (PyObject*, PyObject*))~a_~a" py-type (method-def-name (hash-ref operators symb #f)))) return))])
@@ -720,7 +727,9 @@
               
                     (build-return-section             
                       (string-append
-                        (format "~a((~a*)self, " c-mthd-name c-type)
+                        (if is-struct
+                          (format "~a(&((~a*)self)->data, " c-mthd-name py-type)
+                          (format "~a((~a*)self, " c-mthd-name c-type))
                           (string-join 
                             (map 
                               (lambda (arg)
@@ -822,7 +831,7 @@
         "}};\n"))
     ""))
 
-(define (method-implementation-section memb memb-has-mmbrs memb-has-mthds memb-mmbrs py-type c-type  module)
+(define (method-implementation-section memb memb-has-mmbrs memb-has-mthds memb-mmbrs py-type c-type  module is-struct)
   (string-append
     (if memb-has-mmbrs 
       (string-append
@@ -858,7 +867,7 @@
             (lambda (m)
               (cond 
                 [(and (method-def? m) (not (operator-def? m)))  
-                (get-method-impl-python (get-c-type-name memb module) (get-python-type-name memb module) m module)]
+                (get-method-impl-python (get-c-type-name memb module) (get-python-type-name memb module) m module memb is-struct)]
                 [else ""]
                 ))
             memb-mmbrs))  
@@ -1015,8 +1024,8 @@
                         "")
                     "\tPy_TYPE(self)->tp_free((PyObject *)self);\n}\n"
                     
-                    (method-implementation-section memb memb-has-mmbrs memb-has-mthds memb-mmbrs py-type c-type  module)
-                    (operators-implementation-section operators py-type c-type module)
+                    (method-implementation-section memb memb-has-mmbrs memb-has-mthds memb-mmbrs py-type c-type  module #t)
+                    (operators-implementation-section operators py-type c-type module #t)
                     "//py-typeobject\n"
                     "static PyTypeObject\n"
                     (format "~a = {\n" (type_of_py_object memb module) )
@@ -1177,9 +1186,9 @@
                       "\tPy_TYPE(self)->tp_free((PyObject *)self);\n}\n"
                         
                  
-                      (method-implementation-section memb memb-has-mmbrs memb-has-mthds memb-mmbrs py-type c-type  module)
+                      (method-implementation-section memb memb-has-mmbrs memb-has-mthds memb-mmbrs py-type c-type  module #f)
 
-                      (operators-implementation-section operators py-type c-type  module)
+                      (operators-implementation-section operators py-type c-type  module #f)
                       "//py-typeobject\n"
                       "static PyTypeObject\n"
                       (format "~a = {\n" (type_of_py_object memb module) )

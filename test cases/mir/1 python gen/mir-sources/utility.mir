@@ -490,6 +490,45 @@
             [brief "result"]
             [type bool]]])
 
+(def-struct Decimal
+    [brief "decimal struct"]
+    [doc "custom decimal struct"]
+    [def-member value
+        [brief "Integer value"]
+        [type int64]]
+    [def-method to_double
+        [brief "convert to double"]
+        [doc "convert to double"]
+        [def-return 
+            [brief "double value"]
+            [type double]]]
+    [def-operator +
+        [brief "add"]
+        [doc  "add"]
+        [def-arg val
+            [brief "a value"]
+            [type Decimal]]
+        [def-return 
+            [brief "result"]
+            [type Decimal]]]  
+    [def-operator <
+        [brief "less"]
+        [doc  "less"]
+        [def-arg val
+            [brief "a value"]
+            [type Decimal]]
+        [def-return 
+            [brief "result"]
+            [type bool]]]
+    [def-operator ==
+        [brief "equal"]
+        [doc  "equal"]
+        [def-arg val
+            [brief "a value"]
+            [type Decimal]]
+        [def-return 
+            [brief "result"]
+            [type bool]]])
 
 (def-python-type PythonTest graph.aliases.AliasClass)
 

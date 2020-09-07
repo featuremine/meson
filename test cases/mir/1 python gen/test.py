@@ -266,7 +266,15 @@ def test():
     print(sys.getrefcount(testPython2))
 
     # struct methods and operators which don't change struct
-    
+    d1 = _mir_wrapper.utility.Decimal(1000000000)
+    d2 = _mir_wrapper.utility.Decimal(2000000000)
+
+    d3 = d1+d2
+    print (d3.value)
+    print(d3.to_double())
+    assert(d3.to_double() == 3.0)
+
+    assert(d3 == _mir_wrapper.utility.Decimal(3000000000))
 
 
     
