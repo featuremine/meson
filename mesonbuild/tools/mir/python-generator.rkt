@@ -109,6 +109,30 @@
     [(enum-def? type) "B"]
     [else "O"])) 
 
+;default values
+(define format-dict-default '#hash(
+  ("char" . "\0") 
+  ("string" . "") 
+  ("int8" . "0") 
+  ("int16" . "0") 
+  ("int32" . "0") 
+  ("int64" . "0") 
+  ("uint8" . "0") 
+  ("uint16" . "0") 
+  ("uint32" . "0") 
+  ("uint64" . "0") 
+  ("double" . "0.0") 
+  ("bool" . "false") 
+  ("pointer" . "NULL") 
+  ("none" . "")))
+
+;wrapper function for formats
+(define (get-default type) 
+ (cond [(default-def? type)
+        (hash-ref format-dict-default (type-def-name type))]
+    [(enum-def? type) "0"]
+    [else "O"])) 
+    
 ;use for converting from c to python
 (define to-python-dict '#hash(
     ("char" . "PyUnicode_FromStringAndSize(~a,1)") 
@@ -590,7 +614,7 @@
         [struct-mthd-name (format "~a_~a" struct_name (method-def-name mthd))]
         [c-mthd-name (format "~a_~a" type-name (method-def-name mthd))]
         [args (method-def-args mthd)]
-        [err-check "if (PyErr_Occurred()) {\n   Py_XDECREF(_pyret_);\n   Py_RETURN_NONE;\n}\n"]
+        [err-check "if (PyErr_Occurred()) {\n   Py_XDECREF(_pyret_);\n   return NULL;\n}\n"]
         [ret-type (return-def-type (method-def-return mthd))]
         [ret-ref (return-def-ref (method-def-return mthd))])
     (string-append
@@ -639,21 +663,7 @@
                     args)
                   ", ")
               ")"
-              ) ret-type module ret-ref
-              
-            ;free python callable
-            (apply string-append
-                (append
-                  (map 
-                    (lambda (arg)
-                      (let ([origin-type (get-origin-alias-type (arg-def-type arg))]
-                          [arg-name (arg-def-name arg)])
-                        (cond 
-                          [(callable-def? origin-type)
-                            (free-py-callable-section (format "_py_is_python_~a" arg-name) (format "_pyargdata_~a" arg-name))]
-                          [else ""])))
-                  args)
-                (list err-check)))))
+              ) ret-type module ret-ref))
               
         ;if doesn't have members
         (string-append
@@ -973,19 +983,7 @@
                                                     (format "\tself->data.~a = ~a;\n~a_get_descr()->inc_ref_(self->data.~a);\n" arg-name (return-arg-representation arg-type arg-name (member-def-ref arg) module) arg-c-type arg-name))
                                                   (string-append
                                                     (format "\tself->data.~a = ~a;\n~a_get_descr()->inc_ref_(&self->data.~a);\n" arg-name (return-arg-representation arg-type arg-name (member-def-ref arg) module) arg-c-type arg-name)))])))
-                                  args))
-                                  
-                                  ;free python callable
-                                  (apply string-append
-                                      (map 
-                                        (lambda (arg)
-                                          (let ([origin-type (get-origin-alias-type (member-def-type arg))]
-                                              [arg-name (member-def-name arg)])
-                                            (cond 
-                                              [(callable-def? origin-type)
-                                                (free-py-callable-section (format "_py_is_python_~a" arg-name) (format "_pyargdata_~a" arg-name))]
-                                              [else ""])))
-                                      args)) )
+                                  args)))
                         "")
                     "\treturn 0;\n}\n"
 
@@ -1163,18 +1161,7 @@
                                   args))
                                   ", ")
 
-                            ");\n"
-                            ;free python callable
-                            (apply string-append
-                                (map 
-                                  (lambda (arg)
-                                    (let ([origin-type (get-origin-alias-type (arg-def-type arg))]
-                                        [arg-name (arg-def-name arg)])
-                                      (cond 
-                                        [(callable-def? origin-type)
-                                          (free-py-callable-section (format "_py_is_python_~a" arg-name) (format "_pyargdata_~a" arg-name))]
-                                        [else ""])))
-                                args)))
+                            ");\n")
                           (format "\t~a_constructor((~a *)self);\n" c-type c-type) ))
 
                       "\treturn 0;\n}\n"
@@ -1383,7 +1370,7 @@
       (get-c-type-name (alias-def-type arg-type) module)
         module)]
   [(callable-def? arg-type) 
-  (format "~a* _pyarg_~a = NULL;\n~a* _pyargdata_~a = NULL;\n bool _py_is_python_~a = false;\n"  arg-py-type arg-name  arg-c-type arg-name arg-name)]
+  (format "~a* _pyarg_~a = NULL;\n~a _pyargdata_~a;\n"  arg-py-type arg-name  arg-c-type arg-name)]
   [else 
     (format "~a* _pyarg_~a = NULL;\n" arg-py-type arg-name)]))
 
@@ -1444,7 +1431,7 @@
                       [(default-def? arg-type) 
                             (format "_pyarg_~a" arg-name)]
                       [(callable-def? arg-type) 
-                            (format "*_pyargdata_~a" arg-name)]
+                            (format "_pyargdata_~a" arg-name)]
                       [(enum-def? arg-type) 
                             (format "_pyarg_~a" arg-name)]
                       [(python-type-def? arg-type) 
@@ -1770,18 +1757,7 @@
                       args)
                     (list (format "\n((~a *)self)->data.closure)"py-type)))
                       ", "))
-            ret-type module ret-ref
-          ;free python callable
-          (apply string-append
-              (map 
-                (lambda (arg)
-                  (let ([origin-type (get-origin-alias-type (arg-def-type arg))]
-                      [arg-name (arg-def-name arg)])
-                    (cond 
-                      [(callable-def? origin-type)
-                        (free-py-callable-section (format "_py_is_python_~a" arg-name) (format "_pyargdata_~a" arg-name))]
-                      [else ""])))
-              args)) )
+            ret-type module ret-ref)
 
 
             "\n};\n"
@@ -1858,14 +1834,12 @@
           (format "~a * self = (~a *)type->tp_alloc(type, 0);\n" py-type py-type)
           "self->data = *data;\n"
           "return(PyObject *) self;\n}\n";
-
+         
           ;from py callable
-          (format "~a * _from_py_callable~a(PyObject * cb){\n" c-type c-type)
-          "if(cb==NULL) return NULL;\n"
-          (format "~a* _pyret = ~a_new_();\n"c-type c-type)
-          (format "_pyret->func = &_wrap~a;\n" py-type) 
-          "_pyret->closure = cb;\n" 
-          "return _pyret;\n}\n"
+          (format "void _from_py_callable~a(PyObject * cb, ~a * callable){\n" c-type c-type)
+          (format "callable->func = &_wrap~a;\n" py-type) 
+          "callable->closure = cb;\n" 
+          "}\n"
 
           ;wrapper for callable
           (format "~a~a _wrap_pys_~a(~a){\n"  (get-c-type-name ret-type module) (if ret-ref "*" "") c-type 
@@ -1880,43 +1854,52 @@
                   args)
                   (list "void * callable"))
               ", "))
-          (format "PyObject *_pytarg_tuple = PyTuple_New(~a);\n" arg-count)
-          (let ([num -1])
-            (apply string-append 
-              (map 
-                (lambda (arg)
-                  (letrec ([arg-name (arg-def-name arg)]
-                        [ref (arg-def-ref arg)]
-                        [arg-type(arg-def-type arg)]
-                        [real-arg-type(get-origin-alias-type arg-type)]
-                        [python-arg-type(get-python-type-name (arg-def-type arg) module)]
-                        [arg-type-name (get-c-type-name (arg-def-type arg) module)])
-                    (set! num (+ num 1))
-                    (cond [(or (default-def? real-arg-type) (enum-def? real-arg-type))
-                        (format "PyTuple_SetItem(_pytarg_tuple, ~a, ~a);\n"  num (format (to-python-type arg-type) arg-name) )]
-                        [(python-type-def? real-arg-type)
-                        (string-append 
-                              (format "Py_INCREF(~a);\n" arg-name) 
-                              (format "PyTuple_SetItem(_pytarg_tuple, ~a, (PyObject*)~a);\n" num arg-name)  )]
-                        [(callable-def? real-arg-type)
-                          (string-append 
-                                (format "~a *_pyarg~a=(~a *) _from_data~a(&~a);\n" python-arg-type python-arg-type python-arg-type python-arg-type arg-name)
-                                (format "PyTuple_SetItem(_pytarg_tuple, ~a, (PyObject*)_pyarg~a);\n" num python-arg-type)  )]
-                        [else
-                          (string-append 
-                              (format "~a *_pyarg~a=(~a *) _from_data~a(~a);\n" python-arg-type python-arg-type python-arg-type python-arg-type arg-name)
-                              (format "Py_INCREF(_pyarg~a);\n" python-arg-type) 
-                              (format "PyTuple_SetItem(_pytarg_tuple, ~a, (PyObject*)_pyarg~a);\n" num python-arg-type)  )])))
-                args)))
+          (if (> arg-count 0)
+            (string-append
+              (format "PyObject *_pytarg_tuple = PyTuple_New(~a);\n" arg-count)
+              (let ([num -1])
+                (apply string-append 
+                  (map 
+                    (lambda (arg)
+                      (letrec ([arg-name (arg-def-name arg)]
+                            [ref (arg-def-ref arg)]
+                            [arg-type(arg-def-type arg)]
+                            [real-arg-type(get-origin-alias-type arg-type)]
+                            [python-arg-type(get-python-type-name (arg-def-type arg) module)]
+                            [arg-type-name (get-c-type-name (arg-def-type arg) module)])
+                        (set! num (+ num 1))
+                        (cond [(or (default-def? real-arg-type) (enum-def? real-arg-type))
+                            (format "PyTuple_SetItem(_pytarg_tuple, ~a, ~a);\n"  num (format (to-python-type arg-type) arg-name) )]
+                            [(python-type-def? real-arg-type)
+                            (string-append 
+                                  (format "Py_INCREF(~a);\n" arg-name) 
+                                  (format "PyTuple_SetItem(_pytarg_tuple, ~a, (PyObject*)~a);\n" num arg-name)  )]
+                            [(callable-def? real-arg-type)
+                              (string-append 
+                                    (format "~a *_pyarg~a=(~a *) _from_data~a(&~a);\n" python-arg-type python-arg-type python-arg-type python-arg-type arg-name)
+                                    (format "PyTuple_SetItem(_pytarg_tuple, ~a, (PyObject*)_pyarg~a);\n" num python-arg-type)  )]
+                            [else
+                              (string-append 
+                                  (format "~a *_pyarg~a=(~a *) _from_data~a(~a);\n" python-arg-type python-arg-type python-arg-type python-arg-type arg-name)
+                                  (format "Py_INCREF(_pyarg~a);\n" python-arg-type) 
+                                  (format "PyTuple_SetItem(_pytarg_tuple, ~a, (PyObject*)_pyarg~a);\n" num python-arg-type)  )])))
+                    args))))
+                "")  
 
-            "//TODO: add type check\n"
+            (if (> arg-count 0)
+              (string-append
+                "PyObject *_pyret_ret = PyObject_CallObject(callable, _pytarg_tuple);\n"
+                "Py_DECREF(_pytarg_tuple);\n")
+              "PyObject *_pyret_ret = PyObject_CallObject(callable, NULL);\n")
+
             (cond 
               [(and (default-def? real-ret-type) (equal? (type-def-name real-ret-type) "none"))
-                "PyObject_CallObject(callable, _pytarg_tuple);\n    Py_DECREF(_pytarg_tuple);\nreturn;\n"]
+                (string-append
+                  "Py_XDECREF(_pyret_ret);\n"
+                  )]
               [(callable-def? real-ret-type) 
                 (string-append
-                  "PyObject *_pyret_ret = PyObject_CallObject(callable, _pytarg_tuple);\n"
-                  "Py_DECREF(_pytarg_tuple);\n"
+                  (format "if (PyErr_Occurred()) {\n   Py_XDECREF(_pyret_ret);\n ~a ret_val={0};\n  return ret_val;\n}\n" (get-c-type-name ret-type module) )
                   (format "~a * ret_val = ~a;\nreturn *ret_val;\n"  (get-c-type-name ret-type module) 
                     (format (to-c-type real-ret-type module) 
                       (format "~a _pyret_ret"
@@ -1925,8 +1908,16 @@
                           "")))))]
               [else 
                 (string-append
-                  "PyObject *_pyret_ret = PyObject_CallObject(callable, _pytarg_tuple);\n"
-                  "Py_DECREF(_pytarg_tuple);\n"
+                  "if (PyErr_Occurred()) {\n"
+                  "   Py_XDECREF(_pyret_ret);\n"
+                  (if ret-ref 
+                    "   return NULL;\n}\n"
+                    (string-append
+                      (format " ~a ret_val" (get-c-type-name ret-type module))
+                      (if (or (default-def? ret-type) (enum-def? ret-type))
+                        (format " = ~a;\n"(get-default ret-type))
+                        ";\n")
+                      "   return ret_val;\n}\n" ))
                   (format "return ~a;" 
                     (format (to-c-type real-ret-type module) 
                       (format "~a _pyret_ret"
@@ -1976,10 +1967,10 @@
 		"    			     \"Argument provided must be an callable\");\n"
     (format "              return ~a;\n" ret-value)
     "  	         }\n"
-    (format "~a = _from_py_callable~a(_pytempobj_);\n" arg-data-name c-name)
-    (format "~a=true;\n" py_is_callable)
+    (format "_from_py_callable~a(_pytempobj_, &~a);\n"  c-name arg-data-name)
     "}else{\n"
-    (format "    ~a = _get_data~a(~a);\n"arg-data-name py-type-name arg-name   )
+    (format "    ~a * _temp_callable_ = _get_data~a(~a);\n"c-name py-type-name arg-name   )
+    (format "    ~a = *_temp_callable_;\n"arg-data-name)
     "}\n"))
 
 
@@ -2037,7 +2028,7 @@
             (format "PyTypeObject * _get_pys_~a();\n" c-type)
             (format "~a * _get_data_pys_~a(~a * data);\n" c-type c-type py-type)
             (format "PyObject * _from_data_pys_~a(~a * data);\n" c-type c-type)
-            (if (callable-def? memb) (format "~a * _from_py_callable~a(PyObject * cb);\n" c-type c-type) "")))
+            (if (callable-def? memb) (format "void _from_py_callable~a(PyObject * cb, ~a * callable);\n" c-type c-type) "")))
             ]
       [else ""])))
 
