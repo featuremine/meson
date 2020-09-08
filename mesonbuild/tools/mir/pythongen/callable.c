@@ -18,9 +18,9 @@
  * @date 02 Jun 2020
  */
 #include <string.h>
+#include <Python.h>
 #include "mir/pythongen/common_c.h"
-#include "mir/pythongen/utils.h"
-
+#include "mir/pythongen/callable.h"
 
 typedef struct {
   void *func;

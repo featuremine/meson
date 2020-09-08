@@ -12,36 +12,19 @@
 
 *****************************************************************************/
 
-/**
- * @file /tools/mir/pythongen/utils.h
- * @author Vitaut Tryputsin
- * @date 02 Jun 2020
- */
-
-#ifndef H_MIR_PYTHONGEN_UTILS_H
-#define H_MIR_PYTHONGEN_UTILS_H
+#ifndef _MIR_CALLABLE_H_
+#define _MIR_CALLABLE_H_
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-#include "stdbool.h"
-#include "mir/pythongen/callable.h"
-       void free_closure(void *closure);
-
-       void mir_inc_ref_struct(void *obj);
-       void mir_dec_ref_struct(void *obj);
-
-       long mir_get_ref_cnt(void *obj);
-       typedef enum
+#include <stdlib.h>
+       typedef struct
        {
-              mir_exception_VALUE_ERROR,
-              mir_exception_RuntimeError
-       } mir_exception;
-       void mir_error_set(mir_exception err, const char *message);
-       bool mir_error_occured();
-       char *mir_str_clone(const char *s);
-
+              void *func;
+              void *closure;
+       } mir_callable;
 #ifdef __cplusplus
 }
 #endif
-#endif // H_MIR_PYTHONGEN_UTILS_H
+#endif //_MIR_CALLABLE_H_

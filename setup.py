@@ -46,7 +46,9 @@ mir_data = ['tools/mir/utils.rkt',
             'tools/mir/core.rkt',
             'tools/mir/python-generator.rkt',
             'tools/mir/pythongen/common_c.h',
+            'tools/mir/pythongen/callable.h',
             'tools/mir/pythongen/utils.h',
+            'tools/mir/pythongen/callable.c',
             'tools/mir/pythongen/utils.c']
 
 package_data = {'mesonbuild': mir_data,

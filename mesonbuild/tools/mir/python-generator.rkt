@@ -1381,7 +1381,7 @@
       (get-c-type-name (alias-def-type arg-type) module)
         module)]
   [(callable-def? arg-type) 
-  (format "~a* _pyarg_~a = NULL;\n~a _pyargdata_~a;\n"  arg-py-type arg-name  arg-c-type arg-name)]
+  (format "void* _pyfunc_~a = NULL;\nvoid* _pyclosure_~a = NULL;\n"  arg-name arg-name)]
   [else 
     (format "~a* _pyarg_~a = NULL;\n" arg-py-type arg-name)]))
 
@@ -1442,7 +1442,7 @@
                       [(default-def? arg-type) 
                             (format "_pyarg_~a" arg-name)]
                       [(callable-def? arg-type) 
-                            (format "_pyargdata_~a" arg-name)]
+                            (format "_pyfunc_~a, _pyclosure_~a" arg-name arg-name)]
                       [(enum-def? arg-type) 
                             (format "_pyarg_~a" arg-name)]
                       [(python-type-def? arg-type) 
