@@ -29,14 +29,14 @@ def test():
     assert(cp.x == 1.0 and cp.x == cv.x and cp.y == 2.0 and cp.y == cv.y)
 
     # test enums
-    assert(_mir_wrapper.utility.TestEnum.val1 == 0 and _mir_wrapper.utility.TestEnum.val3 == 3)
+    assert(_mir_wrapper.utility.TestEnum.val1.value == 0 and _mir_wrapper.utility.TestEnum.val3.value == 3)
     te = _mir_wrapper.utility.EnumStruct(_mir_wrapper.utility.TestEnum.val3)
     assert(sys.getrefcount(te)==2)
-    assert(te.testEnum == 3)
+    assert(te.testEnum == _mir_wrapper.utility.TestEnum.val3)
     tec = _mir_wrapper.utility.EnumClass()
     assert(sys.getrefcount(tec)==2)
     tec.set_enum(_mir_wrapper.utility.TestEnum.val3)
-    assert(tec.testEnum == 3)
+    assert(tec.testEnum == _mir_wrapper.utility.TestEnum.val3)
     assert(sys.getrefcount(tec)==2)
     ret_ec = tec.getHimSelf(tec)
     assert(tec==ret_ec)

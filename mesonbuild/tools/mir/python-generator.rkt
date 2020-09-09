@@ -106,7 +106,7 @@
 (define (get-format type) 
  (cond [(default-def? type)
         (hash-ref format-dict-python (type-def-name type))]
-    [(enum-def? type) "B"]
+    [(enum-def? type) "O"]
     [else "O"])) 
 
 ;default values
@@ -130,7 +130,7 @@
 (define (get-default type) 
  (cond [(default-def? type)
         (hash-ref format-dict-default (type-def-name type))]
-    [(enum-def? type) "0"]
+    [(enum-def? type) "NULL"]
     [else "O"])) 
     
 ;use for converting from c to python
@@ -158,8 +158,6 @@
      [(alias-def? type) 
       (to-python-type (alias-def-type type))]
     [(python-type-def? type) "~a"] 
-    [(enum-def? type) 
-      "PyLong_FromLong(~a)"]
     [else
     #f]))
 
@@ -206,19 +204,25 @@
             (format "PyObject* _pyret_ = ~a;\n"(format python-t data))
             after-section         
             "return (PyObject*) _pyret_;\n")])
-     
-      (let ([python-type (get-python-type-name type module)])
-        (string-append
-          ( if ref
-            (format "~a *_pyret_=(~a *) (PyObject*)_from_data~a(~a);\n" python-type python-type python-type data)
-            (string-append
-              (format "~a _py_data = ~a;\n" (get-c-type-name type module) data)
-              (format "~a *_pyret_=(~a *)  _from_data~a(&_py_data);\n " python-type python-type python-type )))
-                
-           after-section         
-          "return (PyObject*) _pyret_;\n"
-        )
-  ))))
+      (cond
+        [(enum-def? real-type) 
+          (string-append 
+            (format "~a _py_data = ~a;\n" (get-c-type-name type module) data)
+            (format "~a* _pyret_ = _get_enum_~a(_py_data);\n"(get-python-type-name real-type module)(get-c-type-name real-type module))
+            after-section         
+            "return (PyObject*) _pyret_;\n")]
+        [else (let ([python-type (get-python-type-name type module)])
+
+          (string-append
+            ( if ref
+              (format "~a *_pyret_=(~a *) (PyObject*)_from_data~a(~a);\n" python-type python-type python-type data)
+              (string-append
+                (format "~a _py_data = ~a;\n" (get-c-type-name type module) data)
+                (format "~a *_pyret_=(~a *)  _from_data~a(&_py_data);\n " python-type python-type python-type )))
+                  
+            after-section         
+            "return (PyObject*) _pyret_;\n"
+          ))]))))
 
 ;using for converting from c to python
 (define to-c-dict '#hash(
@@ -270,7 +274,7 @@
         (format "&~a" (hash-ref py_type_objects (type-def-name type)))]
       [(alias-def? type)
         (get-python-type-object (alias-def-type type) mod)]
-      [(enum-def? type) "&PyLongType"]
+      [(enum-def? type) "&PyObject"]
       [else  (format "_get~a()" (get-python-type-name type mod))]))
 
 ;get struct word if struct as string
@@ -285,7 +289,7 @@
       [(alias-def? type)
         (get-python-type-name (alias-def-type type) mod)]
       [(python-type-def? type) (type-def-name type)]
-      [(enum-def? type) "PyLong_Type"]
+      [(enum-def? type) "PyObject"]
       [else  
       (let ([env (module-def-env mod)]
             [id  (type-def-name type)])
@@ -302,7 +306,7 @@
         (hash-ref type-args-python (type-def-name type))]
       [(alias-def? type)
         (get-python-arg-type-name (alias-def-type type) mod)]
-      [(enum-def? type) "uint8_t"]
+      [(enum-def? type) "PyObject"]
       [(python-type-def? type) (type-def-name type)]
       [else   
       (let ([env (module-def-env mod)]
@@ -451,6 +455,11 @@
             (cond
               [(or (class-def? memb) (struct-def? memb) (callable-def? memb))  
                 (format "typedef struct ~a ~a;\n" (get-python-type-name memb module) (get-python-type-name memb module))]
+              [(enum-def? memb)  
+                (let ([c-type (get-c-type-name memb module) ])
+                  (string-append 
+                    (format "PyTypeObject *_get_~a();\n"  c-type)
+                    (format "PyObject *_get_enum_~a(~a e);\n"  c-type c-type)))]
               [else ""]))
       (module-def-defs module))))
 
@@ -561,38 +570,46 @@
       (string-append
           "static int\n"
           (format "_set~a(~a* self,PyObject* value, void* closure){\n" struct_memb struct_name)
-          (format "~a~a val=~a~a;\n" 
-            type-name
-            (if member-ref?
-              "*"
-              "")
-            (if (or  (default-def? origin-type) (enum-def? origin-type) member-ref?) 
-              "" "*")
-            (format (to-c-type origin-type module) 
-              (cond 
-                [(default-def? origin-type) "value" ]  
-                [(enum-def? origin-type) "value" ] 
-                [else (format "(~a*)value" type-name-python )]
-              )))
-          "if (PyErr_Occurred()) {\n\treturn -1;\n\t}\n" 
-
-          
-            (cond  
-              [(class-def? origin-type)
-                  (string-append
-                    (format "Py_XDECREF(self->data.~a);\n" name ))]
-              [(callable-def? origin-type)
-                  (string-append
-                    (format "Py_XDECREF(self->data.~a.closure);\n" name ))]
-              [(python-type-def? origin-type)
+          (cond 
+            [(enum-def? origin-type)
+             (string-append
+              (format "PyObject* _pyarg_val_data=value;\n") 
+                (check-arg-block origin-type "val_data" module "-1")
+                (format "self->data.~a = _pyarg_enum_val_data;\n" name)
+                "return 0;\n}\n")]
+            [else 
+             (string-append
+              (format "~a~a val=~a~a;\n" 
+                type-name
                 (if member-ref?
-                  (string-append
-                    (format "Py_XDECREF(self->data.~a);\n" name ))
-                  (string-append
-                    (format "Py_XDECREF(&self->data.~a);\n" name )))]       
-            [else ""])
-          (format "self->data.~a = val;\n" name)
-          "return 0;\n}\n"))))
+                  "*"
+                  "")
+                (if (or  (default-def? origin-type) member-ref?) 
+                  "" "*")
+                (format (to-c-type origin-type module) 
+                  (cond 
+                    [(default-def? origin-type) "value" ]  
+                    [else (format "(~a*)value" type-name-python )]
+                  )))
+              "if (PyErr_Occurred()) {\n\treturn -1;\n\t}\n" 
+
+              
+                (cond  
+                  [(class-def? origin-type)
+                      (string-append
+                        (format "Py_XDECREF(self->data.~a);\n" name ))]
+                  [(callable-def? origin-type)
+                      (string-append
+                        (format "Py_XDECREF(self->data.~a.closure);\n" name ))]
+                  [(python-type-def? origin-type)
+                    (if member-ref?
+                      (string-append
+                        (format "Py_XDECREF(self->data.~a);\n" name ))
+                      (string-append
+                        (format "Py_XDECREF(&self->data.~a);\n" name )))]       
+                [else ""])
+              (format "self->data.~a = val;\n" name)
+              "return 0;\n}\n")])))))
 
 ;return Python type for py object
 (define (type_of_py_object memb module)
@@ -1372,7 +1389,7 @@
   [(default-def? arg-type) 
   (format "~a _pyarg_~a;\n" arg-py-type arg-name)]
   [(enum-def? arg-type) 
-  (format "~a _pyarg_~a;\n" arg-py-type arg-name)]
+  (format "~a *_pyarg_~a;\n" arg-py-type arg-name)]
   [(alias-def?  arg-type) 
     (arg-initialisation-block
       (alias-def-type arg-type) 
@@ -1414,7 +1431,10 @@
   (cond 
     [(default-def? arg-type) ""]
     [(alias-def?  arg-type) (check-arg-block (alias-def-type arg-type) arg-name module ret-val)]
-    [(enum-def?  arg-type) ""]
+    [(enum-def?  arg-type) 
+        (string-append
+          (type-check-return-section (format "_pyarg_~a" arg-name )   (format "_get_~a()" (get-c-type-name arg-type module))   (type-def-name arg-type) ret-val)
+          (format "long _pyarg_enum_~a = PyLong_AsLong(PyObject_GetAttrString(_pyarg_~a, \"value\"));\n" arg-name arg-name))]
     [(callable-def? arg-type) 
       (callable-check-block arg-type (format "_pyarg_~a" arg-name)  (format "_pyargdata_~a" arg-name) (format "_py_is_python_~a" arg-name) (get-python-type-name arg-type module) (get-c-type-name arg-type module) module ret-val)]
     [(python-type-def?  arg-type) 
@@ -1444,7 +1464,7 @@
                       [(callable-def? arg-type) 
                             (format "_pyfunc_~a, _pyclosure_~a" arg-name arg-name)]
                       [(enum-def? arg-type) 
-                            (format "_pyarg_~a" arg-name)]
+                            (format "_pyarg_enum_~a" arg-name)]
                       [(python-type-def? arg-type) 
                             (format "_pyarg_~a" arg-name)]
                       [else
@@ -1562,8 +1582,13 @@
                       [ns (string-join (module-def-ns mod) "_")])
                       (cond
                         [(enum-def? memb)  
-                        (let ([type-name (get-c-type-name memb module) ])
-                         (add-module-def (enum-def-brief memb) (enum-def-doc memb) (format "_py_enum_mod_~a_def" type-name)  (car (reverse (string-split (type-def-name memb) "."))) ns mod))]
+                        (let ([c-type (get-c-type-name memb module) ])
+                          (string-append 
+                            (format "static PyTypeObject *_pyt_~a;\n" c-type)
+                            (format "PyTypeObject *_get_~a(){\n"  c-type)
+                            (format "\treturn _pyt_~a;\n}\n" c-type)
+                            (format "PyObject *_get_enum_~a(~a e){\n"  c-type c-type)
+                            (format "\treturn PyObject_CallFunction((PyObject*)_pyt_~a, \"(i)\", e);\n}\n" c-type)))]
                         [else ""])))
                     (module-def-defs mod))))))
 
@@ -1629,6 +1654,13 @@
         "PyObject * typing = PyImport_ImportModule(\"typing\");\n"
         "if (!typing) return NULL;\n"
         "PyObject *NewType = PyObject_GetAttrString(typing, \"NewType\");\n"
+        "Py_DecRef(typing);\n"
+
+        "//add enum\n"
+        "PyObject * enum_module = PyImport_ImportModule(\"enum\");\n"
+        "if (!enum_module) return NULL;\n"
+        "PyObject *Enum = PyObject_GetAttrString(enum_module, \"Enum\");\n"
+        "Py_DecRef(enum_module);\n"
 
       (apply string-append 
         (hash-map module-map
@@ -1646,24 +1678,26 @@
                       [ns (string-join (module-def-ns mod) "_")])
                       (cond
                         [(enum-def? memb)  
-                            (let ([type-name (get-c-type-name memb module) ])
+                            (let ([enum-name (car (reverse (string-split (type-def-name memb) ".")))]
+                                  [type-name (get-c-type-name memb module) ])
                               (string-append
                                 (format "//add enum ~a\n" type-name)
                                 "{\n"
-                                (format "\tPyObject * ~a = PyModule_Create(&~a);\n" (format "_py_enum_mod_~a" type-name) (format "_py_enum_mod_~a_def" type-name))
-                                (format "\tif (~a == NULL) {\n" (format "_py_enum_mod_~a" type-name))
-                                "\t\treturn NULL;\n"
-                                "\t}\n"
-                                (format "\tadd_object_to_module (_pyargmod_~a, _py_enum_mod_~a, \"~a\");\n"  ns type-name (car (reverse (string-split (type-def-name memb) "."))))
+                                "\tPyObject* _dict = PyDict_New();\n"
+                                "\tif (!_dict) return NULL;\n"
                                 (string-join  
                                   (map 
                                     (lambda (val)
                                       (let (
                                           [name (format "~a_~a" type-name (enum-value-def-name val))]
                                           [value (enum-value-def-value val)])
-                                        (format "\tPyModule_AddObject(_py_enum_mod_~a, \"~a\", PyLong_FromLong(~a));" type-name (enum-value-def-name val) name)))
+                                        (format "\tPyDict_SetItemString(_dict, \"~a\", PyLong_FromLong(~a));" (enum-value-def-name val) name)))
                                     (enum-def-members memb))
                                   "\n")
+                                (format "PyObject * _ret = PyObject_CallFunction(Enum,\"sO\",\"~a\",_dict);\n" enum-name)
+                                (format "_pyt_~a = (PyTypeObject *) _ret;\n" type-name)
+                                "\tPy_DecRef(_dict);\n"
+                                (format "\tPyModule_AddObject(_pyargmod_~a, \"~a\", _ret);" ns enum-name )
                                 "\n}\n"))]
                         [else ""])))
                     (module-def-defs mod))))))
@@ -1689,6 +1723,9 @@
               (get-module-const-block mod modulearg)))) 
       "//free NewType\n"
       "Py_DecRef(NewType);\n"
+      "//free Enum\n"
+      "Py_DecRef(Enum);\n"
+      
       ;return
       (format "return ~a;\n" modulearg)
       "}\n")))
