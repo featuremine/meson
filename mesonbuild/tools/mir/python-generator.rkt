@@ -213,7 +213,7 @@
             "return (PyObject*) _pyret_;\n")]
         [(callable-def? real-type) 
           (string-append
-            (format "~a _py_data = ~a;\n" prefix data)
+            (format "~a _py_data = ~a;\n"  prefix data)
             (format "PyObject *_pyret_= _from_data~a((mir_callable *)&_py_data);\n "  (get-python-type-name real-type module) )   
             after-section
              "return _pyret_;\n")]
@@ -669,7 +669,7 @@
               ret-ref
               ""
               #t
-              (format "~a_return_" c-mthd-name)
+              (format "~a_ret" c-mthd-name)
               ))
               
         ;if doesn't have members
@@ -684,7 +684,7 @@
            ret-ref 
            err-check
            #t
-           (format "~a_return_" c-mthd-name)
+           (format "~a_ret" c-mthd-name)
            )))
       "}\n")))
 
@@ -1554,12 +1554,20 @@
     (string-append
 
       "//callable implementations\n"
-      (apply string-append 
-        (hash-map (module-def-env module)
-          (lambda (key memb)
-              (if (callable-def? memb)
-                  (format "~a\n" (get-callable-impl memb module))
-                  ""))))
+      (let ([callable-set (mutable-set)])
+        (apply string-append 
+          (hash-map module-map
+            (lambda (mod-key mod)
+             (apply string-append 
+                (map
+                  (lambda (memb)
+                      (let([key (type-def-name memb)])
+                      (if (and (callable-def? memb) (not (set-member? callable-set key)))
+                          (begin 
+                            (set-add! callable-set key)
+                            (format "~a\n" (get-callable-impl memb module)))
+                          "")))
+                  (module-def-defs mod)))))))
       
       "// Module definitions\n"
       (apply string-append 
@@ -1953,11 +1961,11 @@
               [(callable-def? real-ret-type) 
                 (string-append
                   (format "if (PyErr_Occurred()) {\n   Py_XDECREF(_pyret_ret);\n ~a ret_val={0};\n  return ret_val;\n}\n" (get-c-type-name ret-type module) )
-                  (format "~a * ret_val = ~a;\nreturn *ret_val;\n"  (get-c-type-name ret-type module) 
+                  (format "~a * ret_val = (~a*) ~a;\nreturn *ret_val;\n"  (get-c-type-name ret-type module) (get-c-type-name ret-type module)  
                     (format (to-c-type real-ret-type module) 
                       (format "~a _pyret_ret"
                         (if (not (default-def? real-ret-type))
-                          (format "(~a *)" ret-python-type-name)
+                          "(PyObject   *)"
                           "")))))]
               [else 
                 (string-append

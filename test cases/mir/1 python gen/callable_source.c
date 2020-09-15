@@ -4,12 +4,9 @@
 #include <stdio.h>
 
 
-CALLABLE(void) callable_Test_double_callable (struct callable_Test* self, CALLABLE_ARG(callable,int32_t,double d)){
+ callable_Test_double_callable_ret callable_Test_double_callable (struct callable_Test* self, CALLABLE_ARG(callable,callable_Test_double_callable_arg_callable_ret,double d)){
     printf("hello\n");
 
-    void * a = NULL;
-    void * b = NULL;
-    get_data(NULL,a,b);
 
-    return (CALLABLE(void)){0};
+    return (callable_Test_double_callable_ret){0};
 }

@@ -19,6 +19,9 @@
 (def-struct Test
     [brief "Test"]
     [doc "test"]
+    [def-member calbl
+        [brief "Test"]
+        [type (def-callable)]]
     [def-method double_callable
         [brief "callable"]
         [doc  "callable"]
@@ -30,7 +33,13 @@
                     [type double]]
                 [def-return 
                     [brief "Result."]
-                    [type int32]])]]
+                    [type (def-callable
+                        [def-arg d
+                            [brief "double value"]
+                            [type double]]
+                        [def-return 
+                            [brief "Result."]
+                            [type (def-callable)]])]])]]
                     
         [def-return 
             [brief "callable"]

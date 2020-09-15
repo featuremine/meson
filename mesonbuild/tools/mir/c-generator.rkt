@@ -176,6 +176,7 @@
                         (struct-def-members memb))) 
 
                     ;add methods of struct  
+
                     (apply string-append  
                       (map 
                         (lambda (mthd)
@@ -185,10 +186,24 @@
                                     [c-type (get-c-type-name memb module)]
                                     [return-ref (return-def-ref (method-def-return mthd))]
                                     [origin-return-type (get-origin-alias-type return-type)]
-                                    [return-c-type (if (callable-def? origin-return-type) 
-                                                      (get-c-callable-type origin-return-type module)
+                                    [mthd_name (format " ~a_~a" c-type (method-def-name mthd))]
+                                    [return-c-type (if (callable-def? return-type) 
+                                                      (get-c-callable-type return-type  mthd_name)
                                                       (get-c-type-name return-type module))])
                                 (string-append
+                                  (if (callable-def? return-type) 
+                                    (define-callable-struct-three return-type module mthd_name)
+                                    "")
+                                  (apply  string-append
+                                    (map 
+                                      (lambda (inp)
+                                        (if (and (callable-def? (arg-def-type inp)) (return-def-type (callable-def-return (arg-def-type inp))))
+                                          (define-callable-struct-three (return-def-type (callable-def-return (arg-def-type inp))) 
+                                                                        module 
+                                                                        (format "~a_arg_~a" mthd_name  (arg-def-name inp))
+                                                                        )
+                                          ""))
+                                      (method-def-args mthd)))
                                   (comment 
                                     (append
                                       (list
@@ -213,12 +228,14 @@
                                       (string-join  
                                         (map 
                                           (lambda (inp)
-                                             (cond [(callable-def? (arg-def-type inp))
-                                             (get-c-callable-arg (arg-def-type inp) module (arg-def-name inp) )]
-                                            [else (string-append
-                                              (format "~a~a " (get-if-struct (arg-def-type inp)) (get-c-type-name (arg-def-type inp) module) )
+                                            (if (callable-def? (arg-def-type inp) )
+                                              (get-c-callable-arg (arg-def-type inp) module (arg-def-name inp) (format "~a_~a" c-type (method-def-name mthd)) )
+                                            (string-append
+                                              (format "~a~a " (get-if-struct (arg-def-type inp)) 
+      
+                                                 (get-c-type-name (arg-def-type inp) module))
                                               (if (arg-def-ref inp) "*" "")
-                                                (arg-def-name inp))]))
+                                                (arg-def-name inp))))
                                           (method-def-args mthd))
                                         ","))]
                                   [else ""])
@@ -286,28 +303,43 @@
                     (apply string-append  
                       (map 
                         (lambda (mthd)
-                          (cond 
+                            (cond 
                             [(method-def? mthd)  
                               (letrec ([return-type (return-def-type (method-def-return mthd))]
                                     [c-type (get-c-type-name memb module)]
                                     [return-ref (return-def-ref (method-def-return mthd))]
                                     [origin-return-type (get-origin-alias-type return-type)]
-                                    [return-c-type (if (callable-def? origin-return-type) 
-                                                      (get-c-callable-type origin-return-type module)
+                                    [mthd_name (format " ~a_~a" c-type (method-def-name mthd))]
+                                    [return-c-type (if (callable-def? return-type) 
+                                                      (get-c-callable-type return-type  mthd_name)
                                                       (get-c-type-name return-type module))])
                                 (string-append
+                                  (if (callable-def? return-type) 
+                                      (define-callable-struct-three return-type module mthd_name 0)
+                                      "")
+                                    (apply  string-append
+                                      (map 
+                                        (lambda (inp)
+                                          (if (and (callable-def? (arg-def-type inp)) (return-def-type (callable-def-return (arg-def-type inp))))
+                                            (define-callable-struct-three (return-def-type (callable-def-return (arg-def-type inp))) 
+                                                                          module 
+                                                                          (format "~a_arg_~a" mthd_name  (arg-def-name inp))
+                                                                          )
+                                            ""))
+                                        (method-def-args mthd)))
+
                                   (comment 
                                     (append
                                       (list
                                         (method-def-brief mthd) 
                                         (method-def-doc mthd))
-                                      (list(format "@param ~a" (class-def-brief memb)))
+                                      (list(format "@param ~a" (struct-def-brief memb)))
                                       (map 
                                         (lambda (inp)
                                           (format "@param ~a" (arg-def-brief inp)))
                                         (method-def-args mthd))
                                       (list (format "@return ~a" (return-def-brief(method-def-return  mthd))))))
-                           
+                         
                                 (if (method-def-return mthd)
                                   ;return value 
                                   (format  "~a~a~a"(get-if-struct return-type) return-c-type  (if return-ref "*" ""))
@@ -320,10 +352,14 @@
                                       (string-join  
                                         (map 
                                           (lambda (inp)
-                                            (string-append
-                                              (format "~a~a " (get-if-struct (arg-def-type inp)) (get-c-type-name (arg-def-type inp) module) )
-                                              (if (arg-def-ref inp) "*" "")
-                                                (arg-def-name inp)))
+                                            (if (callable-def? (arg-def-type inp) )
+                                              (get-c-callable-arg (arg-def-type inp) module (arg-def-name inp) (format "~a_~a" c-type (method-def-name mthd)) )
+                                              (string-append
+                                                (format "~a~a " (get-if-struct (arg-def-type inp)) 
+        
+                                                  (get-c-type-name (arg-def-type inp) module))
+                                                (if (arg-def-ref inp) "*" "")
+                                                  (arg-def-name inp))))
                                           (method-def-args mthd))
                                         ","))]
                                   [else ""])
