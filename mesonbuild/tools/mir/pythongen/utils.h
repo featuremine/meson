@@ -25,21 +25,26 @@ extern "C"
 {
 #endif
 #include "stdbool.h"
-#include "mir/pythongen/callable.h"
-       void free_closure(void *closure);
 
-       void mir_inc_ref_struct(void *obj);
-       void mir_dec_ref_struct(void *obj);
+    typedef struct
+    {
+        void *func;
+        void *closure;
+    } mir_callable;
+    void free_closure(void *closure);
 
-       long mir_get_ref_cnt(void *obj);
-       typedef enum
-       {
-              mir_exception_VALUE_ERROR,
-              mir_exception_RuntimeError
-       } mir_exception;
-       void mir_error_set(mir_exception err, const char *message);
-       bool mir_error_occured();
-       char *mir_str_clone(const char *s);
+    void mir_inc_ref_struct(void *obj);
+    void mir_dec_ref_struct(void *obj);
+
+    long mir_get_ref_cnt(void *obj);
+    typedef enum
+    {
+        mir_exception_VALUE_ERROR,
+        mir_exception_RuntimeError
+    } mir_exception;
+    void mir_error_set(mir_exception err, const char *message);
+    bool mir_error_occured();
+    char *mir_str_clone(const char *s);
 
 #ifdef __cplusplus
 }

@@ -17,6 +17,9 @@
     collect-callable-defs
     get-origin-alias-type
     get-copyright-header
+    get-c-callable-type
+    get-callable-decl-c
+    get-c-callable-arg
     )
 
 ;'char 'void 'string 'int8 'int16 'int32 'int64 'uint8 'uint16 'uint32 'uint64 'double
@@ -108,6 +111,124 @@
     (proc (return-def-type (callable-def-return callable)) m)
     m))
 
+;get struct word if struct as string
+(define (get-if-struct type)
+  (if (or (struct-def? type) (class-def? type) (python-type-def? type)) "struct " ""))
+
+;generate c function representation
+;generate callable decl
+(define (function-representation ret ret-ref args module name)
+  (string-append
+    (format "~a~a~a (*func)("
+      (get-if-struct ret) 
+      (get-c-type-name ret module)
+      (if ret-ref "*" ""))
+
+    
+    (string-join  
+        (append
+          (map 
+            (lambda (inp)
+              (if (callable-def? (arg-def-type inp))  
+                (get-c-callable-arg inp module (arg-def-name inp))
+                (string-append
+                  (format "~a~a " (get-if-struct (arg-def-type inp)) (get-c-type-name (arg-def-type inp) module))
+                  (if (arg-def-ref inp) "*" "")
+                  (arg-def-name inp))))
+            args)
+            (list "void *c"))
+          ",")
+          
+    ");\n"))
+
+;generate callable decl
+(define (get-c-callable-type memb module)
+  (letrec(
+    [args (callable-def-args memb)]
+    [return-type (return-def-type (callable-def-return memb))]
+    [real-return-type (get-origin-alias-type return-type)])
+  (string-append
+    (format "CALLABLE(~a~a~a"
+      (get-if-struct return-type) 
+      (if (callable-def? real-return-type)
+        (get-c-callable-type real-return-type module)
+      (get-c-type-name return-type module))
+      (if (return-def-ref (callable-def-return memb)) "*" ""))
+
+    (if(>(length args)0) "," "")
+    (string-join  
+          (map 
+            (lambda (inp)
+              (string-append
+                (format "~a~a " (get-if-struct (arg-def-type inp)) (get-c-type-name (arg-def-type inp) module))
+                (if (arg-def-ref inp) "*" "")
+                (arg-def-name inp)
+                ))
+            (callable-def-args memb))
+          ",")
+          
+    ")")))
+
+;generate c callable argument
+(define (get-c-callable-arg memb module name)
+  (letrec(
+    [args (callable-def-args memb)]
+    [return-type (return-def-type (callable-def-return memb))]
+    [real-return-type (get-origin-alias-type return-type)])
+  (string-append
+    (format "CALLABLE_ARG(~a,~a~a~a"
+      name
+      (get-if-struct return-type) 
+      (if (callable-def? real-return-type)
+        (get-c-callable-type real-return-type module)
+        (get-c-type-name return-type module))
+      (if (return-def-ref (callable-def-return memb)) "*" ""))
+
+    (if(>(length args)0) "," "")
+    (string-join  
+          (map 
+            (lambda (inp)
+              (string-append
+                (format "~a~a " (get-if-struct (arg-def-type inp)) (get-c-type-name (arg-def-type inp) module))
+                (if (arg-def-ref inp) "*" "")
+                (arg-def-name inp)
+                ))
+            (callable-def-args memb))
+          ",")
+          
+    ")")))
+
+
+;generate callable decl
+(define (get-callable-decl-c memb module name)
+  (string-append
+    (comment (format "structure which represents ~a callable\n" name))
+    "typedef struct {\n"
+    (if (callable-def-return memb) 
+      (string-append (comment "allows to call stored callback with arguments\n")
+        (format "\t~a~a~a (*func)("
+          (get-if-struct (return-def-type(callable-def-return memb))) 
+          (get-c-type-name (return-def-type (callable-def-return memb)) module)
+          (if (return-def-ref (callable-def-return memb)) "*" ""))) 
+      "void")
+    
+    (string-join  
+        (append
+          (map 
+            (lambda (inp)
+              (string-append
+                (format "~a~a " (get-if-struct (arg-def-type inp)) (get-c-type-name (arg-def-type inp) module))
+                (if (arg-def-ref inp) "*" "")
+                (arg-def-name inp)
+                ))
+            (callable-def-args memb))
+            (list "void *c"))
+          ",")
+          
+    ");\n"
+    (comment "closure pointer on closure\n")
+    "\tvoid *closure;\n"
+    (format "}~a;\n" name)))
 
 ;get c type name
 (define (get-c-type-name type mod)
@@ -118,6 +239,7 @@
                 (hash-ref type-dict (type-def-name type))]
             [(python-type-def? type)
                 (type-def-name type)]
+            [(callable-def? type) (get-c-callable-type type mod)]
             [else  
             (let ([env (module-def-env mod)]
                     [id  (type-def-name type)])

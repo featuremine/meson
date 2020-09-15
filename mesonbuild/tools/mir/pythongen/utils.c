@@ -22,13 +22,6 @@
 #include "mir/pythongen/common_c.h"
 #include "mir/pythongen/utils.h"
 
-
-typedef struct {
-  void *func;
-  void *closure;
-} mir_callable;
-
-
 void mir_inc_ref(void *obj) {
     Py_XINCREF(obj);
 }

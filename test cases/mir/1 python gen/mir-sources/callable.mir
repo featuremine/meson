@@ -34,4 +34,4 @@
                     
         [def-return 
             [brief "callable"]
-            [type none]]])
+            [type (def-callable)]]])

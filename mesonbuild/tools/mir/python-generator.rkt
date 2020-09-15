@@ -162,7 +162,7 @@
     #f]))
 
 ;build return block of code for several places in python wrapper
-(define (build-return-section data type module ref [after-section ""] [return-none #t])
+(define (build-return-section data type module ref [after-section ""] [return-none #t] [prefix ""])
   (let ([real-type (get-origin-alias-type type)]
     [python-t (to-python-type type)])
     (if python-t 
@@ -211,6 +211,12 @@
             (format "~a* _pyret_ = _get_enum_~a(_py_data);\n"(get-python-type-name real-type module)(get-c-type-name real-type module))
             after-section         
             "return (PyObject*) _pyret_;\n")]
+        [(callable-def? real-type) 
+          (string-append
+            (format "~a _py_data = ~a;\n" prefix data)
+            (format "PyObject *_pyret_= _from_data~a((mir_callable *)&_py_data);\n "  (get-python-type-name real-type module) )   
+            after-section
+             "return _pyret_;\n")]
         [else (let ([python-type (get-python-type-name type module)])
 
           (string-append
@@ -327,12 +333,6 @@
 (define (get-python-directory-name module)
    (apply build-path (append (list  "python" (path-only (get-module-relative-path module))) )))
 
-;return relative path to directory with python callables
-(define (get-python-callable-directory-name module)
-  (build-path  "python" "_callables" ) )
-
-(define (get-python-callable-directory-name-full module)
-  (build-path (get-destination-folder-name) (get-python-callable-directory-name module) ))
 ;return full path to directory of module
 (define (get-python-directory-name-full module)
   (build-path (get-destination-folder-name) (get-python-directory-name module) ))
@@ -362,20 +362,6 @@
 (define (get-python-type-info-file-full module)
   (build-path (get-destination-folder-name)  "python" (format "~a.pyi" (car (module-def-ns module)))))
 
-;return callable source filename
-(define (get-python-callable-src-filename callable module)
-  (apply build-path (list(get-python-callable-directory-name module) (format "~a.c"(type-def-name callable)))))
-
-(define (get-python-callable-src-filename-full callable module)
-  (build-path (get-destination-folder-name) (get-python-callable-src-filename callable module)))
-
-;return callable inc filename
-(define (get-python-callable-inc-filename callable module)
-  (apply build-path (list(get-python-callable-directory-name module) (format "~a.h"(type-def-name callable)))))
-
-(define (get-python-callable-inc-filename-full callable module)
-  (build-path (get-destination-folder-name) (get-python-callable-inc-filename callable module)))
-
 ;save string data to .h file
 (define (save-header data module )
   (begin
@@ -401,19 +387,6 @@
     (make-directory*  (get-python-directory-name-full module))
     (display-to-file	data  (get-python-type-info-file-full  module) #:exists 'replace)))
 
-;save callable src data to file
-(define (save-callable-src-file data callable module)
-  (begin
-    (make-directory*  (get-python-callable-directory-name-full module))
-    (display-to-file	data (get-python-callable-src-filename-full  callable module) #:exists 'replace)))
-    
-
-;save callable iclude data to file
-(define (save-callable-inc-file data callable module)
-  (begin
-    (make-directory*  (get-python-callable-directory-name-full module))
-    (display-to-file	data (get-python-callable-inc-filename-full  callable module) #:exists 'replace)))
-
 ;return guard name as string
 (define (get-guard-header-name module)
   (format "H_~a" (string-upcase  (string-join(append (module-def-ns module) (list "python" (module-def-name module))) "_"))))
@@ -421,15 +394,6 @@
 ;return guard block as string
 (define (get-guard-header module)
   (let ([guard (get-guard-header-name module)])
-    (format "#ifndef ~a\n#define ~a\n" guard guard)))
-
-;return name of callable header guard
-(define (get-guard-callable-inc-name module callable)
-  (format "H_~a" (string-upcase  (string-join(list (car(module-def-ns module)) "py" (type-def-name callable)) "_"))))
-
-;return callable guard block
-(define (get-guard-callable-inc-header module callable)
-  (let ([guard (get-guard-callable-inc-name module callable)])
     (format "#ifndef ~a\n#define ~a\n" guard guard)))
     
 ;return includes block for module as string
@@ -453,8 +417,19 @@
     string-append
     (map (lambda (memb) 
             (cond
-              [(or (class-def? memb) (struct-def? memb) (callable-def? memb))  
+              [(or (class-def? memb) (struct-def? memb)) 
                 (format "typedef struct ~a ~a;\n" (get-python-type-name memb module) (get-python-type-name memb module))]
+              
+              [(callable-def? memb)  
+                (let ([py-type (get-python-type-name memb module)]
+                      [c-type (get-c-type-name memb module)])
+                  (string-append
+                    (format "typedef struct ~a ~a;\n"  py-type py-type)
+                    (format "PyTypeObject * _get_pys_~a();\n" c-type)
+                    (format "mir_callable * _get_data_pys_~a(PyObject * data);\n"  c-type )
+                    (format "PyObject * _from_data_pys_~a(mir_callable * data);\n"  c-type)
+                    (format "void _from_py_callable_~a(PyObject * cb, void ** function, void ** closure);\n"  c-type) ""))]
+
               [(enum-def? memb)  
                 (let ([c-type (get-c-type-name memb module) ])
                   (string-append 
@@ -563,7 +538,11 @@
           name)
         type
         module 
-        member-ref?)
+        member-ref?
+        ""
+        #t
+        ""
+        )
       "}\n" 
 
       ;set
@@ -684,7 +663,14 @@
                     args)
                   ", ")
               ")"
-              ) ret-type module ret-ref))
+              ) 
+              ret-type 
+              module 
+              ret-ref
+              ""
+              #t
+              (format "~a_return_" c-mthd-name)
+              ))
               
         ;if doesn't have members
         (string-append
@@ -693,7 +679,13 @@
               (if is-struct
                 (format "~a(&((~a*)self)->data)" c-mthd-name py-type)
                 (format "~a((~a*)self) " c-mthd-name c-type))
-           ret-type module ret-ref err-check)))
+           ret-type 
+           module 
+           ret-ref 
+           err-check
+           #t
+           (format "~a_return_" c-mthd-name)
+           )))
       "}\n")))
 
 ;return operators hashtable from members list
@@ -848,6 +840,7 @@
         "}};\n"))
     ""))
 
+
 (define (method-implementation-section memb memb-has-mmbrs memb-has-mthds memb-mmbrs py-type c-type  module is-struct)
   (string-append
     (if memb-has-mmbrs 
@@ -877,6 +870,9 @@
       "")
 
     "//methods\n"
+
+    ;define callables
+
     (if memb-has-mthds  
       (string-append
         (apply string-append  
@@ -1294,12 +1290,6 @@
         (get-guard-header module)
         "\n"
         ;add include
-        (apply string-append 
-          (map (lambda (memb)
-            (if (callable-def? memb)
-              (format "#include \"~a\"\n" (get-python-callable-inc-filename memb module ))
-              "")) 
-            (module-def-defs module)))
         (get-includes module module-map #t)
         "\n"
         ;add declarations
@@ -1398,7 +1388,7 @@
       (get-c-type-name (alias-def-type arg-type) module)
         module)]
   [(callable-def? arg-type) 
-  (format "void* _pyfunc_~a = NULL;\nvoid* _pyclosure_~a = NULL;\n"  arg-name arg-name)]
+    (format "PyObject* _pyarg_~a = NULL;\n void*_pyfunc_~a;\n void*_pyclosure_~a;\n" arg-name  arg-name arg-name)]
   [else 
     (format "~a* _pyarg_~a = NULL;\n" arg-py-type arg-name)]))
 
@@ -1436,7 +1426,7 @@
           (type-check-return-section (format "_pyarg_~a" arg-name )   (format "_get_~a()" (get-c-type-name arg-type module))   (type-def-name arg-type) ret-val)
           (format "long _pyarg_enum_~a = PyLong_AsLong(PyObject_GetAttrString(_pyarg_~a, \"value\"));\n" arg-name arg-name))]
     [(callable-def? arg-type) 
-      (callable-check-block arg-type (format "_pyarg_~a" arg-name)  (format "_pyargdata_~a" arg-name) (format "_py_is_python_~a" arg-name) (get-python-type-name arg-type module) (get-c-type-name arg-type module) module ret-val)]
+      (callable-check-block arg-type arg-name  (format "_pyargdata_~a" arg-name) (format "_py_is_python_~a" arg-name) (get-python-type-name arg-type module) (get-c-type-name arg-type module) module ret-val)]
     [(python-type-def?  arg-type) 
       (if (not (equal? (python-type-def-real-name arg-type) "any"))
         (type-check-return-section (format "_pyarg_~a" arg-name )   (python-type-def-real-name arg-type) (type-def-name arg-type) ret-val #f)
@@ -1563,8 +1553,15 @@
         )
     (string-append
 
+      "//callable implementations\n"
+      (apply string-append 
+        (hash-map (module-def-env module)
+          (lambda (key memb)
+              (if (callable-def? memb)
+                  (format "~a\n" (get-callable-impl memb module))
+                  ""))))
+      
       "// Module definitions\n"
-
       (apply string-append 
         (hash-map ns-map
           (lambda (name ns)
@@ -1742,6 +1739,8 @@
         [ret-type (return-def-type (callable-def-return memb))]
         [real-ret-type (get-origin-alias-type ret-type)])
     (string-append
+          (get-callable-decl-c memb module c-type)
+          (get-callable-decl memb module)
           "//init function\n"
           "static int\n"
           (format "_init~a(~a *self, PyObject * args, PyObject *kwds)\n" py-type py-type)
@@ -1805,7 +1804,13 @@
                       args)
                     (list (format "\n((~a *)self)->data.closure)"py-type)))
                       ", "))
-            ret-type module ret-ref)
+            ret-type 
+            module 
+            ret-ref
+            ""
+            #t
+            ret-c-type-name
+            )
 
 
             "\n};\n"
@@ -1852,8 +1857,8 @@
           "0,                         /* tp_new */\n"
           "};\n"
 
-          (format "PyTypeObject * _get~a(){return (PyTypeObject*) &~a;};" py-type (type_of_py_object memb module) )
-          (format "~a * _get_data_pys_~a(~a * data) {return  &data->data;\n };\n" c-type c-type py-type  )
+          (format "PyTypeObject * _get~a(){return (PyTypeObject*) &~a;};\n" py-type (type_of_py_object memb module) )
+          (format "mir_callable * _get_data_pys_~a(PyObject * data) {return  (mir_callable*)&((~a*)data)->data;\n };\n"  c-type py-type  )
           (format "~a * _new_pys_~a()\n{  return malloc(sizeof(~a)); }\n" py-type c-type py-type)
           (format "void _free_pys_~a(~a * callable)\n{  free (callable); }\n" c-type py-type)
 
@@ -1876,17 +1881,17 @@
           (format "return &((~a*)data)->data;\n}\n" py-type)
 
           ;from data
-          (format "PyObject * _from_data_pys_~a(~a * data){\n" c-type c-type)
+          (format "PyObject * _from_data_pys_~a(mir_callable * data){\n"  c-type)
           "if(data==NULL) Py_RETURN_NONE;\n"
           (format "PyTypeObject *type = &~a;\n" (type_of_py_object memb module))
           (format "~a * self = (~a *)type->tp_alloc(type, 0);\n" py-type py-type)
-          "self->data = *data;\n"
+          (format "self->data = *(~a*)data;\n" c-type)
           "return(PyObject *) self;\n}\n";
          
           ;from py callable
-          (format "void _from_py_callable~a(PyObject * cb, ~a * callable){\n" c-type c-type)
-          (format "callable->func = &_wrap~a;\n" py-type) 
-          "callable->closure = cb;\n" 
+          (format "void _from_py_callable_~a(PyObject * cb, void ** func, void ** closure ){\n" c-type)
+          (format "*func = (void*) &_wrap~a;\n" py-type) 
+          "*closure = (void*) cb;\n" 
           "}\n"
 
           ;wrapper for callable
@@ -2007,110 +2012,20 @@
 ;return callable check block
 (define (callable-check-block type arg-name arg-data-name py_is_callable py-type-name c-name module ret-value) 
   (string-append
-    (format "    if (!PyObject_TypeCheck(~a,\n" arg-name)
+    (format "    if (!PyObject_TypeCheck(_pyarg_~a,\n" arg-name)
     (format "    _get~a())) {\n" py-type-name)
-    (format "     PyObject * _pytempobj_ = (PyObject * )~a;\n" arg-name)
+    (format "     PyObject * _pytempobj_ = (PyObject * )_pyarg_~a;\n" arg-name)
     "    		if (!PyCallable_Check(_pytempobj_)) {\n"
 		"              PyErr_SetString(PyExc_TypeError,\n"
 		"    			     \"Argument provided must be an callable\");\n"
     (format "              return ~a;\n" ret-value)
     "  	         }\n"
-    (format "_from_py_callable~a(_pytempobj_, &~a);\n"  c-name arg-data-name)
+    (format "_from_py_callable_~a(_pytempobj_,&_pyfunc_~a,&_pyclosure_~a);\n"  c-name arg-name arg-name)
     "}else{\n"
-    (format "    ~a * _temp_callable_ = _get_data~a(~a);\n"c-name py-type-name arg-name   )
-    (format "    ~a = *_temp_callable_;\n"arg-data-name)
+    (format "    mir_callable * _temp_callable_ = _get_data~a(_pyarg_~a);\n" py-type-name arg-name   )
+    (format "    _pyfunc_~a = _temp_callable_->func;\n"arg-name)
+    (format "    _pyclosure_~a = _temp_callable_->closure;\n"arg-name)
     "}\n"))
-
-
-;it generates c and header filerepresentation for callable and save they to disk 
-(define (generate-callable module-key module)
-  (hash-map (module-def-env module) 
-    (lambda(key val)
-      (if (callable-def? val) 
-        (begin
-          (generate-callable-src-file val module)
-          (generate-callable-inc-file val module)
-        )
-        void))))
-
-;generate source file for callable wrapper
-(define (generate-callable-src-file callable module)
-  (begin
-    ;generate callable header file
-    (save-callable-src-file
-      (string-append
-        ;add header
-        (get-copyright-header module)
-        "\n"
-
-        ;includes
-        "#include <Python.h>\n" 
-        "#include \"mir/pythongen/utils.h\"\n" 
-        (format "#include \"~a\"\n" (get-python-callable-inc-filename callable module))
-        
-        ;add members
-        (get-callable-impl callable module)
-
-  
-      )
-      callable module)))
-
-;generate forward declarations block for callable inc file
-(define (get-forward-decl-callable-inc-file memb module)
-  (let ([c-type (get-c-type-name memb module)]
-        [py-type (get-python-type-name memb module)]
-        [origin-type (get-origin-alias-type memb)])
-    (cond
-      [(python-type-def? origin-type)
-          (format "typedef struct ~a ~a;\n"  (type-def-name origin-type ) (type-def-name origin-type ))]
-      [(alias-def? memb)
-        (string-append
-          (get-forward-decl-callable-inc-file (alias-def-type memb) module)
-          (format "typedef ~a ~a;\n" (get-c-type-name (alias-def-type memb) module) (get-c-type-name memb module) ))]
- 
-      [(or (class-def? memb) (struct-def? memb) (callable-def? memb))  
-        (let ([py-type (get-python-type-name memb module)]
-              [c-type (get-c-type-name memb module)])
-          (string-append
-            (format "typedef struct ~a ~a;\n"  py-type py-type)
-            (format "PyTypeObject * _get_pys_~a();\n" c-type)
-            (format "~a * _get_data_pys_~a(~a * data);\n" c-type c-type py-type)
-            (format "PyObject * _from_data_pys_~a(~a * data);\n" c-type c-type)
-            (if (callable-def? memb) (format "void _from_py_callable~a(PyObject * cb, ~a * callable);\n" c-type c-type) "")))
-            ]
-      [else ""])))
-
-;generate callable include python wrapper file and save to disc
-(define (generate-callable-inc-file callable module)
-  (begin
-    ;generate callable header file
-    (save-callable-inc-file
-      (string-append
-        ;add header
-        (get-copyright-header module)
-        "\n"
-        ;add include guard
-        (get-guard-callable-inc-header module callable)
-
-        ;includes
-        "#include <Python.h>\n" 
-        (format "#include \"~a\"\n" (get-c-callable-inc-filename callable module))
-
-        ;add declarations
-        (apply string-append
-          (let ([defs (collect-callable-defs callable (make-hash))])
-            (hash-map defs
-              (lambda(key memb)
-                (get-forward-decl-callable-inc-file memb module)))))
-   
-        ;add members
-        (get-callable-decl callable module)
-
-
-        ;clouse guard
-        (format "#endif //~a\n" (get-guard-callable-inc-name module callable))
-      )
-      callable module)))
 
 ;main function it generates c header file representation and save it to disk 
 (define (generate-python-module module module-map)
@@ -2262,8 +2177,7 @@
     (if (not common?)
       (for ([key (module-def-requires main-module)])
           (let([mod (hash-ref  module-map key)])
-            (generate-python mod module-map)
-            (generate-callable key mod)))
+            (generate-python mod module-map)))
       
       (begin
         (generate-python-module main-module module-map)
@@ -2284,25 +2198,5 @@
                   (list
                     (get-python-filename-source-full mod)
                     (get-python-filename-header-full mod))))
-            (module-def-requires main-module)))
-
-        (let ([callables (list)])
-          (map
-            (lambda (key)
-              (let([mod (hash-ref module-map key)])
-                (map
-                  (lambda (memb)
-                    (cond
-                      [(callable-def? memb) 
-                          (set! callables(append 
-                                            callables 
-                                            (list 
-                                              (get-python-callable-inc-filename-full memb main-module )
-                                              (get-python-callable-src-filename-full memb main-module )
-                                              )))]
-                      [else ""]))
-                    
-                  (module-def-defs mod))))
-            (module-def-requires main-module))
-            callables))))
+            (module-def-requires main-module))))))
             
