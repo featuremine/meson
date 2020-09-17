@@ -20,21 +20,18 @@ graph_aliases_Vector2d *c_pr_callback(graph_aliases_Vector2d *point, void *c) {
   return ((c_pr_callb)c)(point);
 }
 
-graph_aliases_Vector2d *graph_aliases_AliasClass_setCallable(
-    struct graph_aliases_AliasClass *self,
-    rl_graph_aliases_Vector2d_al_graph_aliases_Vector2d callable) {
+graph_aliases_Vector2d* graph_aliases_AliasClass_setCallable (struct graph_aliases_AliasClass* self, CALLABLE_ARG(callable,graph_aliases_Vector2d*,graph_aliases_Vector2d *point)) {
   graph_aliases_Vector2d *point =  graph_Point_new_();
-  graph_aliases_Vector2d *ret = callable.func(point, callable.closure);
+  graph_aliases_Vector2d *ret = callable_func(point, callable_closure);
   return ret;
 };
 
-graph_aliases_VectorCallable graph_aliases_AliasClass_setAliasCallable(
-    struct graph_aliases_AliasClass *pSelf,
-    graph_aliases_VectorCallable callable) {
+ graph_aliases_AliasClass_setAliasCallable_ret graph_aliases_AliasClass_setAliasCallable (struct graph_aliases_AliasClass* pSelf, CALLABLE_ARG(aCallable,graph_aliases_Vector2d*,graph_aliases_Vector2d *point)) {
   graph_aliases_AliasClass_t * self = graph_aliases_AliasClass_data_(pSelf);
-  self->aliasCallable = callable;
-  mir_inc_ref(callable.closure);
-  return callable;
+  self->aliasCallable_func = aCallable_func;
+  self->aliasCallable_closure = aCallable_closure;
+  mir_inc_ref(aCallable_closure);
+  return (graph_aliases_AliasClass_setAliasCallable_ret){aCallable_closure,aCallable_func};
 };
 
 // del

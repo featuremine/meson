@@ -190,7 +190,7 @@
                 (letrec ([arg-type (arg-def-type inp)]
                           [arg-name (if (callable-def? arg-type) 
                           (get-c-callable-type memb (format "~a_arg_~a" name (arg-def-name inp)))
-                          (get-c-type-name (return-def-type (callable-def-return memb)) module))])
+                          (arg-def-name inp))])
                   (string-append
                     (format "~a~a " (get-if-struct (arg-def-type inp)) (get-c-type-name (arg-def-type inp) module))
                     (if (arg-def-ref inp) "*" "")

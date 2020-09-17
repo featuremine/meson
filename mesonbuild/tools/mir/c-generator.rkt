@@ -93,9 +93,9 @@
   (string-append
     (comment (list (member-def-brief memb)))
     (cond 
-      [(callable-def? (member-def-type memb))
+      [(callable-def? (get-origin-alias-type(member-def-type memb)))
         (letrec
-          ([member-type (member-def-type memb)] 
+          ([member-type (get-origin-alias-type(member-def-type memb))] 
           [ret (callable-def-return member-type)]
           [ret-type (return-def-type ret)]
           [ret-ref (return-def-ref ret)]
@@ -118,11 +118,13 @@
     (map (lambda (memb) 
             (cond
               [(alias-def? memb)  
-                (string-append
-                  (comment (list (alias-def-brief memb)  (alias-def-doc memb)))
-                  (format "typedef ~a~a " (get-if-struct (alias-def-type memb)) (get-c-type-name (alias-def-type memb) module))
-                  (if (alias-def-ref memb) "* " "")
-                  (format "~a;\n\n" (get-c-type-name memb module)))]
+                (if (callable-def?(get-origin-alias-type (alias-def-type memb) ))
+                  ""
+                  (string-append
+                    (comment (list (alias-def-brief memb)  (alias-def-doc memb)))
+                    (format "typedef ~a~a " (get-if-struct (alias-def-type memb)) (get-c-type-name (alias-def-type memb) module))
+                    (if (alias-def-ref memb) "* " "")
+                    (format "~a;\n\n" (get-c-type-name memb module))))]
               [(variable-def? memb)  
                 (string-append
                   (comment (list (variable-def-brief memb) (variable-def-doc memb)))
@@ -192,11 +194,12 @@
                             [(member-def? arg)  
                               (letrec ([type (member-def-type arg)]
                                     [arg-name (member-def-name arg)]
-                                    [arg-type-name (get-c-type-name type module)])
+                                    [arg-type-name (get-c-type-name type module)]
+                                    [real-arg-type-name (get-origin-alias-type type)])
                                 (string-append
                                   (comment (format "Set up property ~a of ~a\n" arg-name c-type-name))
-                                  (if (callable-def? type)
-                                    (format "void ~a_set_~a_(~a* self, ~a);\n"  c-type-name arg-name c-type-name  (get-c-callable-arg type module arg-name c-type-name #f))
+                                  (if (callable-def? real-arg-type-name)
+                                    (format "void ~a_set_~a_(~a* self, ~a);\n"  c-type-name arg-name c-type-name  (get-c-callable-arg real-arg-type-name module arg-name c-type-name #f))
                                     (format "void ~a_set_~a_(~a* self, ~a* ~a);\n"  c-type-name arg-name c-type-name arg-type-name arg-name))))]
                             [else ""]))
                         (struct-def-members memb))) 
@@ -213,18 +216,18 @@
                                     [return-ref (return-def-ref (method-def-return mthd))]
                                     [origin-return-type (get-origin-alias-type return-type)]
                                     [mthd_name (format " ~a_~a" c-type (method-def-name mthd))]
-                                    [return-c-type (if (callable-def? return-type) 
-                                                      (get-c-callable-type return-type  mthd_name)
+                                    [return-c-type (if (callable-def? origin-return-type) 
+                                                      (get-c-callable-type origin-return-type  mthd_name)
                                                       (get-c-type-name return-type module))])
                                 (string-append
-                                  (if (callable-def? return-type) 
-                                    (define-callable-struct-three return-type module mthd_name)
+                                  (if (callable-def? origin-return-type) 
+                                    (define-callable-struct-three origin-return-type module mthd_name)
                                     "")
                                   (apply  string-append
                                     (map 
                                       (lambda (inp)
-                                        (if (callable-def? (arg-def-type inp))
-                                          (define-callable-struct-three (arg-def-type inp)
+                                        (if (callable-def? (get-origin-alias-type(arg-def-type inp)))
+                                          (define-callable-struct-three (get-origin-alias-type(arg-def-type inp))
                                                                         module 
                                                                         (format "~a_arg_~a" mthd_name  (arg-def-name inp)))
                                           ""))
@@ -253,8 +256,8 @@
                                       (string-join  
                                         (map 
                                           (lambda (inp)
-                                            (if (callable-def? (arg-def-type inp) )
-                                              (get-c-callable-arg (arg-def-type inp) module (arg-def-name inp) (format "~a_~a" c-type (method-def-name mthd)) )
+                                            (if (callable-def? (get-origin-alias-type(arg-def-type inp)) )
+                                              (get-c-callable-arg (get-origin-alias-type(arg-def-type inp)) module (arg-def-name inp) (format "~a_~a" c-type (method-def-name mthd)) )
                                             (string-append
                                               (format "~a~a " (get-if-struct (arg-def-type inp)) 
       
@@ -312,7 +315,7 @@
                                 (map 
                                   (lambda (arg)
                                     (if (callable-def? (get-origin-alias-type (arg-def-type arg)))
-                                      (get-c-callable-arg (arg-def-type arg) module (arg-def-name arg) type-name #f)
+                                      (get-c-callable-arg (get-origin-alias-type (arg-def-type arg)) module (arg-def-name arg) type-name #f)
                                       (format "~a~a ~a" (get-c-type-name (arg-def-type arg) module) (if (arg-def-ref arg)  "*" "") (arg-def-name arg)))) 
                                 (constructor-def-args (class-def-constructor memb))))
                             ", ")
@@ -330,8 +333,8 @@
                                     [arg-type-name (get-c-type-name type module)])
                                 (string-append
                                   (comment (format "Set up property ~a of ~a\n" arg-name c-type-name))
-                                  (if (callable-def? type)
-                                    (format "void ~a_set_~a_(~a* self, ~a);\n"  c-type-name arg-name c-type-name  (get-c-callable-arg type module arg-name c-type-name #f))
+                                  (if (callable-def? (get-origin-alias-type type))
+                                    (format "void ~a_set_~a_(~a* self, ~a);\n"  c-type-name arg-name c-type-name  (get-c-callable-arg (get-origin-alias-type type) module arg-name c-type-name #f))
                                     (format "void ~a_set_~a_(~a* self, ~a* ~a);\n"  c-type-name arg-name c-type-name arg-type-name arg-name))))]
                             [else ""]))
                         (class-def-members memb))) 
@@ -347,8 +350,8 @@
                                     [return-ref (return-def-ref (method-def-return mthd))]
                                     [origin-return-type (get-origin-alias-type return-type)]
                                     [mthd_name (format " ~a_~a" c-type (method-def-name mthd))]
-                                    [return-c-type (if (callable-def? return-type) 
-                                                      (get-c-callable-type return-type  mthd_name)
+                                    [return-c-type (if (callable-def? origin-return-type) 
+                                                      (get-c-callable-type origin-return-type  mthd_name)
                                                       (get-c-type-name return-type module))])
                                 (string-append
                                   (if (callable-def? origin-return-type) 
@@ -357,8 +360,8 @@
                                     (apply  string-append
                                       (map 
                                         (lambda (inp)
-                                          (if (callable-def? (arg-def-type inp))
-                                            (define-callable-struct-three-maybe (arg-def-type inp)
+                                          (if (callable-def? (get-origin-alias-type(arg-def-type inp)))
+                                            (define-callable-struct-three-maybe (get-origin-alias-type(arg-def-type inp))
                                                                           module 
                                                                           (format "~a_arg_~a" mthd_name  (arg-def-name inp)))
                                             ""))
@@ -388,8 +391,8 @@
                                       (string-join  
                                         (map 
                                           (lambda (inp)
-                                            (if (callable-def? (arg-def-type inp) )
-                                              (get-c-callable-arg (arg-def-type inp) module (arg-def-name inp) (format "~a_~a" c-type (method-def-name mthd)) )
+                                            (if (callable-def? (get-origin-alias-type (arg-def-type inp) ))
+                                              (get-c-callable-arg (get-origin-alias-type (arg-def-type inp) ) module (arg-def-name inp) (format "~a_~a" c-type (method-def-name mthd)) )
                                               (string-append
                                                 (format "~a~a " (get-if-struct (arg-def-type inp)) 
         
