@@ -205,79 +205,79 @@ def test():
     p8 = callb(p7)
     assert(p8.x == 3.0 and p8.y == 4.0)
 
-    # p9 = alsc.aliasCallable(p8)
+    p9 = alsc.aliasCallable(p8)
 
-    # assert(p9.x == 3.0 and p9.y == 4.0)
+    assert(p9.x == 3.0 and p9.y == 4.0)
 
-    # # test callback inside callback
-    # mh = _mir_wrapper.utility.pointerHolder()
-    # assert(mh.get_int() == 11)
+    # test callback inside callback
+    mh = _mir_wrapper.utility.pointerHolder()
+    assert(mh.get_int() == 11)
 
-    # # test ret nullptr
-    # nt = _mir_wrapper.utility.NoneTester()
-    # assert(nt.get_none() is None)
+    # test ret nullptr
+    nt = _mir_wrapper.utility.NoneTester()
+    assert(nt.get_none() is None)
 
-    # # #test operators
+    # #test operators
 
-    # op_pt1 = _mir_wrapper.Point(3, 3)
-    # op_pt2 = _mir_wrapper.Point(1, 1)
-    # op_pt1 += op_pt2
+    op_pt1 = _mir_wrapper.Point(3, 3)
+    op_pt2 = _mir_wrapper.Point(1, 1)
+    op_pt1 += op_pt2
  
-    # assert(op_pt1.x==4 and op_pt1.y==4  )
-    # op_pt1/=2
+    assert(op_pt1.x==4 and op_pt1.y==4  )
+    op_pt1/=2
 
-    # assert(op_pt1.x==2 and op_pt1.y==2  )
-    # op_pt1/=0
-    # assert(op_pt1.x == 0, op_pt1.y == 0)
+    assert(op_pt1.x==2 and op_pt1.y==2  )
+    op_pt1/=0
+    assert(op_pt1.x == 0, op_pt1.y == 0)
 
 
-    # int1 = _mir_wrapper.utility.Integer(1)
-    # int2 = _mir_wrapper.utility.Integer(2)
-    # assert(int1<int2)
-    # assert(int1<=int2)
-    # assert(int1<=int1)
-    # assert(int1==int1)
-    # assert(int1!=int2)
-    # assert(not (int1==int2))
-    # assert(not (int1>int2))
-    # assert(int2>=int2)
-    # assert(int2>=int1)
-    # assert(int2>int1)
+    int1 = _mir_wrapper.utility.Integer(1)
+    int2 = _mir_wrapper.utility.Integer(2)
+    assert(int1<int2)
+    assert(int1<=int2)
+    assert(int1<=int1)
+    assert(int1==int1)
+    assert(int1!=int2)
+    assert(not (int1==int2))
+    assert(not (int1>int2))
+    assert(int2>=int2)
+    assert(int2>=int1)
+    assert(int2>int1)
     
-    # #test python type
-    # testPython = _mir_wrapper.aliases.AliasClass(
-    #                 _mir_wrapper.aliases.Vector2d(
-    #                     _mir_wrapper.aliases.Vector(
-    #                         _mir_wrapper.Point(3, 4))))
-    # print(sys.getrefcount(testPython))
-    # pc = _mir_wrapper.utility.PythonTestClass(testPython)
-    # assert(sys.getrefcount(pc)==2)
-    # assert(sys.getrefcount(testPython)==3)
+    #test python type
+    testPython = _mir_wrapper.aliases.AliasClass(
+                    _mir_wrapper.aliases.Vector2d(
+                        _mir_wrapper.aliases.Vector(
+                            _mir_wrapper.Point(3, 4))))
+    print(sys.getrefcount(testPython))
+    pc = _mir_wrapper.utility.PythonTestClass(testPython)
+    assert(sys.getrefcount(pc)==2)
+    assert(sys.getrefcount(testPython)==3)
     
-    # def retSelf(obj):
-    #     return obj
+    def retSelf(obj):
+        return obj
     
-    # testPython2 = pc.test_mthd(testPython)
-    # assert(sys.getrefcount(testPython2)==4)
-    # assert(testPython2==testPython)
-    # print(testPython2.obj.x, testPython2.obj.y)
-    # assert(testPython2.obj.x==3 and testPython2.obj.y==4)
-    # ret = pc.execute(testPython,retSelf)
-    # print(sys.getrefcount(testPython2))
+    testPython2 = pc.test_mthd(testPython)
+    assert(sys.getrefcount(testPython2)==4)
+    assert(testPython2==testPython)
+    print(testPython2.obj.x, testPython2.obj.y)
+    assert(testPython2.obj.x==3 and testPython2.obj.y==4)
+    ret = pc.execute(testPython,retSelf)
+    print(sys.getrefcount(testPython2))
 
-    # # struct methods and operators which don't change struct
-    # d1 = _mir_wrapper.utility.Decimal(1000000000)
-    # d2 = _mir_wrapper.utility.Decimal(2000000000)
+    # struct methods and operators which don't change struct
+    d1 = _mir_wrapper.utility.Decimal(1000000000)
+    d2 = _mir_wrapper.utility.Decimal(2000000000)
 
-    # d3 = d1+d2
-    # print (d3.value)
-    # print(d3.to_double())
-    # assert(d3.to_double() == 3.0)
+    d3 = d1+d2
+    print (d3.value)
+    print(d3.to_double())
+    assert(d3.to_double() == 3.0)
 
-    # assert(d3 == _mir_wrapper.utility.Decimal(3000000000))
+    assert(d3 == _mir_wrapper.utility.Decimal(3000000000))
 
-    # d4 = d1+2000000000
-    # assert(d4 == 3000000000)
+    d4 = d1+2000000000
+    assert(d4 == 3000000000)
 
 
     
