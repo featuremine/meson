@@ -276,6 +276,9 @@ def test():
 
     assert(d3 == _mir_wrapper.utility.Decimal(3000000000))
 
+    d4 = d1+2000000000
+    assert(d4 == 3000000000)
+
 
     
     

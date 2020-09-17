@@ -212,14 +212,14 @@
             after-section         
             "return (PyObject*) _pyret_;\n")]
         [else (let ([python-type (get-python-type-name type module)])
-
+     
           (string-append
             ( if ref
               (format "~a *_pyret_=(~a *) (PyObject*)_from_data~a(~a);\n" python-type python-type python-type data)
               (string-append
                 (format "~a _py_data = ~a;\n" (get-c-type-name type module) data)
                 (format "~a *_pyret_=(~a *)  _from_data~a(&_py_data);\n " python-type python-type python-type )))
-                  
+                
             after-section         
             "return (PyObject*) _pyret_;\n"
           ))]))))
@@ -730,16 +730,38 @@
                           [arg-type (arg-def-type (car args))]
                           [arg-c-type (get-c-type-name arg-type module)]
                           [arg-py-type (get-python-type-name arg-type module)]
-                          [arg-value-name (format "_pyarg_~a" arg-name)])  
+                          [arg-value-name (format "_pyarg_~a" arg-name)]
+                          [parsed-struct (and 
+                              (struct-def? arg-type) 
+                              (equal? (apply + (map (lambda (arg) (if (member-def? arg) 1 0)) (struct-def-members arg-type)))1)
+                              (default-def? (member-def-type (car (struct-def-members arg-type)))))])  
                   (string-append
                     (format "static PyObject* ~a(~a* self, PyObject* obj) {\n" struct-mthd-name py-type)
                     (if (default-def? (arg-def-type (car args)))
                       (string-append 
                         (type-check-return-section "obj" (format "&~a"(hash-ref type-dict-python (type-def-name arg-type)))  (type-def-name arg-type) "NULL")
                         (format "~a ~a = ~a;\n" arg-c-type arg-value-name (format (to-c-type (arg-def-type (car args)) module) "obj")))
+                      (cond [ parsed-struct
+                        (letrec ([struct-arg-type (member-def-type (car (struct-def-members arg-type)))]
+                                [struct-arg-c-type-name (get-c-type-name struct-arg-type module)]
+                                [struct-arg-py-type-name (get-python-type-name struct-arg-type module)]
+                                [struct-arg-name "temp_struct_arg_name_"])
+                        (string-append
+                          (format "~a _pyarg_struct_obj;\n" arg-c-type)
+                          (format "if (!PyObject_TypeCheck(obj, ~a)) {\n"  (format "_get~a()" (get-python-arg-type-name arg-type module)))
+                          (format "_pyarg_struct_obj  = (~a){~a};\n" arg-c-type (format (to-c-type struct-arg-type module) "obj"))
+                          "\tif (PyErr_Occurred()) {\n"
+                          (format "\tPyErr_SetString(PyExc_TypeError, \"Argument provided must be an ~a\");\n"  (get-python-arg-type-name arg-type module))
+                          "\treturn NULL;}\n"
+                          "}else{\n"
+                          (format "~a *temp_obj = _get_data~a((~a*)obj);\n" arg-c-type arg-py-type arg-py-type)
+                          "\t_pyarg_struct_obj= *temp_obj;\n"
+                          "}\n"
+                          ))]
+                      [else 
                       (string-append 
                         (format "~a* ~a = (~a*) obj;\n" arg-py-type  arg-value-name arg-py-type)
-                        (check-arg-block (arg-def-type (car args)) (arg-def-name (car args)) module "NULL")))
+                        (check-arg-block (arg-def-type (car args)) (arg-def-name (car args)) module "NULL"))]))
                     ;return section
               
                     (build-return-section             
@@ -752,7 +774,9 @@
                               (lambda (arg)
                                 (let ([arg-type (arg-def-type arg)]
                                       [arg-name (arg-def-name arg)])
-                                  (return-arg-representation arg-type arg-name (arg-def-ref arg) module )))
+                                  (if   parsed-struct
+                                  (return-arg-representation (member-def-type(car(struct-def-members arg-type))) "struct_obj" #f module )
+                                  (return-arg-representation arg-type arg-name (arg-def-ref arg) module ))))
                               args)
                             ", ")
                         ")") ret-type module ret-ref
