@@ -165,7 +165,7 @@
                         (lambda (m)
                           (cond 
                             [(member-def? m)  
-                              (define-callable-struct-three-maybe (member-def-type m) module (format "~a_~a" (get-c-type-name memb module)  (member-def-name m) ) )]
+                              ""]
                             [else ""]))
                         (struct-def-members memb)))
 
@@ -558,7 +558,7 @@
                                   (comment (format "Set up property ~a of ~a\n" arg-name type-name))
                                   (if (callable-def? orig-type)
                                     (format "void ~a_set_~a_(~a* pSelf, ~a){\n"  type-name arg-name type-name  (get-c-callable-arg orig-type module arg-name type-name #f))
-                                    (format "void ~a_set_~a_(~a* pSelf, ~a* ~a){\n"  type-name arg-name type-name type-name arg-name))
+                                    (format "void ~a_set_~a_(~a* pSelf, ~a* ~a){\n"  type-name arg-name type-name arg-type-name arg-name))
             
 
                                   (format "~a_t * self = ~a_data_(pSelf);\n" type-name type-name)

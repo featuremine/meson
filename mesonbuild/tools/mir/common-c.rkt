@@ -148,7 +148,7 @@
 
 (define (define-callable-struct-three-maybe memb module name )
   (if (and (callable-def? memb) (callable-def? (return-def-type (callable-def-return memb))))
-    ((return-def-type (callable-def-return memb)) module name )
+    (define-callable-struct-three (return-def-type (callable-def-return memb)) module name )
     ""))
 
 ;generate define callable struct
@@ -231,8 +231,8 @@
     (string-join  
           (map 
             (lambda (inp)
-              (if (callable-def? (arg-def-type inp) )
-                (get-c-callable-arg (arg-def-type inp) module name (format "~a_~a" prefix name))
+              (if (callable-def? (get-origin-alias-type (arg-def-type inp) ) )
+                (get-c-callable-arg (get-origin-alias-type (arg-def-type inp) ) module name (format "~a_~a" prefix name))
                 (string-append
                   (format "~a~a " (get-if-struct (arg-def-type inp)) (get-c-type-name (arg-def-type inp) module))
                   (if (arg-def-ref inp) "*" "")
@@ -245,26 +245,35 @@
 
 ;generate callable decl
 (define (get-callable-decl-c memb module name)
+  (letrec (
+    [ret-type-actual (return-def-type (callable-def-return memb))]
+    [origin-ret-type (get-origin-alias-type ret-type-actual)]
+    [ret-type (if (callable-def? origin-ret-type) origin-ret-type ret-type-actual)])
   (string-append
     (comment (format "structure which represents ~a callable\n" name))
     "typedef struct {\n"
-    (if (callable-def-return memb) 
-      (string-append (comment "allows to call stored callback with arguments\n")
-        (format "\t~a~a~a (*func)("
-          (get-if-struct (return-def-type(callable-def-return memb))) 
-          (get-c-type-name (return-def-type (callable-def-return memb)) module)
-          (if (return-def-ref (callable-def-return memb)) "*" ""))) 
-      "void")
+    (string-append (comment "allows to call stored callback with arguments\n")
+      (format "\t~a~a~a (*func)("
+        (get-if-struct ret-type) 
+        (get-c-type-name ret-type module)
+        (if (return-def-ref (callable-def-return memb)) "*" ""))) 
+
     
     (string-join  
         (append
           (map 
             (lambda (inp)
+             (letrec (
+                  [arg-type-actual (arg-def-type inp)]
+                  [arg-real-type (get-origin-alias-type arg-type-actual)]
+                  [arg-type (if (callable-def? arg-real-type) arg-real-type arg-type-actual)])
+              (if (callable-def? arg-type)
+                (get-c-callable-arg arg-type module name  (arg-def-name inp))
               (string-append
-                (format "~a~a " (get-if-struct (arg-def-type inp)) (get-c-type-name (arg-def-type inp) module))
+                (format "~a~a " (get-if-struct arg-type) (get-c-type-name arg-type module))
                 (if (arg-def-ref inp) "*" "")
                 (arg-def-name inp)
-                ))
+                ))))
             (callable-def-args memb))
             (list "void *c"))
           ",")
@@ -272,7 +281,7 @@
     ");\n"
     (comment "closure pointer on closure\n")
     "\tvoid *closure;\n"
-    (format "}~a;\n" name)))
+    (format "}~a;\n" name))))
 
 ;get c type name
 (define (get-c-type-name type mod)

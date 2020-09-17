@@ -2,6 +2,7 @@
 #include "mir/pythongen/utils.h"
 #include <math.h>
 #include <stdio.h>
+#include <Python.h>
 #include <stdlib.h>
 #include <string.h>
 struct graph_Point *

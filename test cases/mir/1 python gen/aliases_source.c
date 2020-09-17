@@ -31,7 +31,7 @@ graph_aliases_Vector2d* graph_aliases_AliasClass_setCallable (struct graph_alias
   self->aliasCallable_func = aCallable_func;
   self->aliasCallable_closure = aCallable_closure;
   mir_inc_ref(aCallable_closure);
-  return (graph_aliases_AliasClass_setAliasCallable_ret){aCallable_closure,aCallable_func};
+  return (graph_aliases_AliasClass_setAliasCallable_ret){aCallable_func,aCallable_closure};
 };
 
 // del

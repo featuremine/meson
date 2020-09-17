@@ -1785,10 +1785,10 @@
         [arg-count (length (callable-def-args memb))]
         [c-type   (get-c-type-name memb module)]
         [ret-ref (return-def-ref (callable-def-return memb))]
-        [ret-c-type-name (get-c-type-name (return-def-type (callable-def-return memb)) module)]
-        [ret-python-type-name (get-python-type-name (return-def-type (callable-def-return memb)) module)]
-        [ret-type (return-def-type (callable-def-return memb))]
-        [real-ret-type (get-origin-alias-type ret-type)])
+        [ret-type (get-origin-alias-type  (return-def-type (callable-def-return memb)))]
+        [ret-c-type-name (get-c-type-name ret-type module)]
+        [ret-python-type-name (get-python-type-name ret-type module)])
+        
     (string-append
           (get-callable-decl-c memb module c-type)
           (get-callable-decl memb module)
@@ -1819,7 +1819,7 @@
                   (apply string-append 
                     (map 
                       (lambda (arg)
-                        (let ([arg-type (arg-def-type arg)])
+                        (let ([arg-type (get-origin-alias-type (arg-def-type arg))])
                           (get-format arg-type)))
                       args))
                 ;references
@@ -1847,15 +1847,15 @@
                       (lambda (arg)
                         (let (
                               [arg-name (arg-def-name arg)]
-                              [arg-type (arg-def-type arg)]
-                              [arg-python-type (get-python-arg-type-name (arg-def-type arg) module)]
+                              [arg-type (get-origin-alias-type (arg-def-type arg))]
+                              [arg-python-type (get-python-arg-type-name (get-origin-alias-type(arg-def-type arg)) module)]
                               )
                               (return-arg-representation arg-type arg-name (arg-def-ref arg) module)
                             ))
                       args)
                     (list (format "\n((~a *)self)->data.closure)"py-type)))
                       ", "))
-            ret-type 
+            ret-type
             module 
             ret-ref
             ""
@@ -1953,7 +1953,7 @@
                   (lambda (arg)
                     (let ([arg-name (arg-def-name arg)]
                           [ref (arg-def-ref arg)]
-                          [arg-type (get-c-type-name (arg-def-type arg) module)])
+                          [arg-type (get-c-type-name (get-origin-alias-type(arg-def-type arg)) module)])
                       (format "~a~a ~a"  arg-type (if ref "*" "") arg-name )))
                   args)
                   (list "void * callable"))
@@ -1980,7 +1980,7 @@
                                   (format "PyTuple_SetItem(_pytarg_tuple, ~a, (PyObject*)~a);\n" num arg-name)  )]
                             [(callable-def? real-arg-type)
                               (string-append 
-                                    (format "~a *_pyarg~a=(~a *) _from_data~a(&~a);\n" python-arg-type python-arg-type python-arg-type python-arg-type arg-name)
+                                    (format "~a *_pyarg~a=(~a *) _from_data~a((mir_callable*)&~a);\n" python-arg-type python-arg-type python-arg-type python-arg-type arg-name)
                                     (format "PyTuple_SetItem(_pytarg_tuple, ~a, (PyObject*)_pyarg~a);\n" num python-arg-type)  )]
                             [else
                               (string-append 
@@ -1997,17 +1997,17 @@
               "PyObject *_pyret_ret = PyObject_CallObject(callable, NULL);\n")
 
             (cond 
-              [(and (default-def? real-ret-type) (equal? (type-def-name real-ret-type) "none"))
+              [(and (default-def? ret-type) (equal? (type-def-name ret-type) "none"))
                 (string-append
                   "Py_XDECREF(_pyret_ret);\n"
                   )]
-              [(callable-def? real-ret-type) 
+              [(callable-def? ret-type) 
                 (string-append
                   (format "if (PyErr_Occurred()) {\n   Py_XDECREF(_pyret_ret);\n ~a ret_val={0};\n  return ret_val;\n}\n" (get-c-type-name ret-type module) )
                   (format "~a * ret_val = (~a*) ~a;\nreturn *ret_val;\n"  (get-c-type-name ret-type module) (get-c-type-name ret-type module)  
-                    (format (to-c-type real-ret-type module) 
+                    (format (to-c-type ret-type module) 
                       (format "~a _pyret_ret"
-                        (if (not (default-def? real-ret-type))
+                        (if (not (default-def? ret-type))
                           "(PyObject   *)"
                           "")))))]
               [else 
@@ -2023,9 +2023,9 @@
                         ";\n")
                       "   return ret_val;\n}\n" ))
                   (format "return ~a;" 
-                    (format (to-c-type real-ret-type module) 
+                    (format (to-c-type ret-type module) 
                       (format "~a _pyret_ret"
-                        (if (not (default-def? real-ret-type))
+                        (if (not (default-def? ret-type))
                           (format "(~a *)" ret-python-type-name)
                           "")))))])
       
@@ -2039,7 +2039,7 @@
         [c-type   (get-c-type-name memb module)]
         [args  (callable-def-args memb )]
         [ret-ref (return-def-ref (callable-def-return memb ))]
-        [ret-type   (get-c-type-name (return-def-type (callable-def-return memb )) module)]
+        [ret-type  (get-c-type-name (get-origin-alias-type(return-def-type (callable-def-return memb ))) module)]
         )
     (string-append
         (format "struct ~a{\nPyObject_HEAD\n ~a data;\n};\n" py-type c-type )
@@ -2051,7 +2051,7 @@
                 (lambda (arg)
                   (let ([arg-name (arg-def-name arg)]
                         [ref (arg-def-ref arg)]
-                        [arg-type (get-c-type-name (arg-def-type arg) module)])
+                        [arg-type (get-c-type-name (get-origin-alias-type(arg-def-type arg)) module)])
                     (format "~a~a ~a"  arg-type (if ref "*" "") arg-name )))
                 args)
                 (list "void * callable")
