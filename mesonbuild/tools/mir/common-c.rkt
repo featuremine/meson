@@ -17,10 +17,12 @@
     collect-callable-defs
     get-origin-alias-type
     get-copyright-header
+    define-callable-struct-three-maybe
     define-callable-struct-three
     get-c-callable-type
     get-callable-decl-c
     get-c-callable-arg
+    function-representation 
     )
 
 ;'char 'void 'string 'int8 'int16 'int32 'int64 'uint8 'uint16 'uint32 'uint64 'double
@@ -117,12 +119,15 @@
   (if (or (struct-def? type) (class-def? type) (python-type-def? type)) "struct " ""))
 
 ;generate c function representation
-(define (function-representation ret ret-ref args module name)
+(define (function-representation ret ret-ref args module prefix name [name-addition ""])
   (string-append
-    (format "~a~a~a (*func)("
-      (get-if-struct ret) 
-      (get-c-type-name ret module)
-      (if ret-ref "*" ""))
+      (format "~a~a~a (*~a)("
+        (get-if-struct ret) 
+        (if (callable-def? ret)  
+          (get-c-callable-type ret (format "~a_~a" prefix name ))
+          (get-c-type-name ret module))
+        (if ret-ref "*" "")
+        (format "~a~a" name name-addition))
 
     
     (string-join  
@@ -141,8 +146,13 @@
           
     ");\n"))
 
+(define (define-callable-struct-three-maybe memb module name )
+  (if (and (callable-def? memb) (callable-def? (return-def-type (callable-def-return memb))))
+    ((return-def-type (callable-def-return memb)) module name )
+    ""))
+
 ;generate define callable struct
-(define (define-callable-struct-three memb module name  )
+(define (define-callable-struct-three memb module name )
   (letrec(
     [args (callable-def-args memb)]
     [return-type (return-def-type (callable-def-return memb))]
@@ -165,6 +175,7 @@
             ""))
         args))
       ;define current struct
+      
       (string-append
         "typedef struct {\n"
           (format "\t~a~a~a (*func)("
@@ -202,7 +213,7 @@
         ret-name))
 
 ;generate c callable argument
-(define (get-c-callable-arg memb module name prefix )
+(define (get-c-callable-arg memb module name prefix [arg? #t])
   (letrec(
     [args (callable-def-args memb)]
     [return-type (return-def-type (callable-def-return memb))]
@@ -212,7 +223,7 @@
       name
       (get-if-struct return-type) 
       (if (callable-def? return-type)
-        (get-c-callable-type return-type (format "~a_arg_~a" prefix name))
+        (get-c-callable-type return-type (format "~a_~a~a" prefix (if arg? "arg_" "")name))
         (get-c-type-name return-type module))
       (if (return-def-ref (callable-def-return memb)) "*" ""))
 

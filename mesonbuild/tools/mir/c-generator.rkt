@@ -89,12 +89,27 @@
       (module-def-defs module))))
 
 ;get member-def as string
-(define (get-member-def memb module) 
+(define (get-member-def  memb module c-name) 
   (string-append
-  (comment (list (member-def-brief memb)))
-  (format "~a~a " (get-if-struct (member-def-type memb)) (get-c-type-name (member-def-type memb) module))
-  (if (member-def-ref memb) "* " " ")
-  (format "~a;\n"  (member-def-name memb))))
+    (comment (list (member-def-brief memb)))
+    (cond 
+      [(callable-def? (member-def-type memb))
+        (letrec
+          ([member-type (member-def-type memb)] 
+          [ret (callable-def-return member-type)]
+          [ret-type (return-def-type ret)]
+          [ret-ref (return-def-ref ret)]
+          [args (callable-def-args member-type)]
+          [prefix c-name]
+          [name (member-def-name memb)])
+            (string-append
+              (format "~a;\n" (function-representation ret-type ret-ref args module prefix name "_func"))
+              (format "void * ~a_closure;\n" name)))]
+      [else
+        (string-append
+          (format "~a~a " (get-if-struct (member-def-type memb)) (get-c-type-name (member-def-type memb) module))
+          (if (member-def-ref memb) "* " " ")
+          (format "~a;\n"  (member-def-name memb)))])))
 
 ;create members block as string
 (define (get-members module )
@@ -143,6 +158,15 @@
               [(struct-def? memb)  
                 (let ([c-type-name (get-c-type-name memb module)])
                   (string-append
+                    (apply string-append
+                      (map 
+                        (lambda (m)
+                          (cond 
+                            [(member-def? m)  
+                              (define-callable-struct-three-maybe (member-def-type m) module (format "~a_~a" (get-c-type-name memb module)  (member-def-name m) ) )]
+                            [else ""]))
+                        (struct-def-members memb)))
+
                     (comment (list (struct-def-brief memb) (struct-def-doc memb)))
                     (format "struct ~a {\n" 
                       (get-c-type-name memb module))
@@ -151,7 +175,7 @@
                       (lambda (memb)
                         (cond 
                           [(member-def? memb)  
-                          (get-member-def memb module)]
+                          (get-member-def memb module c-type-name)]
                           [else ""]))
                       (struct-def-members memb))
                     "")  
@@ -171,7 +195,9 @@
                                     [arg-type-name (get-c-type-name type module)])
                                 (string-append
                                   (comment (format "Set up property ~a of ~a\n" arg-name c-type-name))
-                                  (format "void ~a_set_~a_(~a* self, ~a* ~a);\n"  c-type-name arg-name c-type-name arg-type-name arg-name)))]
+                                  (if (callable-def? type)
+                                    (format "void ~a_set_~a_(~a* self, ~a);\n"  c-type-name arg-name c-type-name  (get-c-callable-arg type module arg-name c-type-name #f))
+                                    (format "void ~a_set_~a_(~a* self, ~a* ~a);\n"  c-type-name arg-name c-type-name arg-type-name arg-name))))]
                             [else ""]))
                         (struct-def-members memb))) 
 
@@ -197,11 +223,10 @@
                                   (apply  string-append
                                     (map 
                                       (lambda (inp)
-                                        (if (and (callable-def? (arg-def-type inp)) (return-def-type (callable-def-return (arg-def-type inp))))
-                                          (define-callable-struct-three (return-def-type (callable-def-return (arg-def-type inp))) 
+                                        (if (callable-def? (arg-def-type inp))
+                                          (define-callable-struct-three (arg-def-type inp)
                                                                         module 
-                                                                        (format "~a_arg_~a" mthd_name  (arg-def-name inp))
-                                                                        )
+                                                                        (format "~a_arg_~a" mthd_name  (arg-def-name inp)))
                                           ""))
                                       (method-def-args mthd)))
                                   (comment 
@@ -245,6 +270,14 @@
               [(class-def? memb)  
                 (let ([c-type-name (get-c-type-name memb module)])
                   (string-append
+                    (apply string-append
+                      (map 
+                        (lambda (m)
+                          (cond 
+                            [(member-def? m) 
+                              (define-callable-struct-three-maybe (member-def-type m)  module (format "~a_~a" (get-c-type-name memb module)  (member-def-name m) ) )]
+                            [else ""]))
+                        (class-def-members memb)))
                     (comment (list (class-def-brief memb) (class-def-doc memb)))
                     (format "typedef struct ~a_t ~a_t;\n" c-type-name c-type-name)
                     (format "struct ~a_t {\n" c-type-name)
@@ -253,7 +286,7 @@
                         (lambda (memb)
                           (cond 
                             [(member-def? memb)  
-                            (get-member-def memb module)]
+                            (get-member-def memb module c-type-name)]
                             [else ""]
                             ))
                         (class-def-members memb)))  
@@ -278,7 +311,9 @@
                               (append (list (format "~a* self" type-name)) 
                                 (map 
                                   (lambda (arg)
-                                    (format "~a~a ~a" (get-c-type-name (arg-def-type arg) module) (if (arg-def-ref arg)  "*" "") (arg-def-name arg))) 
+                                    (if (callable-def? (get-origin-alias-type (arg-def-type arg)))
+                                      (get-c-callable-arg (arg-def-type arg) module (arg-def-name arg) type-name #f)
+                                      (format "~a~a ~a" (get-c-type-name (arg-def-type arg) module) (if (arg-def-ref arg)  "*" "") (arg-def-name arg)))) 
                                 (constructor-def-args (class-def-constructor memb))))
                             ", ")
                             ");\n"
@@ -295,7 +330,9 @@
                                     [arg-type-name (get-c-type-name type module)])
                                 (string-append
                                   (comment (format "Set up property ~a of ~a\n" arg-name c-type-name))
-                                  (format "void ~a_set_~a_(~a* self, ~a* ~a);\n"  c-type-name arg-name c-type-name arg-type-name arg-name)))]
+                                  (if (callable-def? type)
+                                    (format "void ~a_set_~a_(~a* self, ~a);\n"  c-type-name arg-name c-type-name  (get-c-callable-arg type module arg-name c-type-name #f))
+                                    (format "void ~a_set_~a_(~a* self, ~a* ~a);\n"  c-type-name arg-name c-type-name arg-type-name arg-name))))]
                             [else ""]))
                         (class-def-members memb))) 
 
@@ -314,17 +351,16 @@
                                                       (get-c-callable-type return-type  mthd_name)
                                                       (get-c-type-name return-type module))])
                                 (string-append
-                                  (if (callable-def? return-type) 
-                                      (define-callable-struct-three return-type module mthd_name 0)
+                                  (if (callable-def? origin-return-type) 
+                                      (define-callable-struct-three origin-return-type module mthd_name)
                                       "")
                                     (apply  string-append
                                       (map 
                                         (lambda (inp)
-                                          (if (and (callable-def? (arg-def-type inp)) (return-def-type (callable-def-return (arg-def-type inp))))
-                                            (define-callable-struct-three (return-def-type (callable-def-return (arg-def-type inp))) 
+                                          (if (callable-def? (arg-def-type inp))
+                                            (define-callable-struct-three-maybe (arg-def-type inp)
                                                                           module 
-                                                                          (format "~a_arg_~a" mthd_name  (arg-def-name inp))
-                                                                          )
+                                                                          (format "~a_arg_~a" mthd_name  (arg-def-name inp)))
                                             ""))
                                         (method-def-args mthd)))
 
@@ -333,7 +369,7 @@
                                       (list
                                         (method-def-brief mthd) 
                                         (method-def-doc mthd))
-                                      (list(format "@param ~a" (struct-def-brief memb)))
+                                      (list(format "@param ~a" (class-def-brief memb)))
                                       (map 
                                         (lambda (inp)
                                           (format "@param ~a" (arg-def-brief inp)))
@@ -431,6 +467,11 @@
                             (format "\tdest->~a = src->~a;\n" name name)]
                       [(enum-def? type) 
                             (format "\tdest->~a = src->~a;\n" name name)]
+                      [(callable-def? type) 
+                            (string-append
+                              (format "\tdest->~a_func = src->~a_func ;\n" name name)
+                              (format "\tdest->~a_closure = src->~a_closure;\n" name name )
+                              (format "\t mir_inc_ref(src->~a_closure);\n"name))]
                       [(python-type-def? type) 
                             (format "\tdest->~a = src->~a;\n" name name)]
                       [else
@@ -512,17 +553,28 @@
                                       [orig-arg-type-name (get-c-type-name orig-type module)])
                                 (string-append
                                   (comment (format "Set up property ~a of ~a\n" arg-name type-name))
-                                  (format "void ~a_set_~a_(~a* pSelf, ~a* ~a){\n"  type-name arg-name type-name arg-type-name arg-name)
+                                  (if (callable-def? orig-type)
+                                    (format "void ~a_set_~a_(~a* pSelf, ~a){\n"  type-name arg-name type-name  (get-c-callable-arg orig-type module arg-name type-name #f))
+                                    (format "void ~a_set_~a_(~a* pSelf, ~a* ~a){\n"  type-name arg-name type-name type-name arg-name))
+            
+
                                   (format "~a_t * self = ~a_data_(pSelf);\n" type-name type-name)
                                   (cond 
-                                    [(or(callable-def? orig-type) (class-def? orig-type))
+                                    [(callable-def? orig-type)
+                                      (string-append
+                                          (format "mir_inc_ref(self->~a_closure);\n" arg-name )
+                                          (format "self->~a_func = ~a_func ;\n" arg-name arg-name)
+                                          (format "self->~a_closure = ~a_closure ;\n" arg-name arg-name)
+                                          (format "mir_inc_ref(self->~a_closure);\n" arg-name ))]
+                                    [(class-def? orig-type)
                                       (string-append 
                                         (format "~a_get_descr()->dec_ref_(~aself->~a);\n"orig-arg-type-name (if arg-ref "" "&") arg-name)
                                         (format "self->~a = ~a~a;\n" arg-name ref-symb  arg-name))]
                                     [(python-type-def? orig-type)
                                       (string-append 
-                                        (format "mir_inc_ref(~aself->~a);\n" (if arg-ref "" "&") arg-name)
-                                        (format "self->~a = ~a~a;\n" arg-name ref-symb  arg-name))]
+                                        (format "mir_dec_ref(~aself->~a);\n" (if arg-ref "" "&") arg-name)
+                                        (format "self->~a = ~a~a;\n" arg-name ref-symb  arg-name)
+                                        (format "mir_inc_ref(~aself->~a);\n" (if arg-ref "" "&") arg-name))]
 
                                     [else (format "self->~a = ~a~a;\n" arg-name ref-symb  arg-name)])
                                 "}\n"))]

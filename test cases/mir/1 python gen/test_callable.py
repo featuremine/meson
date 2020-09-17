@@ -26,7 +26,7 @@ pr = psutil.Process()
 def test():
     def double_callable(d):
         return 1
-    t = _mir_wrapper.Test()
+    t = _mir_wrapper.Test(double_callable)
     t.double_callable(double_callable)
 
 

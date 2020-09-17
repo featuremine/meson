@@ -522,26 +522,30 @@
         "")
        (cond 
           [(class-def? origin-type)
-            (format "Py_XINCREF(self->data.~a);" name )]
+            (format "Py_XINCREF(self->data.~a);\n" name )]
           [(callable-def? origin-type)
-            (format "Py_XINCREF(self->data.~a.closure);" name )]
+            (format "Py_XINCREF(self->data.~a_closure);\n" name )]
           [(python-type-def? origin-type)
             (format "Py_XINCREF(self->data.~a);" name )]
           [else ""])
       (build-return-section
-        (format "~aself->data.~a"
-          (if (default-def? type)
-            ""
-              (if member-ref? 
-                (format "(~a*)" type-name) 
-                "")) 
-          name)
+        (cond 
+          [(callable-def? origin-type)
+            (format "{self->data.~a_func,self->data.~a_closure}" name name)]
+          [else
+            (format "~aself->data.~a"
+              (if (default-def? type)
+                ""
+                  (if member-ref? 
+                    (format "(~a*)" type-name) 
+                    "")) 
+              name)])
         type
         module 
         member-ref?
         ""
         #t
-        ""
+        "mir_callable"
         )
       "}\n" 
 
@@ -555,6 +559,17 @@
               (format "PyObject* _pyarg_val_data=value;\n") 
                 (check-arg-block origin-type "val_data" module "-1")
                 (format "self->data.~a = _pyarg_enum_val_data;\n" name)
+                "return 0;\n}\n")]
+            [(callable-def? origin-type)
+             (string-append
+                "PyObject * _pyarg_ = value;\n"
+                "void * _pyfunc_ = NULL;\n"
+                "void * _pyclosure_ = NULL;\n"
+                (check-arg-block origin-type "" module "-1")
+                (format "Py_XDECREF(self->data.~a_closure);\n" name )
+                (format "self->data.~a_func = _pyfunc_;\n" name)
+                (format "self->data.~a_closure = _pyclosure_;\n" name)
+                (format "Py_XINCREF(self->data.~a_closure);\n" name )
                 "return 0;\n}\n")]
             [else 
              (string-append
@@ -577,9 +592,6 @@
                   [(class-def? origin-type)
                       (string-append
                         (format "Py_XDECREF(self->data.~a);\n" name ))]
-                  [(callable-def? origin-type)
-                      (string-append
-                        (format "Py_XDECREF(self->data.~a.closure);\n" name ))]
                   [(python-type-def? origin-type)
                     (if member-ref?
                       (string-append
@@ -999,7 +1011,12 @@
                                                 (if ref
                                                   (format "\t~a_get_descr()->copy_inplace_(self->data.~a , ~a);\n" arg-c-type arg-name (return-arg-representation arg-type arg-name (member-def-ref arg) module))
                                                   (format "\t~a_get_descr()->copy_inplace_(&self->data.~a , &~a);\n" arg-c-type arg-name (return-arg-representation arg-type arg-name (member-def-ref arg) module)))]
-                                              [(or (class-def? arg-real-type) (callable-def? arg-real-type)) 
+                                               [(callable-def? arg-real-type)
+                                                  (string-append
+                                                    (format "\tself->data.~a_func = _pyfunc_~a;\n" arg-name arg-name)
+                                                    (format "\tself->data.~a_closure = _pyclosure_~a;\n" arg-name arg-name )
+                                                    (format "\t Py_XINCREF(_pyclosure_~a);\n"arg-name))]
+                                              [(class-def? arg-real-type)
                                                 (if ref
                                                   (string-append
                                                     (format "\tself->data.~a = ~a;\n~a_get_descr()->inc_ref_(self->data.~a);\n" arg-name (return-arg-representation arg-type arg-name (member-def-ref arg) module) arg-c-type arg-name))
@@ -1026,7 +1043,10 @@
                                     [arg-c-type (get-c-type-name arg-real-type module)]
                                     [ref (member-def-ref arg)])
                                     (cond
-                                        [(or (class-def? arg-real-type) (callable-def? arg-real-type)) 
+                                        [(callable-def? arg-real-type)
+                                          (string-append
+                                            (format "\t Py_XINCREF(self->data.~a_closure);\n"arg-name))]
+                                        [(or (class-def? arg-real-type)) 
                                           (if ref
                                             (string-append
                                               (format "\tif(self->data.~a) ~a_get_descr()->dec_ref_(self->data.~a);\n" arg-name arg-c-type arg-name))
@@ -1561,12 +1581,11 @@
              (apply string-append 
                 (map
                   (lambda (memb)
-                      (let([key (type-def-name memb)])
-                      (if (and (callable-def? memb) (not (set-member? callable-set key)))
+                      (if (and (callable-def? memb) (not (set-member? callable-set (type-def-name memb))))
                           (begin 
-                            (set-add! callable-set key)
+                            (set-add! callable-set (type-def-name memb))
                             (format "~a\n" (get-callable-impl memb module)))
-                          "")))
+                          ""))
                   (module-def-defs mod)))))))
       
       "// Module definitions\n"
