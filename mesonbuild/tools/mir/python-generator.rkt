@@ -1020,6 +1020,8 @@
                                           [arg-python-type (get-python-arg-type-name (member-def-type arg) module)]
                                           )
                                           (cond
+                                              [(python-type-def? arg-real-type)
+                                               (format "\tself->data.~a = ~a;\nmir_inc_ref(self->data.~a);\n" arg-name (return-arg-representation arg-type arg-name (member-def-ref arg) module) arg-name)]
                                               [(or (default-def? arg-real-type) (enum-def? arg-real-type))
                                                 (format "self->data.~a = ~a;\n" arg-name (return-arg-representation arg-type arg-name (member-def-ref arg) module))]
                                               [(struct-def? arg-real-type)

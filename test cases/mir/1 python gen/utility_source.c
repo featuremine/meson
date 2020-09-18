@@ -315,3 +315,23 @@ bool graph_utility_Decimal_operator_less (struct graph_utility_Decimal* self, st
 bool graph_utility_Decimal_operator_equal (struct graph_utility_Decimal* self, struct graph_utility_Decimal val){
   return self->value == val.value;
 }
+
+
+void graph_utility_TestSet_destructor(graph_utility_TestSet *pSelf){
+  graph_utility_TestSet_t* self = graph_utility_TestSet_data_(pSelf);
+  mir_dec_ref(self->py_type_);
+  mir_dec_ref(self->class_);
+  mir_dec_ref_callable(&self->callable_);
+}
+void graph_utility_TestSet_constructor(graph_utility_TestSet* pSelf, PythonTest* py_type_, graph_utility_Decimal struct_, PythonTest* class_, r_none callable_, int32_t int_type_, graph_utility_TestEnum enum_){
+  graph_utility_TestSet_t* self = graph_utility_TestSet_data_(pSelf);
+  mir_inc_ref(py_type_);
+  self->py_type_ = py_type_;
+  self->struct_ = struct_;
+  mir_inc_ref(class_);
+  self->class_=class_;
+  mir_inc_ref_callable(&callable_);
+  self->callable_=callable_;
+  self->int_type_ = int_type_;
+  self->enum_ = enum_;
+}

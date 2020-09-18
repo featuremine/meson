@@ -576,3 +576,67 @@
         [def-return 
             [brief "PythonTest"]
             [type PythonTest]#:ref]])
+
+
+(def-class TestSet
+    [brief "TestSet"]
+    [doc "TestSet"]
+    [def-constructor
+        [def-arg py_type_
+            [brief "py_type"]
+            [type PythonTest]#:ref]
+        [def-arg struct_
+            [brief "structure"]
+            [type Decimal]]
+        [def-arg class_
+            [brief "PythonTest"]
+            [type PythonTest]#:ref]
+        [def-arg callable_
+            [brief "callable"]
+            [type (def-callable)]]
+        [def-arg int_type_
+            [brief "enum"]
+            [type int32]]
+        [def-arg enum_
+            [brief "int"]
+            [type TestEnum]]]
+    [def-member py_type_
+        [brief "py_type"]
+        [type PythonTest]#:ref]
+    [def-member struct_
+        [brief "structure"]
+        [type Decimal]]
+    [def-member class_
+        [brief "PythonTest"]
+        [type PythonTest]#:ref]
+    [def-member callable_
+        [brief "callable"]
+        [type (def-callable)]]
+    [def-member int_type_
+        [brief "int"]
+        [type int32]]
+    [def-member enum_
+        [brief "enum"]
+        [type TestEnum]])
+
+(def-struct TestSetStruct
+    [brief "TestSet"]
+    [doc "TestSet"]
+    [def-member py_type_
+        [brief "py_type"]
+        [type PythonTest]#:ref]
+    [def-member struct_
+        [brief "structure"]
+        [type Decimal]]
+    [def-member class_
+        [brief "PythonTest"]
+        [type PythonTest]#:ref]
+    [def-member callable_
+        [brief "callable"]
+        [type (def-callable)]]
+    [def-member int_type_
+        [brief "int"]
+        [type int32]]
+    [def-member enum_
+        [brief "enum"]
+        [type TestEnum]])
