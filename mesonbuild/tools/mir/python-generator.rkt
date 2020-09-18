@@ -591,9 +591,10 @@
                     [(default-def? origin-type) "value" ]  
                     [else (format "(~a*)value" type-name-python )]
                   )))
-              "if (PyErr_Occurred()) {\n\treturn -1;\n\t}\n" 
+              (if (or (class-def? origin-type) (struct-def? origin-type) ) 
+                (check-arg-block origin-type "" module "-1")
+                "if (PyErr_Occurred()) {\n\treturn -1;\n\t}\n" )     
 
-              
                 (cond  
                   [(class-def? origin-type)
                       (string-append
@@ -1451,7 +1452,7 @@
       (format "return ~a;\n}\n" ret-val))))   
 
 ;add block with one argument checks
-(define (check-arg-block arg-type arg-name module ret-val)   
+(define (check-arg-block arg-type arg-name module ret-val [prefix "_pyarg_"])   
   (cond 
     [(default-def? arg-type) ""]
     [(alias-def?  arg-type) (check-arg-block (alias-def-type arg-type) arg-name module ret-val)]
