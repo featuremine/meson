@@ -530,7 +530,7 @@
 ;return get-sets block with implementations for member of struct
 (define (get-member-get-sets-python  struct_name memb module)
   (letrec ([type-name-python (get-python-type-name (member-def-type memb) module)]
-        [type-name (get-c-type-name (member-def-type memb) module)]                     
+        [type-name (get-c-type-name (get-origin-alias-type (member-def-type memb)) module)]                     
         [name (member-def-name memb)]  
         [type (member-def-type memb)]
         [brief (member-def-brief memb)] 
@@ -573,44 +573,42 @@
           (cond 
             [(enum-def? origin-type)
              (string-append
-              (format "PyObject* _pyarg_val_data=value;\n") 
-                (check-arg-block origin-type "val_data" module "-1")
-                (format "self->data.~a = _pyarg_enum_val_data;\n" name)
-                "return 0;\n}\n")]
-            [else 
+              (check-arg-block origin-type "value" module "-1" "")
+              (format "self->data.~a = _pyarg_enum_value;\n" name)
+              "return 0;\n}\n")]
+            [(or (python-type-def? origin-type) (class-def? origin-type))
              (string-append
-              (format "~a~a val=~a~a;\n" 
-                type-name
-                (if member-ref?
-                  "*"
-                  "")
-                (if (or  (default-def? origin-type) member-ref?) 
-                  "" "*")
-                (format (to-c-type origin-type module) 
-                  (cond 
-                    [(default-def? origin-type) "value" ]  
-                    [else (format "(~a*)value" type-name-python )]
-                  )))
-              (if (or (class-def? origin-type) (struct-def? origin-type) ) 
-                (check-arg-block origin-type "" module "-1")
-                "if (PyErr_Occurred()) {\n\treturn -1;\n\t}\n" )     
-
-                (cond  
-                  [(class-def? origin-type)
-                      (string-append
-                        (format "Py_XDECREF(self->data.~a);\n" name ))]
-                  [(callable-def? origin-type)
-                      (string-append
-                        (format "Py_XDECREF(self->data.~a.closure);\n" name ))]
-                  [(python-type-def? origin-type)
-                    (if member-ref?
-                      (string-append
-                        (format "Py_XDECREF(self->data.~a);\n" name ))
-                      (string-append
-                        (format "Py_XDECREF(&self->data.~a);\n" name )))]       
-                [else ""])
-              (format "self->data.~a = val;\n" name)
-              "return 0;\n}\n")])))))
+                (check-arg-block origin-type "value" module "-1" "")
+                (format "~a* val=~a;\n" type-name   
+                        (format (to-c-type origin-type module) (format "(~a*)value" type-name-python )))
+                (format "Py_XDECREF(self->data.~a);\n" name)
+                (format "self->data.~a = val;\n" name)
+                (format "Py_INCREF(self->data.~a);\n" name )
+                "return 0;\n}\n")]
+            [(struct-def? origin-type)
+             (string-append
+                (check-arg-block origin-type "value" module "-1" "")
+                (format "~a* val=~a;\n" type-name   
+                        (format (to-c-type origin-type module) (format "(~a*)value" type-name-python )))
+                (format "self->data.~a = *val;\n" name)
+                "return 0;\n}\n")]
+            [(callable-def? origin-type)
+             (string-append
+                (format "~a data_val = {0};\n" type-name)
+                (format "_pys_~a *val=(_pys_~a*) value;\n" type-name type-name)
+                (check-arg-block origin-type "val" module "-1" "" "data_")
+                (format "Py_XDECREF(self->data.~a.closure);\n" name)
+                (format "self->data.~a = data_val;\n" name)
+                (format "Py_INCREF(self->data.~a.closure);\n" name )
+                "return 0;\n}\n")]
+            [(default-def? origin-type)
+              (string-append
+                (check-arg-block origin-type "value" module "-1" "")
+                (format "~a val=~a;\n" type-name   
+                        (format (to-c-type origin-type module) "value" ))
+                (format "self->data.~a = val;\n" name)
+                "return 0;\n}\n")]
+            [else ""])))))
 
 ;return Python type for py object
 (define (type_of_py_object memb module)
@@ -1452,23 +1450,22 @@
       (format "return ~a;\n}\n" ret-val))))   
 
 ;add block with one argument checks
-(define (check-arg-block arg-type arg-name module ret-val [prefix "_pyarg_"])   
+(define (check-arg-block arg-type arg-name module ret-val [prefix "_pyarg_"] [prefix-callable "_pyargdata_"])   
   (cond 
     [(default-def? arg-type) ""]
     [(alias-def?  arg-type) (check-arg-block (alias-def-type arg-type) arg-name module ret-val)]
     [(enum-def?  arg-type) 
         (string-append
-          (type-check-return-section (format "_pyarg_~a" arg-name )   (format "_get_~a()" (get-c-type-name arg-type module))   (type-def-name arg-type) ret-val)
-          (format "long _pyarg_enum_~a = PyLong_AsLong(PyObject_GetAttrString(_pyarg_~a, \"value\"));\n" arg-name arg-name))]
+          (type-check-return-section (format "~a~a" prefix arg-name )   (format "_get_~a()" (get-c-type-name arg-type module))   (type-def-name arg-type) ret-val)
+          (format "long _pyarg_enum_~a = PyLong_AsLong(PyObject_GetAttrString(~a~a, \"value\"));\n" arg-name prefix arg-name))]
     [(callable-def? arg-type) 
-      (callable-check-block arg-type (format "_pyarg_~a" arg-name)  (format "_pyargdata_~a" arg-name) (format "_py_is_python_~a" arg-name) (get-python-type-name arg-type module) (get-c-type-name arg-type module) module ret-val)]
+      (callable-check-block arg-type (format "~a~a" prefix arg-name)  (format "~a~a"prefix-callable arg-name) (format "_py_is_python_~a" arg-name) (get-python-type-name arg-type module) (get-c-type-name arg-type module) module ret-val)]
     [(python-type-def?  arg-type) 
       (if (not (equal? (python-type-def-real-name arg-type) "any"))
-        (type-check-return-section (format "_pyarg_~a" arg-name )   (python-type-def-real-name arg-type) (type-def-name arg-type) ret-val #f)
+        (type-check-return-section (format "~a~a" prefix arg-name )   (python-type-def-real-name arg-type) (type-def-name arg-type) ret-val #f)
         "")]
     [else    
-      (type-check-return-section (format "_pyarg_~a" arg-name )   (format "_get~a()" (get-python-arg-type-name arg-type module)) (type-def-name arg-type) ret-val)]))
-
+      (type-check-return-section (format "~a~a" prefix arg-name )   (format "_get~a()" (get-python-arg-type-name arg-type module)) (type-def-name arg-type) ret-val)]))
 ;add block with arguments checks
 (define (check-args-block args module ret-val)
     (apply string-append 
