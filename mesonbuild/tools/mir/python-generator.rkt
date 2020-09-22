@@ -191,7 +191,6 @@
           (string-append 
             (format "char * _py_string_ret_= ~a;\n"data)
             (format "PyObject* _pyret_ = ~a;\n"(format python-t "_py_string_ret_"))
-            "free(_py_string_ret_);\n"
             after-section         
             "return (PyObject*) _pyret_;\n")]
         [(python-type-def? real-type) 
@@ -603,9 +602,12 @@
                 "return 0;\n}\n")]
             [(default-def? origin-type)
               (string-append
-                (check-arg-block origin-type "value" module "-1" "")
                 (format "~a val=~a;\n" type-name   
                         (format (to-c-type origin-type module) "value" ))
+                "if (PyErr_Occurred()) {\n  return -1;\n}\n"
+                (if (equal? (type-def-name type) "string")
+                  (format "free(self->data.~a);\n"name) 
+                  "")
                 (format "self->data.~a = val;\n" name)
                 "return 0;\n}\n")]
             [else ""])))))
