@@ -329,3 +329,12 @@ void graph_utility_TestSet_constructor(graph_utility_TestSet* pSelf, PythonTest*
   self->int_type_ = int_type_;
   self->enum_ = enum_;
 }
+
+
+
+graph_utility_Decimal get_decimal(void *c){
+return (graph_utility_Decimal){3};
+}
+graph_utility_get_decimal_callback_ret get_mir_const_graph_utility_get_decimal_callback(){
+return (graph_utility_get_decimal_callback_ret){get_decimal, NULL};
+}

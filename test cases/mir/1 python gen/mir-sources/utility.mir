@@ -641,11 +641,10 @@
         [brief "enum"]
         [type TestEnum]])
 
-(def-const get_sample_callback
-    [brief "sample callback"]
-    [doc "Return sample callback"]
-    [type (def-callable
-            [def-return 
-                [brief "callable"]
-                [type (def-callable )] ])]
+
+
+(def-const get_decimal_callback
+    [brief "sample decimal callback"]
+    [doc "Return sample decimal callback"]
+    [type (def-callable [def-return [brief "Decimal"] [def-type Decimal]])]
         [val #f])

@@ -2044,16 +2044,30 @@
                     "   return NULL;\n}\n"
                     (string-append
                       (format " ~a ret_val" (get-c-type-name ret-type module))
-                      (if (or (default-def? ret-type) (enum-def? ret-type))
-                        (format " = ~a;\n"(get-default ret-type))
-                        ";\n")
+                      (cond 
+                        [(or (default-def? ret-type) (enum-def? ret-type))
+                          (format " = ~a;\n"(get-default ret-type))]
+                        [(struct-def? ret-type)
+                          " = {0};\n"]
+                        [else ";\n"])
+                        
                       "   return ret_val;\n}\n" ))
-                  (format "return ~a;" 
+                  (format (if (or (class-def? ret-type)(struct-def? ret-type) (python-type-def? ret-type))
+                     "~a* ret_val = ~a;\n"
+                     "~a ret_val = ~a;\n")
+                    ret-c-type-name 
                     (format (to-c-type ret-type module) 
                       (format "~a _pyret_ret"
                         (if (not (default-def? ret-type))
                           (format "(~a *)" ret-python-type-name)
-                          "")))))])
+                          ""))))
+            
+                  (if (or (class-def? ret-type)(struct-def? ret-type) ( python-type-def? ret-type))
+                    (format "return ~aret_val;\n"(if ret-ref "" "*"))
+                     "return ret_val;\n")
+                
+                          
+                          )])
       
             "}\n"
 
