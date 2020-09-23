@@ -1063,7 +1063,7 @@
                                     (cond
                                         [(callable-def? arg-real-type)
                                           (string-append
-                                            (format "\t Py_XINCREF(self->data.~a_closure);\n"arg-name))]
+                                            (format "\t Py_XDECREF(self->data.~a_closure);\n"arg-name))]
                                         [(or (class-def? arg-real-type)) 
                                           (if ref
                                             (string-append
