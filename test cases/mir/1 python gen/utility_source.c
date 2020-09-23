@@ -314,17 +314,18 @@ void graph_utility_TestSet_destructor(graph_utility_TestSet *pSelf){
   graph_utility_TestSet_t* self = graph_utility_TestSet_data_(pSelf);
   mir_dec_ref(self->py_type_);
   mir_dec_ref(self->class_);
-  mir_dec_ref_callable(&self->callable_);
+  mir_dec_ref(self->callable__closure);
 }
-void graph_utility_TestSet_constructor(graph_utility_TestSet* pSelf, PythonTest* py_type_, graph_utility_Decimal struct_, PythonTest* class_, r_none callable_, int32_t int_type_, graph_utility_TestEnum enum_){
+void graph_utility_TestSet_constructor(graph_utility_TestSet* pSelf, PythonTest* py_type_, graph_utility_Decimal struct_, PythonTest* class_, CALLABLE_ARG(callable_,void), int32_t int_type_, graph_utility_TestEnum enum_){
   graph_utility_TestSet_t* self = graph_utility_TestSet_data_(pSelf);
   mir_inc_ref(py_type_);
   self->py_type_ = py_type_;
   self->struct_ = struct_;
   mir_inc_ref(class_);
   self->class_=class_;
-  mir_inc_ref_callable(&callable_);
-  self->callable_=callable_;
+  mir_inc_ref(callable__closure);
+  self->callable__closure=callable__closure;
+  self->callable__func=callable__func;
   self->int_type_ = int_type_;
   self->enum_ = enum_;
 }
