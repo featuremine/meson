@@ -1021,6 +1021,8 @@
                                           [arg-python-type (get-python-arg-type-name (member-def-type arg) module)]
                                           )
                                           (cond
+                                              [(python-type-def? arg-real-type)
+                                               (format "\tself->data.~a = ~a;\nmir_inc_ref(self->data.~a);\n" arg-name (return-arg-representation arg-type arg-name (member-def-ref arg) module) arg-name)]
                                               [(or (default-def? arg-real-type) (enum-def? arg-real-type))
                                                 (format "self->data.~a = ~a;\n" arg-name (return-arg-representation arg-type arg-name (member-def-ref arg) module))]
                                               [(struct-def? arg-real-type)
@@ -1382,9 +1384,9 @@
                               (format (to-python-type (const-def-type memb)) absolute-name))]
                           [else 
                               (string-append 
-                                (format "~a ~a const_data_~a = get_mir_const_~a();\n" c-type (if (const-def-ref memb) "*" "") c-type (get-c-type-name-from-string (const-def-name memb)))
+                                (format "~a ~a const_data_~a = get_mir_const_~a();\n" c-type (if (const-def-ref memb) "*" "") absolute-name (get-c-type-name-from-string (const-def-name memb)))
                                 (format "add_const_to_module(_pyargmod_~a, \"~a\", ~a);\n" ns name
-                                  (format "_from_data_pys_~a(~aconst_data_~a)"c-type-real (if (const-def-ref memb) "" "&") c-type)))]))]
+                                  (format "_from_data_pys_~a(~aconst_data_~a)"c-type-real (if (const-def-ref memb) "" "&") absolute-name)))]))]
             [else ""])))
         (module-def-defs module))))
 

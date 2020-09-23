@@ -279,9 +279,51 @@ def test():
     d4 = d1+2000000000
     assert(d4 == 3000000000)
 
+ 
+    # test set
+    py_type_ = testPython
+    struct_ = _mir_wrapper.utility.Decimal(1000000000)
+    class_ = testPython
+    def callable_set():
+        pass
+    callable_ = callable_set
+    int_type_ = 1
+    enum_ = _mir_wrapper.utility.TestEnum.val3
 
-    
-    
+    def set_attr(obj, field, var):
+        try:
+            setattr(obj,field,var)
+            return  True
+        except:
+            return False
+    set_class = _mir_wrapper.utility.TestSet(py_type_,struct_,class_,callable_,int_type_,enum_)
+    assert (set_attr(set_class, "py_type_", py_type_)==True)
+    assert (set_attr(set_class, "py_type_", 1)==False) 
+    assert (set_attr(set_class, "struct_", struct_)==True)
+    assert (set_attr(set_class, "struct_", 1)==False)     
+    assert (set_attr(set_class, "class_", class_)==True)
+    assert (set_attr(set_class, "class_", 1)==False) 
+    assert (set_attr(set_class, "callable_", callable_)==True)
+    assert (set_attr(set_class, "callable_", 1)==False) 
+    assert (set_attr(set_class, "int_type_", int_type_)==True)
+    assert (set_attr(set_class, "int_type_", "1")==False) 
+    assert (set_attr(set_class, "enum_", enum_)==True)
+    assert (set_attr(set_class, "enum_", 1)==False) 
+
+    set_struct = _mir_wrapper.utility.TestSetStruct(py_type_,struct_,class_,callable_,int_type_,enum_)
+    assert (set_attr(set_struct, "py_type_", py_type_)==True)
+    assert (set_attr(set_struct, "py_type_", 1)==False) 
+    assert (set_attr(set_struct, "struct_", struct_)==True)
+    assert (set_attr(set_struct, "struct_", 1)==False)     
+    assert (set_attr(set_struct, "class_", class_)==True)
+    assert (set_attr(set_struct, "class_", 1)==False) 
+    assert (set_attr(set_struct, "callable_", callable_)==True)
+    assert (set_attr(set_struct, "callable_", 1)==False) 
+    assert (set_attr(set_struct, "int_type_", int_type_)==True)
+    assert (set_attr(set_struct, "int_type_", "1")==False) 
+    assert (set_attr(set_struct, "enum_", enum_)==True)
+    assert (set_attr(set_struct, "enum_", 1)==False) 
+
 if __name__ == "__main__":
     mem0 = None
     mem10 = None
