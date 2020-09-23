@@ -640,3 +640,12 @@
     [def-member enum_
         [brief "enum"]
         [type TestEnum]])
+
+(def-const get_sample_callback
+    [brief "sample callback"]
+    [doc "Return sample callback"]
+    [type (def-callable
+            [def-return 
+                [brief "callable"]
+                [type (def-callable )] ])]
+        [val #f])

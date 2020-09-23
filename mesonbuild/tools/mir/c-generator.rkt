@@ -103,7 +103,7 @@
           [prefix c-name]
           [name (member-def-name memb)])
             (string-append
-              (format "~a;\n" (function-representation ret-type ret-ref args module prefix name "_func"))
+              (format "~a;\n" (function-representation ret-type ret-ref args module (format "~a_" prefix) name "_func"))
               (format "void * ~a_closure;\n" name)))]
       [else
         (string-append
@@ -151,11 +151,21 @@
               [(const-def? memb)  
                 (string-append
                   (comment (list (const-def-brief memb) (const-def-doc memb)))
-                  (if (default-def? (const-def-type memb))
-                    (format "#define ~a ~a\n\n" 
-                      (get-c-type-name-from-string (const-def-name memb)) 
-                      (const-def-val memb))
-                    (format "~a ~a get_mir_const_~a();\n" (get-c-type-name (const-def-type memb) module)  (if (const-def-ref memb) "*" "")  (get-c-type-name-from-string (const-def-name memb)))))]
+                  (letrec ([arg-type (const-def-type memb)]
+                    [arg-name (const-def-name memb)]
+                    [string-name (get-c-type-name-from-string arg-name)]
+                    [arg-real-type (get-origin-alias-type arg-type)])
+                  (cond 
+                    [(default-def? arg-type)
+                      (format "#define ~a ~a\n\n" 
+                        (get-c-type-name-from-string arg-name) 
+                        (const-def-val memb))]
+                    [(callable-def? arg-real-type)
+                      (string-append
+                        (define-callable-struct-three arg-real-type module string-name)
+                        (format "~a get_mir_const_~a();\n"  (get-c-callable-type arg-real-type string-name) string-name))]
+                    [else 
+                      (format "~a ~a get_mir_const_~a();\n" (get-c-type-name (const-def-type memb) module)  (if (const-def-ref memb) "*" "")  string-name)])))]
 
               [(struct-def? memb)  
                 (let ([c-type-name (get-c-type-name memb module)])

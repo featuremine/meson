@@ -119,15 +119,17 @@
   (if (or (struct-def? type) (class-def? type) (python-type-def? type)) "struct " ""))
 
 ;generate c function representation
-(define (function-representation ret ret-ref args module prefix name [name-addition ""])
+(define (function-representation ret ret-ref args module prefix name [name-addition ""] [alternate-name #f])
   (string-append
-      (format "~a~a~a (*~a)("
+      (format "~a~a~a (~a)("
         (get-if-struct ret) 
         (if (callable-def? ret)  
-          (get-c-callable-type ret (format "~a_~a" prefix name ))
+          (get-c-callable-type ret (format "~a~a" prefix name ))
           (get-c-type-name ret module))
         (if ret-ref "*" "")
-        (format "~a~a" name name-addition))
+        (if alternate-name
+          (format "*~a" alternate-name)
+          (format "*~a~a" name name-addition)))
 
     
     (string-join  
@@ -135,7 +137,7 @@
           (map 
             (lambda (inp)
               (if (callable-def? (arg-def-type inp))  
-                (get-c-callable-arg inp module (arg-def-name inp))
+                (get-c-callable-arg (arg-def-type inp) module name (arg-def-name inp))
                 (string-append
                   (format "~a~a " (get-if-struct (arg-def-type inp)) (get-c-type-name (arg-def-type inp) module))
                   (if (arg-def-ref inp) "*" "")
@@ -167,40 +169,17 @@
     (apply  string-append
       (map 
         (lambda (inp)
-          (if (and (callable-def? (arg-def-type inp)) (return-def-type (callable-def-return (arg-def-type inp))))
-            (define-callable-struct-three (return-def-type (callable-def-return (arg-def-type inp)))
+          (if (and (callable-def? (arg-def-type inp)))
+            (define-callable-struct-three-maybe (arg-def-type inp)
                                           module 
                                           (format "~a_arg_~a_ret" name  (arg-def-name inp))
                                           )
             ""))
         args))
       ;define current struct
-      
       (string-append
         "typedef struct {\n"
-          (format "\t~a~a~a (*func)("
-            (get-if-struct (return-def-type(callable-def-return memb)))
-            ret-name
-            (if (return-def-ref (callable-def-return memb)) "*" "")) 
-
-        (string-join  
-            (append
-              (map 
-                (lambda (inp)
-                (letrec ([arg-type (arg-def-type inp)]
-                          [arg-name (if (callable-def? arg-type) 
-                          (get-c-callable-type memb (format "~a_arg_~a" name (arg-def-name inp)))
-                          (arg-def-name inp))])
-                  (string-append
-                    (format "~a~a " (get-if-struct (arg-def-type inp)) (get-c-type-name (arg-def-type inp) module))
-                    (if (arg-def-ref inp) "*" "")
-                    arg-name
-                    )))
-                args)
-                (list "void *c"))
-              ",")
-              
-        ");\n"
+        (function-representation return-type (return-def-ref (callable-def-return memb)) (callable-def-args memb) module  name "_ret" "" "func")
         "\tvoid *closure;\n"
         (format "}~a;\n" (get-c-callable-type memb name ))))))
 

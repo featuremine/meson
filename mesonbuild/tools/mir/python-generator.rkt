@@ -1382,6 +1382,12 @@
                           [(default-def? real-type)
                             (format "add_const_to_module(_pyargmod_~a, \"~a\", ~a);\n" ns name 
                               (format (to-python-type (const-def-type memb)) absolute-name))]
+                          [(callable-def? real-type)
+                            (string-append
+                              (format "~a ~a const_data_~a =  get_mir_const_~a();\n"  (get-c-callable-type real-type absolute-name) (if (const-def-ref memb) "*" "") absolute-name (get-c-type-name-from-string (const-def-name memb)))
+                              (format "add_const_to_module(_pyargmod_~a, \"~a\", ~a);\n" ns name
+                                (format "_from_data_pys_~a((mir_callable*)&const_data_~a)"c-type-real  absolute-name)))
+                              ]
                           [else 
                               (string-append 
                                 (format "~a ~a const_data_~a = get_mir_const_~a();\n" c-type (if (const-def-ref memb) "*" "") absolute-name (get-c-type-name-from-string (const-def-name memb)))
@@ -1580,6 +1586,30 @@
               (hash-set! ns-map main-ns-name (namespace-def (module-def-brief mod) (module-def-doc mod) (module-def-ns mod) (append (module-def-defs mod) members) (mutable-set)))))))
       (append (list main-module) (hash-values module-map)))
     ns-map))
+
+
+(define (add-callable-children callable callable-set module)
+  (let ([ret (get-origin-alias-type (return-def-type(callable-def-return callable)))])
+    (string-append
+      (apply string-append
+        (map  
+          (lambda (arg)
+            (letrec ([memb (get-origin-alias-type (arg-def-type arg))])
+              (if (and (callable-def? memb) (not (set-member? callable-set (type-def-name memb))))
+                (begin 
+                  (add-callable-children memb callable-set module)
+                  (set-add! callable-set (type-def-name memb))
+                  (format "~a\n" (get-callable-impl memb module)))
+                "")))
+          (callable-def-args callable)))
+    (if (and (callable-def? ret) (not (set-member? callable-set (type-def-name ret))))
+      (begin 
+        (add-callable-children ret callable-set module)
+        (set-add! callable-set (type-def-name ret))
+        (format "~a\n" (get-callable-impl ret module)))
+      ""))))
+
+
 ;return members of python module file block    
 (define (get-members-module module module-map)
   (let ([ns-map (get-module-namespaces module module-map)]
@@ -1597,12 +1627,15 @@
             (lambda (mod-key mod)
              (apply string-append 
                 (map
-                  (lambda (memb)
+                  (lambda (m)
+                    (letrec ([memb (get-origin-alias-type m)])
                       (if (and (callable-def? memb) (not (set-member? callable-set (type-def-name memb))))
                           (begin 
                             (set-add! callable-set (type-def-name memb))
-                            (format "~a\n" (get-callable-impl memb module)))
-                          ""))
+                            (string-append
+                              (add-callable-children memb callable-set module)
+                              (format "~a\n" (get-callable-impl memb module))))
+                          "")))
                   (module-def-defs mod)))))))
       
       "// Module definitions\n"
