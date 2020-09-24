@@ -607,9 +607,9 @@
                 "if (PyErr_Occurred()) {\n  return -1;\n}\n"
                 (if (equal? (type-def-name type) "string")
                   (string-append
-                    (format "size_t _py_size_len = strlen(val);\n")
+                    "size_t _py_size_len = strlen(val);\n"
                     (format "self->data.~a = realloc(self->data.~a,_py_size_len+1);\n" name name)
-                    (format "self->data.~a = memcpy(self->data.~a,val,_py_size_len+1);\n"name name))
+                    (format "memcpy(self->data.~a,val,_py_size_len+1);\n" name))
                   (format "self->data.~a = val;\n" name))
                 "return 0;\n}\n")]
             [else ""])))))
