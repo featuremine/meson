@@ -94,7 +94,8 @@ class Imports:
         graph = findimports.ModuleGraph()
         try:
             graph.parsePathname(path)
-        except:
+        except Exception as e:
+            print(e)
             raise mesonlib.MesonException(f"{colors.RED}hadron{colors.NC} while looking for imports, could not parse module {path}")
         res = {}
         for module in graph.listModules():
@@ -295,7 +296,11 @@ class HadronModule(ExtensionModule):
         import sys
 
         try:
-            api.run(['--disallow-untyped-defs', '--disallow-incomplete-defs', '--ignore-missing-imports', '{in_path}'])
+            out, err, res = api.run(['--disallow-untyped-defs', '--disallow-incomplete-defs', '--ignore-missing-imports', '--show-error-codes', '--disable-error-code', 'no-redef', '{in_path}'])
+            if res != 0:
+                print(out)
+                print(err)
+                exit(res)
         except Exception as e:
             print("Exception: ", e)
             print("{colors.RED}ERROR: Invalid type verification for '{in_path}'.{colors.NC}")
