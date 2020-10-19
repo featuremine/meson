@@ -165,7 +165,8 @@ class HadronModule(ExtensionModule):
         else:
             init_target = self.gen_init_trgt(cpy_trgts_list + root_targets + ext_deps + ext_targets)
             ret += [init_target]
-
+        pyi_target = [self.gen_copy_pyi(shalib_target)]
+        ret += pyi_target
         if self.samples is not None:
             for sample in self.samples:
                 self.sources[os.path.join(self.name,'samples')].append(os.path.join(self.source_dir, sample.subdir, sample.fname))
@@ -275,6 +276,25 @@ class HadronModule(ExtensionModule):
         self.sources[os.path.join(self.name, os.path.dirname(path.fname))].append(os.path.join(self.pkg_dir, path.fname))
         return (self.path_to_module(path), build.CustomTarget(self.target_name('copy', path), out_subdir, self.subproject, custom_kwargs))
 
+    def gen_copy_pyi(self,target):
+        """
+        Generate custom target to copy python typing .pyi file.
+        """
+        out_subdir = os.path.join(self.pkg_dir)
+        basename = '_mir_wrapper.pyi'
+        in_path = os.path.join(self.api_gen_dir, 'python',basename)
+        depends = [target]
+        custom_kwargs = {
+            'input' : in_path,
+            'output' : basename,
+            'command' : ['cp', '@INPUT@', '@OUTPUT@'],
+            'build_by_default' : True,
+            'depends': depends
+        }
+
+        return  build.CustomTarget(self.target_name('copy', in_path), out_subdir, self.subproject, custom_kwargs)
+
+
     def gen_mypy_trgt(self, path: mesonlib.File, deps) -> build.CustomTarget:
         """
         Generates custom target to run type annotation verification for that mypy is used.
@@ -365,6 +385,7 @@ class HadronModule(ExtensionModule):
             if py.fname != "__init__.py":
                 mod, trgt = self.gen_copy_trgt(py)
                 copy_targets[mod] = trgt
+        
         return copy_targets
 
     def gen_verification_trgts(self, cpy_trgts, ext_deps = []):
