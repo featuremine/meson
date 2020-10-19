@@ -59,7 +59,9 @@ hadron_package_kwargs = set([
     'samples',
     'tests',
     'documentation',
-    'style'
+    'style',
+    'cpp_args',
+    'link_language'
 ])
 
 # these will be removed if not require for shlib
@@ -151,7 +153,7 @@ class HadronModule(ExtensionModule):
         self.python3 = self.python3_inst.method_call('path', [], {})
         self.mir_sources = set()
 
-        py_copy_targets = self.gen_copy_trgts()
+        py_copy_targets, py_targets = self.gen_copy_trgts()
         cpy_trgts_list = [trgt for _, trgt in py_copy_targets.items()]
         root_targets = self.root_files_targets()
         [ext_targets, ext_deps] = self.process_extensions(self.extensions)
@@ -183,7 +185,7 @@ class HadronModule(ExtensionModule):
 
         if self.verify:
             ext_deps = [shalib_target] if shalib_target is not None else []
-            ret += self.gen_verification_trgts(py_copy_targets, ext_deps)
+            ret += self.gen_verification_trgts(py_copy_targets, py_targets, [init_target] + ext_deps)
 
         for target in ret:
             if isinstance(target, interpreter.SharedModuleHolder):
@@ -265,10 +267,9 @@ class HadronModule(ExtensionModule):
 
         out_subdir = os.path.join(self.pkg_dir, os.path.dirname(path.fname))
         basename = os.path.basename(path.fname)
-        in_path = os.path.join(self.source_dir, path.subdir, path.fname)
 
         custom_kwargs = {
-            'input' : in_path,
+            'input' : path,
             'output' : basename,
             'command' : ['cp', '@INPUT@', '@OUTPUT@'],
             'build_by_default' : True
@@ -276,7 +277,7 @@ class HadronModule(ExtensionModule):
         self.sources[os.path.join(self.name, os.path.dirname(path.fname))].append(os.path.join(self.pkg_dir, path.fname))
         return (self.path_to_module(path), build.CustomTarget(self.target_name('copy', path), out_subdir, self.subproject, custom_kwargs))
 
-    def gen_mypy_trgt(self, path: mesonlib.File, deps) -> build.CustomTarget:
+    def gen_mypy_trgt(self, path: mesonlib.File, in_target, deps) -> build.CustomTarget:
         """
         Generates custom target to run type annotation verification for that mypy is used.
         """
@@ -286,7 +287,7 @@ class HadronModule(ExtensionModule):
 
         out_subdir = os.path.join(self.pkg_dir, os.path.dirname(path.fname))
         basename = os.path.basename(path.fname)
-        in_path = os.path.join(self.source_dir, path.subdir, path.fname)
+        in_path = os.path.join(out_subdir, basename)
         out_path = os.path.join(out_subdir, basename + '.mypy')
 
         gen_script = textwrap.dedent(f"""\
@@ -296,10 +297,13 @@ class HadronModule(ExtensionModule):
         import sys
 
         try:
-            out, err, res = api.run(['--disallow-untyped-defs', '--disallow-incomplete-defs', '--ignore-missing-imports', '--show-error-codes', '--disable-error-code', 'no-redef', '{in_path}'])
+            out, err, res = api.run(['--disallow-untyped-defs', '--disallow-incomplete-defs', '--ignore-missing-imports', '--show-error-codes', '--disable-error-code', 'no-redef', '--disable-error-code', 'misc', '{in_path}'])
             if res != 0:
+                print("{colors.RED}ERROR: Invalid type verification for '{in_path}'.{colors.NC}")
                 print(out)
                 print(err)
+                if os.path.exists('{out_path}'):
+                    os.remove('{out_path}')
                 exit(res)
         except Exception as e:
             print("Exception: ", e)
@@ -312,7 +316,7 @@ class HadronModule(ExtensionModule):
         """)
 
         custom_kwargs = {
-            'input': in_path,
+            'input': in_target,
             'output': basename + '.mypy',
             'command': [self.python3, '-c', gen_script],
             'build_by_default': True,
@@ -320,7 +324,7 @@ class HadronModule(ExtensionModule):
         }
         return build.CustomTarget(self.target_name('mypy', path), out_subdir, self.subproject, custom_kwargs)
 
-    def gen_pylint_trgt(self, path: mesonlib.File, deps) -> build.CustomTarget:
+    def gen_pylint_trgt(self, path: mesonlib.File, in_target, deps) -> build.CustomTarget:
         """
         Generates custom target to chech that every class and every method has docstring for that pylint is used.
         """
@@ -330,7 +334,7 @@ class HadronModule(ExtensionModule):
         
         out_subdir = os.path.join(self.pkg_dir, os.path.dirname(path.fname))
         basename = os.path.basename(path.fname)
-        in_path = os.path.join(self.source_dir, path.subdir, path.fname)
+        in_path = os.path.join(out_subdir, basename)
         out_path = os.path.join(out_subdir, basename + '.pylint')
 
         gen_script = textwrap.dedent(f"""\
@@ -355,7 +359,7 @@ class HadronModule(ExtensionModule):
         """)
 
         custom_kwargs = {
-            'input' : in_path,
+            'input' : in_target,
             'output' : basename + '.pylint',
             'command' : [self.python3, '-c', gen_script],
             'build_by_default' : True,
@@ -366,13 +370,15 @@ class HadronModule(ExtensionModule):
     def gen_copy_trgts(self):
         self.make_pkg_dir()
         copy_targets = {}
+        py_targets = {}
         for py in self.py_sources:
             if py.fname != "__init__.py":
                 mod, trgt = self.gen_copy_trgt(py)
                 copy_targets[mod] = trgt
-        return copy_targets
+                py_targets[py] = trgt
+        return copy_targets, py_targets
 
-    def gen_verification_trgts(self, cpy_trgts, ext_deps = []):
+    def gen_verification_trgts(self, cpy_trgts, py_trgts, ext_deps = []):
         trgts = []
         graph = Imports()
         for py in self.py_sources:
@@ -382,8 +388,8 @@ class HadronModule(ExtensionModule):
                 for imprt in imports:
                     if imprt in cpy_trgts:
                         deps.append(cpy_trgts[imprt])
-                trgts.append(self.gen_mypy_trgt(py, deps + ext_deps))
-                trgts.append(self.gen_pylint_trgt(py, deps + ext_deps))
+                trgts.append(self.gen_mypy_trgt(py, py_trgts[py], deps + ext_deps))
+                trgts.append(self.gen_pylint_trgt(py, py_trgts[py], deps + ext_deps))
                 self.add_doctest_test(py, deps)
         return trgts
 
