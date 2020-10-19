@@ -359,7 +359,7 @@
 
 ;return .pyi relative path with python type info filename
 (define (get-python-type-info-file-full module)
-  (build-path (get-destination-folder-name)  "python" (format "~a.pyi" (car (module-def-ns module)))))
+  (build-path (get-destination-folder-name)  "python"(format "_mir_wrapper.pyi")))
 
 ;save string data to .h file
 (define (save-header data module )
@@ -2204,7 +2204,7 @@
                                     (format "~a: ~a" (arg-def-name arg) (get-typing-python (arg-def-type arg))))
                                   (constructor-def-args (class-def-constructor memb))))
                               ", ")
-                              "):...\n"
+                              ")->None:...\n"
                             (apply string-append
                               (map 
                                 (lambda (m) (get-typing-member m module (+ indent 1)))
@@ -2223,7 +2223,7 @@
                                     (format "~a: ~a" (member-def-name arg) (get-typing-python (member-def-type arg))))
                                   (filter member-def? (struct-def-members  memb))))
                               ", ")
-                              "):...\n"
+                              ")->None:...\n"
                             (apply string-append
                               (map 
                                 (lambda (m) (get-typing-member m module (+ indent 1)))
