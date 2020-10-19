@@ -155,6 +155,7 @@ class HadronModule(ExtensionModule):
         root_targets = self.root_files_targets()
         [ext_targets, ext_deps] = self.process_extensions(self.extensions)
         mir_targets = self.process_mir_headers()
+
         ret = cpy_trgts_list + root_targets + mir_targets + ext_targets
 
         shalib_target = self.generate_sharedlib(mir_targets, kwargs)
@@ -165,7 +166,7 @@ class HadronModule(ExtensionModule):
         else:
             init_target = self.gen_init_trgt(cpy_trgts_list + root_targets + ext_deps + ext_targets)
             ret += [init_target]
-        pyi_target = [self.gen_copy_pyi(shalib_target)]
+        pyi_target = [self.gen_copy_pyi(mir_targets[len(mir_targets)-1])]
         ret += pyi_target
         if self.samples is not None:
             for sample in self.samples:
@@ -283,13 +284,12 @@ class HadronModule(ExtensionModule):
         out_subdir = os.path.join(self.pkg_dir)
         basename = '_mir_wrapper.pyi'
         in_path = os.path.join(self.api_gen_dir, 'python',basename)
-        depends = [target]
+        depends = [target[1]]
         custom_kwargs = {
-            'input' : in_path,
+            'input' : target[1],
             'output' : basename,
             'command' : ['cp', '@INPUT@', '@OUTPUT@'],
-            'build_by_default' : True,
-            'depends': depends
+            'build_by_default' : True
         }
 
         return  build.CustomTarget(self.target_name('copy', in_path), out_subdir, self.subproject, custom_kwargs)
