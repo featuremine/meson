@@ -2256,7 +2256,14 @@
                           (gen-indent indent (format "~a : ~a\n" name python_type)))]
                       [else ""]))
                   membs)))
-                (if (and (= (length membs) 0) (= (length child-nss) 0)) (gen-indent indent "pass\n") ""))))
+                (if (and 
+                      (=  (length 
+                            (filter 
+                              (lambda (arg) 
+                                (not (callable-def? (get-origin-alias-type  arg))))  
+                              membs))
+                            0) 
+                      (= (length child-nss) 0)) (gen-indent indent "pass\n") ""))))
 
 ;generate pyi file which contains type info for generated module
 (define (generate-python-type-info-file module module-map)
