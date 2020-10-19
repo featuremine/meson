@@ -2194,6 +2194,17 @@
                       [(class-def? memb)
                           (string-append
                             (gen-indent indent (format "class ~a :\n" (car(reverse(string-split (type-def-name memb) ".")))))
+                            ;init function
+                            (gen-indent (+ indent 1) "def __init__(")
+                            (string-join 
+                              (append
+                                (list "self")
+                                (map 
+                                  (lambda (arg)
+                                    (format "~a: ~a" (arg-def-name arg) (get-typing-python (arg-def-type arg))))
+                                  (constructor-def-args (class-def-constructor memb))))
+                              ", ")
+                              "):...\n"
                             (apply string-append
                               (map 
                                 (lambda (m) (get-typing-member m module (+ indent 1)))
@@ -2202,6 +2213,17 @@
                       [(struct-def? memb)
                           (string-append
                             (gen-indent indent (format "class ~a :\n" (car(reverse(string-split (type-def-name memb) ".")))))
+                            ;init function
+                            (gen-indent (+ indent 1) "def __init__(")
+                            (string-join 
+                              (append
+                                (list "self")
+                                (map 
+                                  (lambda (arg)
+                                    (format "~a: ~a" (member-def-name arg) (get-typing-python (member-def-type arg))))
+                                  (filter member-def? (struct-def-members  memb))))
+                              ", ")
+                              "):...\n"
                             (apply string-append
                               (map 
                                 (lambda (m) (get-typing-member m module (+ indent 1)))
