@@ -553,7 +553,7 @@ def skip_csharp(backend):
 def detect_tests_to_run():
     # Name, subdirectory, skip condition.
     all_tests = [
-        ('common', 'common', False),
+        #('common', 'common', False),
         ('warning-meson', 'warning', False),
         ('failing-meson', 'failing', False),
         ('failing-build', 'failing build', False),
