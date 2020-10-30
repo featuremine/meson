@@ -295,6 +295,7 @@ class HadronModule(ExtensionModule):
                 'command' : ['cp', '@INPUT@', '@OUTPUT@'],
                 'build_by_default' : True,
             }
+            self.sources[self.name].append(os.path.join(out_subdir, basename))
             ret.append(build.CustomTarget(self.target_name('copy', in_path), out_subdir, self.subproject, custom_kwargs))
         return ret
 
