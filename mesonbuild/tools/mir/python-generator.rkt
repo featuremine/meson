@@ -1086,7 +1086,7 @@
                     (if repr
                         (string-append
                           (format "static PyObject *~a_repr_(~a *self) {\n" py-type py-type)
-                            (format "char* ptr = ~a_repr_();\n" c-type)
+                            (format "char* ptr = ~a_repr_(&self->data);\n" c-type)
                             "PyObject* _pyret_ = PyUnicode_FromString(ptr);\n"	
                             "free(ptr);\n"
                             "return _pyret_;\n"

@@ -194,7 +194,7 @@
                     "")  
                     "};\n"
                       (comment (format "string representation for ~a\n" c-type-name))
-                      (format "char* ~a_repr_();\n" c-type-name)
+                      (format "char* ~a_repr_(struct ~a *self);\n" c-type-name c-type-name)
                       (comment (format "return type descriptor structure for ~a\n" c-type-name))
                       (format "mir_type_descr* ~a_get_descr();\n" c-type-name)
                       (comment (format "alloc memory function for ~a\n" c-type-name))

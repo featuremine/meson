@@ -339,6 +339,6 @@ graph_utility_get_decimal_callback_ret get_mir_const_graph_utility_get_decimal_c
 return (graph_utility_get_decimal_callback_ret){get_decimal, NULL};
 }
 
-char* graph_utility_EnumStruct_repr_(){
+char* graph_utility_EnumStruct_repr_(struct graph_utility_EnumStruct *self){
   return mir_str_clone("test");
 }
