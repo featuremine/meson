@@ -949,6 +949,7 @@
                 (letrec ([py-type   (get-python-type-name memb module)]
                       [c-type   (get-c-type-name memb module)]
                       [memb-mmbrs  (struct-def-members memb)]
+                      [repr  (struct-def-repr memb)]
                       [operators (get-operators memb-mmbrs)]
                       [memb-has-mthds  (> (apply + (map 
                                                     (lambda (m) 
@@ -1081,6 +1082,17 @@
                     
                     (method-implementation-section memb memb-has-mmbrs memb-has-mthds memb-mmbrs py-type c-type  module #t)
                     (operators-implementation-section operators py-type c-type module #t)
+
+                    (if repr
+                        (string-append
+                          (format "static PyObject *~a_repr_(~a *self) {\n" py-type py-type)
+                            (format "char* ptr = ~a_repr_();\n" c-type)
+                            "PyObject* _pyret_ = PyUnicode_FromString(ptr);\n"	
+                            "free(ptr);\n"
+                            "return _pyret_;\n"
+                          "}\n")
+                      "")
+                      
                     "//py-typeobject\n"
                     "static PyTypeObject\n"
                     (format "~a = {\n" (type_of_py_object memb module) )
@@ -1092,7 +1104,9 @@
                     "0,                         /* tp_getattr */\n"
                     "0,                         /* tp_setattr */\n"
                     "0,                         /* tp_compare */\n"
-                    "0,                         /* tp_repr */\n"
+                    (if repr
+                      (format "(reprfunc)~a_repr_, /* tp_repr */\n" py-type)
+                      "0,                         /* tp_repr */\n")
                     (format "~a,                         /* tp_as_number */\n" (if operators  (format "num_methods~a"py-type) "0"))
                     "0,                         /* tp_as_sequence */\n"
                     "0,                         /* tp_as_mapping */\n"

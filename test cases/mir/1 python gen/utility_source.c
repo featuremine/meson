@@ -338,3 +338,7 @@ return (graph_utility_Decimal){3};
 graph_utility_get_decimal_callback_ret get_mir_const_graph_utility_get_decimal_callback(){
 return (graph_utility_get_decimal_callback_ret){get_decimal, NULL};
 }
+
+char* graph_utility_EnumStruct_repr_(){
+  return mir_str_clone("test");
+}

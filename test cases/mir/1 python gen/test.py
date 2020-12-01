@@ -31,6 +31,7 @@ def test():
     # test enums
     assert(_mir_wrapper.utility.TestEnum.val1.value == 0 and _mir_wrapper.utility.TestEnum.val3.value == 3)
     te = _mir_wrapper.utility.EnumStruct(_mir_wrapper.utility.TestEnum.val3)
+    assert str(te)=='test'
     assert(sys.getrefcount(te)==2)
     assert(te.testEnum == _mir_wrapper.utility.TestEnum.val3)
     tec = _mir_wrapper.utility.EnumClass()

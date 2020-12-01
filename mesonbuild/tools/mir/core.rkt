@@ -51,7 +51,7 @@
 
 (struct type-def (name stx) #:transparent)
 (struct default-def () #:super struct:type-def  #:transparent)
-(struct struct-def (brief doc members)  #:super struct:type-def  #:transparent)
+(struct struct-def (brief doc repr members)  #:super struct:type-def  #:transparent)
 (struct member-def (name stx  brief [type #:mutable] ref ) #:transparent)
 (struct alias-def (brief doc [type #:mutable] ref) #:super struct:type-def #:transparent)
 (struct variable-def (name stx brief doc [type #:mutable] ref) #:transparent)

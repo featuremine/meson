@@ -454,9 +454,34 @@
 ;define rule for struct:
 ;build struct defenition and add it to the module members
 ;first we check id in module defenition second we add
-(define-syntax-rule (def-struct id
+
+;member syntax with optional reference
+(define-syntax def-struct
+  (syntax-rules ()
+    [(def-struct id
+                 [brief brief-txt]
+                 [doc doc-txt] 
+                 [repr]
+                 member ...)
+    (def-struct-full id
+                 [brief brief-txt]
+                 [doc doc-txt] 
+                 #t
+                 member ...)]
+    [(def-struct id
+                 [brief brief-txt]
+                 [doc doc-txt] 
+                 member ...)
+    (def-struct-full id
+                 [brief brief-txt]
+                 [doc doc-txt] 
+                 #f
+                 member ...)]))
+
+(define-syntax-rule (def-struct-full id
                      [brief brief-txt]
                      [doc doc-txt]
+                     repr
                      member ...)
                     (lambda (mod)
                       (if (id-find mod 'id)
@@ -467,6 +492,7 @@
                                                        #'id
                                                        brief-txt
                                                        doc-txt
+                                                       repr
                                                        (list (member mod ctx) ...)))))))
 
 ;member syntax with reference

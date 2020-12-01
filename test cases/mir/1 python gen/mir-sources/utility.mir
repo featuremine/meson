@@ -429,6 +429,7 @@
 (def-struct EnumStruct
     [brief "Enum struct"]
     [doc "Struct with enum member"]
+    [repr]
     [def-member testEnum
         [brief "testEnum"]
         [type TestEnum]])

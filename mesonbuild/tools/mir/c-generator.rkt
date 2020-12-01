@@ -168,7 +168,8 @@
                       (format "~a ~a get_mir_const_~a();\n" (get-c-type-name (const-def-type memb) module)  (if (const-def-ref memb) "*" "")  string-name)])))]
 
               [(struct-def? memb)  
-                (let ([c-type-name (get-c-type-name memb module)])
+                (let ([c-type-name (get-c-type-name memb module)]
+                      [repr  (struct-def-repr memb)])
                   (string-append
                     (apply string-append
                       (map 
@@ -192,6 +193,8 @@
                       (struct-def-members memb))
                     "")  
                     "};\n"
+                      (comment (format "string representation for ~a\n" c-type-name))
+                      (format "char* ~a_repr_();\n" c-type-name)
                       (comment (format "return type descriptor structure for ~a\n" c-type-name))
                       (format "mir_type_descr* ~a_get_descr();\n" c-type-name)
                       (comment (format "alloc memory function for ~a\n" c-type-name))
