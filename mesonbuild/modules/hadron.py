@@ -204,7 +204,7 @@ class HadronModule(ExtensionModule):
         if self.style:
             style_script = 'clang-format -i **/**.h(N) **/**.c(N) **/**.hpp(N) **/**.cpp(N)'
             cmd = ['/bin/zsh', '-c', style_script]
-            target = build.RunTarget('style', cmd[0], cmd[1:], [], '', self.subproject)
+            target = build.RunTarget('style'+ self.name + self.version + self.suffix, cmd[0], cmd[1:], [], '', self.subproject)
             interpr.add_target(target.name, target)
 
         return interpr.holderify(init_target)
@@ -644,7 +644,7 @@ class HadronModule(ExtensionModule):
                 '--build_dir', self.build_dir,
                 '--sources', self.get_dictionary_as_str(src_copy)]
 
-        wheel_pkg = build.RunTarget('wheel-package', cmd[0], cmd[1:], [], self.subdir, self.subproject)
+        wheel_pkg = build.RunTarget('wheel-package'+ self.name + self.version + self.suffix, cmd[0], cmd[1:], [], self.subdir, self.subproject)
         self.interpreter.add_target(wheel_pkg.name, wheel_pkg)
         self.interpreter.builtin['meson'].add_install_script_method(cmd, None)
 
@@ -663,7 +663,7 @@ class HadronModule(ExtensionModule):
                 '--build_dir', self.build_dir,
                 '--sources', self.get_dictionary_as_str(src_copy)]
 
-        wheel_pkg = build.RunTarget('conda-package', cmd[0], cmd[1:], [], self.subdir, self.subproject)
+        wheel_pkg = build.RunTarget('conda-package'+ self.name + self.version + self.suffix, cmd[0], cmd[1:], [], self.subdir, self.subproject)
         self.interpreter.add_target(wheel_pkg.name, wheel_pkg)
         self.interpreter.builtin['meson'].add_install_script_method(cmd, None)
 
