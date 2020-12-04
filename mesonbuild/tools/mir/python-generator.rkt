@@ -1244,6 +1244,8 @@
                             ");\n")
                           (format "\t~a_constructor((~a *)self);\n" c-type c-type) ))
 
+                      "\tif(PyErr_Occurred()) {\n\t\treturn -1; \n \t}\n"
+
                       "\treturn 0;\n}\n"
                       
                       ;dealloc function
