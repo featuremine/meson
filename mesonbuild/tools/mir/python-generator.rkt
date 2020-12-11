@@ -50,7 +50,7 @@
   ("double" . "float") 
   ("bool" . "bool") 
   ("pointer" . "int") 
-  ("any" . "Any") 
+  ("any" . "typing.Any") 
   ("none" . "None")))
 
 ;wrapper function for python typing
