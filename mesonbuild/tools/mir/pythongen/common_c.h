@@ -29,6 +29,9 @@ extern "C"
 #define CALLABLE_ARG(name, ret, ...) \
     ret (*name##_func)(__VA_ARGS__ __VA_OPT__(, ) void * c), void * name##_closure
 
+#define CALLABLE_STRUCT_ARG(name, ret, ...) \
+    ret (*name##_func)(__VA_ARGS__ __VA_OPT__(, ) void * c); void * name##_closure
+    
 #define AUTO_DECLARE(X, Y) typeof(Y) X = Y
     void mir_inc_ref(void *obj);
     void mir_dec_ref(void *obj);
