@@ -378,6 +378,16 @@
             [brief "result"]
             [type char]]]
 
+    [def-method  check_any
+        [brief "check_any"]
+        [doc  "check_any"]
+        [def-arg a
+            [brief "a value"]
+            [type any]]
+        [def-return 
+            [brief "result"]
+            [type any]]]
+
     [def-method  check_string
         [brief "check_string"]
         [doc  "check_string"]

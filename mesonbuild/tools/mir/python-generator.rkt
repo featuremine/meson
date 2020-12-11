@@ -32,6 +32,7 @@
   ("double" . "PyFloat_Type") 
   ("bool" . "PyBool_Type") 
   ("pointer" . "PyLong_Type") 
+  ("any"."PyObject_Type")
   ("none" . "PyNone")))
 
 ;use only for python typing
@@ -49,6 +50,7 @@
   ("double" . "float") 
   ("bool" . "bool") 
   ("pointer" . "int") 
+  ("any" . "Any") 
   ("none" . "None")))
 
 ;wrapper function for python typing
@@ -83,6 +85,7 @@
   ("double" . "double") 
   ("bool" . "int") 
   ("pointer" . "void *") 
+  ("any" . "void *") 
   ("none" . "void")))
 
 ;describe formats for tuples
@@ -100,6 +103,7 @@
   ("double" . "d") 
   ("bool" . "p") 
   ("pointer" . "k") 
+  ("any" . "O") 
   ("none" . "l")))
 
 ;wrapper function for formats
@@ -124,6 +128,7 @@
   ("double" . "0.0") 
   ("bool" . "false") 
   ("pointer" . "NULL") 
+  ("any" . "NULL") 
   ("none" . "")))
 
 ;wrapper function for formats
@@ -148,6 +153,7 @@
     ("double" . "PyFloat_FromDouble(~a)") 
     ("bool" . "PyBool_FromLong(~a)") 
     ("pointer" . "PyLong_FromUnsignedLong((uint64_t)~a)") 
+    ("any" . "(PyObject *)~a") 
     ("none" . "PyNone ~a")
     ))
 
@@ -244,6 +250,7 @@
   ("double" . "PyFloat_AsDouble(~a)") 
   ("bool" . "PyObject_IsTrue(~a)") 
   ("pointer" . "(void*)PyLong_AsLong(~a)") 
+  ("any" . "(void*)~a") 
   ("none" . "PyNone ~a")
   ))
 
@@ -270,6 +277,7 @@
   ("double" . "PyLong_Type") 
   ("bool" . "PyBool_Type") 
   ("pointer" . "PyLong_Type") 
+  ("any" . "PyObject_Type") 
   ("none" . "PyNone_Type")
   ))
 

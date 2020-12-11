@@ -33,7 +33,7 @@
 (define prepare-to-import (make-hash))
 
 ;list of default types
-(define default-types (list 'char 'pointer 'none 'string 'int8 'int16 'int32 'int64 'uint8 'uint16 'uint32 'uint64 'bool 'double))
+(define default-types (list 'char 'pointer 'none 'string 'int8 'int16 'int32 'int64 'uint8 'uint16 'uint32 'uint64 'bool 'double 'any))
 
 ;hash of operator symbols
 (define operator-dict-python '#hash(
