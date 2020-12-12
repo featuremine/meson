@@ -198,7 +198,7 @@ class HadronModule(ExtensionModule):
         if self.documentation:
             doc_script = 'echo "Generating docs..."'
             cmd = ['/bin/bash', '-c', doc_script]
-            target = build.RunTarget('doc', cmd[0], cmd[1:], [], '', self.subproject)
+            target = build.RunTarget('doc'+ self.name + self.version + self.suffix, cmd[0], cmd[1:], [], '', self.subproject)
             interpr.add_target(target.name, target)
 
         if self.style:
@@ -248,7 +248,7 @@ class HadronModule(ExtensionModule):
         if isinstance(path, mesonlib.File):
             path = os.path.join(path.subdir, path.fname)
         root, _ = os.path.splitext(path)
-        return f"{prefix}_{root.replace('/', '_')}"
+        return f"{prefix}_{root.replace('/', '_')}" + self.name + self.version + self.suffix
 
     def path_to_module(self, path: mesonlib.File) -> str:
         """
@@ -494,7 +494,7 @@ class HadronModule(ExtensionModule):
             mir_path = mir_header
         else:
             raise mesonlib.MesonException("Expecting mir header '{}' to be an absolute path or File object".format(mir_header))
-        name = self.make_relpath(mir_path).replace('/', '_')
+        name = self.make_relpath(mir_path).replace('/', '_') + self.name + self.version + self.suffix
         if name in self.mir_targets_map:
             return self.mir_targets_map[name]
         cmd = base_cmd + ['-s', mir_path]
