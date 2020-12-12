@@ -40,6 +40,7 @@
     ("double" . "double") 
     ("bool" . "bool") 
     ("pointer" . "void*") 
+    ("any" . "void*") 
     ("none" . "void")))
 
 ;return copytifght header block as string

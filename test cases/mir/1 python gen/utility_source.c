@@ -342,3 +342,8 @@ return (graph_utility_get_decimal_callback_ret){get_decimal, NULL};
 char* graph_utility_EnumStruct_repr_(struct graph_utility_EnumStruct *self){
   return mir_str_clone("test");
 }
+
+void* graph_utility_Checker_check_any (struct graph_utility_Checker* self, void* a){
+  mir_inc_ref(a);
+  return a;
+}

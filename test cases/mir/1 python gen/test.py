@@ -125,7 +125,8 @@ def test():
     assert (checker.check_bool(True))
     assert (checker.check_bool(False) == False)
     assert (checker.check_string("hello world") == "hello world")
-
+    any_test = {}
+    assert (checker.check_any(any_test) == any_test)
     # test c callback
     cb = util.get_callable(p1, 1)
     print(cb)
