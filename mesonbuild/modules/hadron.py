@@ -162,7 +162,7 @@ class HadronModule(ExtensionModule):
 
         ret = cpy_trgts_list + root_targets + mir_targets + ext_targets
 
-        shalib_target = self.generate_sharedlib(mir_targets, kwargs)
+        shalib_target, new_dep = self.generate_sharedlib(mir_targets, kwargs)
 
         if shalib_target is not None:
             init_target = self.gen_init_trgt(cpy_trgts_list + root_targets + ext_deps + ext_targets, shalib_target)
@@ -207,7 +207,7 @@ class HadronModule(ExtensionModule):
             target = build.RunTarget('style'+ self.name + self.version + self.suffix, cmd[0], cmd[1:], [], '', self.subproject)
             interpr.add_target(target.name, target)
 
-        return interpr.holderify(init_target)
+        return interpr.holderify([init_target, shalib_target, new_dep])
 
     def add_doctest_test(self, path, deps):
         """
@@ -532,7 +532,7 @@ class HadronModule(ExtensionModule):
 
     def generate_sharedlib(self, mir_targets, kwargs):
         if not mir_targets:
-            return None
+            return None, None
         custom_kwargs = copy(kwargs)
         def remove_key(key):
             if custom_kwargs.get(key):
@@ -569,7 +569,15 @@ class HadronModule(ExtensionModule):
         shlib = self.python3_inst.extension_module_method(['_mir_wrapper'] + self.c_sources + holders + [utils_file], custom_kwargs)
         self.sources[self.name].append(os.path.join(self.build_dir, self.interpreter.subdir, shlib.held_object.filename))
         self.interpreter.subdir = subdir
-        return shlib
+
+        new_dep = self.interpreter.func_declare_dependency(None, [], kwargs={
+            "link_with": shlib,
+            "include_directories": [incdirs,
+                                    build.IncludeDirs(self.api_gen_dir, ['.'], False),
+                                    build.IncludeDirs(tools_path, ['.'], False)]
+        })
+
+        return shlib, new_dep
 
     def generate_common_mir_target(self, mir_targets):
         cmd = []
@@ -682,7 +690,7 @@ class HadronModule(ExtensionModule):
                     'build_by_default': True
                 }
                 self.sources[self.name].append( os.path.join(self.pkg_dir, extension.fname))
-                targets.append(build.CustomTarget(path.replace('/', '_'), os.path.join(self.pkg_dir), self.subproject, custom_kwargs))
+                targets.append(build.CustomTarget(path.replace('/', '_') + self.name + self.version + self.suffix, os.path.join(self.pkg_dir), self.subproject, custom_kwargs))
             elif isinstance(extension, build.BuildTarget):
                 subdir = extension.get_subdir()
                 for output in extension.get_outputs():
@@ -695,7 +703,7 @@ class HadronModule(ExtensionModule):
                     'depends': extension,
                     'build_by_default' : True
                 }
-                targets.append(build.CustomTarget("_".join(['copy', extension.name, output]), self.pkg_dir, self.subproject, custom_kwargs))
+                targets.append(build.CustomTarget("_".join(['copy', extension.name, output]) + self.name + self.version + self.suffix, self.pkg_dir, self.subproject, custom_kwargs))
             elif isinstance(extension, str):
                 if os.path.isabs(extension):
                     name = os.path.basename(extension)
@@ -706,7 +714,7 @@ class HadronModule(ExtensionModule):
                         'build_by_default' : True
                     }
                     self.sources[self.name].append(os.path.join(self.pkg_dir, name))
-                    targets.append(build.CustomTarget("_".join(['copy', name]), self.pkg_dir, self.subproject, custom_kwargs))
+                    targets.append(build.CustomTarget("_".join(['copy', name]) + self.name + self.version + self.suffix, self.pkg_dir, self.subproject, custom_kwargs))
             elif isinstance(extension, list):
                 t, d = self.process_extensions(extension)
                 deps += d
