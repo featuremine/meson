@@ -256,7 +256,7 @@
                                           (format "@param ~a" (arg-def-brief inp)))
                                         (method-def-args mthd))
                                       (list (format "@return ~a" (return-def-brief(method-def-return  mthd))))))
-                         
+                                "__attribute__((visibility(\"default\"))) "
                                 (if (method-def-return mthd)
                                   ;return value 
                                   (format  "~a~a~a"(get-if-struct return-type) return-c-type  (if return-ref "*" ""))
@@ -392,6 +392,7 @@
                                         (method-def-args mthd))
                                       (list (format "@return ~a" (return-def-brief(method-def-return  mthd))))))
                          
+                                "__attribute__((visibility(\"default\"))) "
                                 (if (method-def-return mthd)
                                   ;return value 
                                   (format  "~a~a~a"(get-if-struct return-type) return-c-type  (if return-ref "*" ""))
