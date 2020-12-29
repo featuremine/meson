@@ -683,7 +683,7 @@
               ret-type 
               module 
               ret-ref
-              ""
+              err-check
               #t
               (format "~a_ret" c-mthd-name)
               ))
