@@ -135,6 +135,7 @@
     
     (string-join  
         (append
+          (list "void *c")
           (map 
             (lambda (inp)
               (if (callable-def? (arg-def-type inp))  
@@ -143,8 +144,7 @@
                   (format "~a~a " (get-if-struct (arg-def-type inp)) (get-c-type-name (arg-def-type inp) module))
                   (if (arg-def-ref inp) "*" "")
                   (arg-def-name inp))))
-            args)
-            (list "void *c"))
+            args))
           ",")
           
     ");\n"))
@@ -241,6 +241,7 @@
     
     (string-join  
         (append
+          (list "void *c")
           (map 
             (lambda (inp)
              (letrec (
@@ -254,8 +255,7 @@
                 (if (arg-def-ref inp) "*" "")
                 (arg-def-name inp)
                 ))))
-            (callable-def-args memb))
-            (list "void *c"))
+            (callable-def-args memb)))
           ",")
           
     ");\n"

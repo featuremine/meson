@@ -22,15 +22,15 @@ extern "C"
 #define CALLABLE(ret, ...)                                     \
     struct                                                     \
     {                                                          \
-        ret (*func)(__VA_ARGS__ __VA_OPT__(, ) void *closure); \
+        ret (*func)(void *closure, ##__VA_ARGS__);             \
         void *closure;                                         \
     }
 
 #define CALLABLE_ARG(name, ret, ...) \
-    ret (*name##_func)(__VA_ARGS__ __VA_OPT__(, ) void * c), void * name##_closure
+    ret (*name##_func)(void * c, ##__VA_ARGS__), void * name##_closure
 
 #define CALLABLE_STRUCT_ARG(name, ret, ...) \
-    ret (*name##_func)(__VA_ARGS__ __VA_OPT__(, ) void * c); void * name##_closure
+    ret (*name##_func)(void * c, ##__VA_ARGS__); void * name##_closure
     
 #define AUTO_DECLARE(X, Y) typeof(Y) X = Y
     void mir_inc_ref(void *obj);

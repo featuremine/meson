@@ -1897,6 +1897,7 @@
                 (format "\n((~a *)self)\n->data.func(" py-type)
                 (string-join
                   (append
+                    (list (format "\n((~a *)self)->data.closure"py-type))
                     (map 
                       (lambda (arg)
                         (let (
@@ -1906,9 +1907,8 @@
                               )
                               (return-arg-representation arg-type arg-name (arg-def-ref arg) module)
                             ))
-                      args)
-                    (list (format "\n((~a *)self)->data.closure)"py-type)))
-                      ", "))
+                      args))
+                      ", ") ")")
             ret-type
             module 
             ret-ref
