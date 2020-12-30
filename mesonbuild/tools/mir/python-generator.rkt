@@ -2003,14 +2003,14 @@
           (format "~a~a _wrap_pys_~a(~a){\n"  (get-c-type-name ret-type module) (if ret-ref "*" "") c-type 
             (string-join 
               (append
+                (list "void * callable")
                 (map 
                   (lambda (arg)
                     (let ([arg-name (arg-def-name arg)]
                           [ref (arg-def-ref arg)]
                           [arg-type (get-c-type-name (get-origin-alias-type(arg-def-type arg)) module)])
                       (format "~a~a ~a"  arg-type (if ref "*" "") arg-name )))
-                  args)
-                  (list "void * callable"))
+                  args))
               ", "))
           (if (> arg-count 0)
             (string-append
@@ -2115,6 +2115,7 @@
         (format "~a~a _wrap_pys_~a(~a);\n" ret-type (if ret-ref "*" "") c-type 
           (string-join 
             (append
+              (list "void * callable")
               (map 
                 (lambda (arg)
                   (let ([arg-name (arg-def-name arg)]
@@ -2122,7 +2123,6 @@
                         [arg-type (get-c-type-name (get-origin-alias-type(arg-def-type arg)) module)])
                     (format "~a~a ~a"  arg-type (if ref "*" "") arg-name )))
                 args)
-                (list "void * callable")
             )
             ", ")
           )
