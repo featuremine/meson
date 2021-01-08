@@ -138,6 +138,7 @@ class HadronModule(ExtensionModule):
         self.documentation = kwargs.get('documentation', False)
         self.style = kwargs.get('style', False)
         self.samples = kwargs.get('samples', None)
+        self.static = kwargs.get('static', False)
         self.tests = kwargs.get('tests', None)
         self.environment = state.environment
         self.pkg_dir = os.path.join(state.environment.build_dir, 'package', self.version + self.suffix, self.name)
@@ -153,6 +154,7 @@ class HadronModule(ExtensionModule):
         self.python3 = self.python3_inst.method_call('path', [], {})
         self.mir_sources = set()
         self.pyi_targets = []
+        
 
         py_copy_targets, py_targets = self.gen_copy_trgts()
         cpy_trgts_list = [trgt for _, trgt in py_copy_targets.items()]
@@ -193,6 +195,10 @@ class HadronModule(ExtensionModule):
         for target in ret:
             if isinstance(target, interpreter.SharedModuleHolder):
                 continue
+
+            if isinstance(target, interpreter.StaticLibraryHolder):
+                continue
+
             interpr.add_target(target.name, target)
 
         if self.documentation:
@@ -566,18 +572,22 @@ class HadronModule(ExtensionModule):
         subdir = self.interpreter.subdir
         self.interpreter.subdir = self.pkg_dir
         holders = [interpreter.TargetHolder(target, self.interpreter) for target in mir_targets]
-        shlib = self.python3_inst.extension_module_method(['_mir_wrapper'] + self.c_sources + holders + [utils_file], custom_kwargs)
-        self.sources[self.name].append(os.path.join(self.build_dir, self.interpreter.subdir, shlib.held_object.filename))
+        if not self.static:
+            mir_lib = self.python3_inst.extension_module_method(['_mir_wrapper'] + self.c_sources + holders + [utils_file], custom_kwargs)
+        else:
+            mir_lib = self.interpreter.func_static_lib(None,['_mir_wrapper'] + self.c_sources + holders + [utils_file], custom_kwargs)
+        
+        self.sources[self.name].append(os.path.join(self.build_dir, self.interpreter.subdir, mir_lib.held_object.filename))
         self.interpreter.subdir = subdir
 
         new_dep = self.interpreter.func_declare_dependency(None, [], kwargs={
-            "link_with": shlib,
+            "link_with": mir_lib,
             "include_directories": [incdirs,
                                     build.IncludeDirs(self.api_gen_dir, ['.'], False),
                                     build.IncludeDirs(tools_path, ['.'], False)]
         })
 
-        return shlib, new_dep
+        return mir_lib, new_dep
 
     def generate_common_mir_target(self, mir_targets):
         cmd = []
