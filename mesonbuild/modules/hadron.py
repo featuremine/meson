@@ -547,6 +547,10 @@ class HadronModule(ExtensionModule):
         for key in hadron_special_kwargs:
             remove_key(key)
 
+        if self.install and self.static:
+            self.install = False
+            custom_kwargs["install"] = True
+
         root_module_path = Path(os.path.dirname(mesonbuild.__file__))
         tools_path = os.path.join(root_module_path, 'tools')
         utils_file = mesonlib.File.from_absolute_file(os.path.join(tools_path, 'mir/pythongen/utils.c'))
