@@ -49,7 +49,7 @@ graph_utility_Utility_pointSum(struct graph_utility_Utility *self,
 
 int32_t graph_utility_Utility_execute_callable (struct graph_utility_Utility* self, struct graph_Point *point,CALLABLE_ARG(callable,int32_t,double K,struct graph_Point *point)){
   printf("ref count %ld \n",callable_closure? mir_get_ref_cnt(callable_closure):0);
-  int32_t ret = callable_func(1.0, point, callable_closure);
+  int32_t ret = callable_func(callable_closure, 1.0, point);
   printf("ref count %ld \n", callable_closure? mir_get_ref_cnt(callable_closure):0);
   return ret;
 }
@@ -58,7 +58,7 @@ int32_t c_closure(double K, struct graph_Point *point) {
   return 3;
 };
 typedef int32_t (*c_callb)(double K, struct graph_Point *);
-int32_t c_callback(double K, struct graph_Point *point, void *c) {
+int32_t c_callback(void *c, double K, struct graph_Point *point) {
   return c_closure(K, point);
 };
 
@@ -78,7 +78,7 @@ int32_t c_a_closure(double K) {
   return K;
 };
 
-int32_t c_a_callback(double K, void *c) { return c_a_closure(K); };
+int32_t c_a_callback(void *c, double K) { return c_a_closure(K); };
 
  graph_utility_Utility_get_another_callable_ret graph_utility_Utility_get_another_callable (struct graph_utility_Utility* self) {
   printf("hello from c\n");
@@ -98,7 +98,7 @@ graph_Point *c_p_closure(double K) {
   return p;
 };
 
-graph_Point *c_p_callback(double K, void *c) { return c_p_closure(K); };
+graph_Point *c_p_callback(void *c, double K) { return c_p_closure(K); };
 
  graph_utility_Utility_get_callable_with_ref_ret graph_utility_Utility_get_callable_with_ref (struct graph_utility_Utility* self) {
   printf("hello from c\n");
