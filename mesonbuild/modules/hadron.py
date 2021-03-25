@@ -504,13 +504,13 @@ class HadronModule(ExtensionModule):
         if name in self.mir_targets_map:
             return self.mir_targets_map[name]
         cmd = base_cmd + ['-s', mir_path]
-        sources = self.run_mir_subprocess(cmd + ['-i'])
+        sources = self.get_mir_sources(mir_path)
         relative_sources = []
         for source in sources:
             if source not in self.mir_sources:
                 self.mir_sources.add(source)
                 relative_sources.append(os.path.relpath(source, self.build_dir))
-        dependencies = self.run_mir_subprocess(cmd + ['-m'])
+        dependencies = self.get_mir_dependencies(mir_path)
         depend_files = []
         for dep in dependencies:
             depend_files += self.make_racket_targets(base_cmd, dep).sources
@@ -524,6 +524,50 @@ class HadronModule(ExtensionModule):
         target = build.CustomTarget(name=name,subdir='',subproject=self.subproject,kwargs=custom_kwargs)
         self.mir_targets_map[name] = target
         return target
+
+    def get_mir_sources(self, mir_file):
+        dest_dir = self.api_gen_dir
+        gen_filename = os.path.join(dest_dir, self.make_relpath(mir_file)) + '.gen'
+        time_mir = os.path.getmtime(mir_file)
+        try:
+            time_gen = os.path.getmtime(gen_filename)
+
+            if time_mir <= time_gen:
+                with open(gen_filename, "r") as gen_file:
+                    return self.parse_mir_gen_output(gen_file.read())
+        except FileNotFoundError:
+            pass
+
+        output = self.run_subprocess(self.get_racket_base_cmd() + ['-s', mir_file, '-i'])
+
+        Path(os.path.dirname(gen_filename)).mkdir(parents=True, exist_ok=True)
+
+        with open(gen_filename, "w") as gen_file:
+            gen_file.write(output)
+
+        return self.parse_mir_gen_output(output)
+
+    def get_mir_dependencies(self, mir_file):
+        dest_dir = self.api_gen_dir
+        dep_filename = os.path.join(dest_dir, self.make_relpath(mir_file)) + '.dep'
+        time_mir = os.path.getmtime(mir_file)
+        try:
+            time_dep = os.path.getmtime(dep_filename)
+
+            if time_mir <= time_dep:
+                with open(dep_filename, "r") as dep_file:
+                    return self.parse_mir_gen_output(dep_file.read())
+        except FileNotFoundError:
+            pass
+
+        output = self.run_subprocess(self.get_racket_base_cmd() + ['-s', mir_file, '-m'])
+
+        Path(os.path.dirname(dep_filename)).mkdir(parents=True, exist_ok=True)
+
+        with open(dep_filename, "w") as dep_file:
+            dep_file.write(output)
+
+        return self.parse_mir_gen_output(output)
 
     def process_mir_headers(self):
         if not self.mir_headers:
