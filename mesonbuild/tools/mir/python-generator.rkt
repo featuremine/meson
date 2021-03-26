@@ -95,7 +95,7 @@
   ("int8" . "b") 
   ("int16" . "i") 
   ("int32" . "i") 
-  ("int64" . "l") 
+  ("int64" . "L") 
   ("uint8" . "B") 
   ("uint16" . "I") 
   ("uint32" . "I") 
@@ -1727,6 +1727,9 @@
       "}\n"
 
       "//init modules\n"
+      "#ifdef _WIN32\n"
+      "__declspec( dllexport )\n"
+      "#endif\n"
       "PyObject *\n"
       "PyInit__mir_wrapper(void)\n{\n"
       (apply string-append

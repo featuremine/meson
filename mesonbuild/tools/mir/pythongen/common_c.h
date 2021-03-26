@@ -31,7 +31,13 @@ extern "C"
 
 #define CALLABLE_STRUCT_ARG(name, ret, ...) \
     ret (*name##_func)(void * c, ##__VA_ARGS__); void * name##_closure
-    
+
+#ifdef _MSC_VER
+#define MIR_EXPORT __declspec(dllexport)
+#else
+#define MIR_EXPORT __attribute__((visibility("default")))
+#endif
+
 #define AUTO_DECLARE(X, Y) typeof(Y) X = Y
     void mir_inc_ref(void *obj);
     void mir_dec_ref(void *obj);

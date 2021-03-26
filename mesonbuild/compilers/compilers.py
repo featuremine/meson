@@ -83,7 +83,7 @@ cflags_mapping = {'c': 'CFLAGS',
                   'rust': 'RUSTFLAGS'}
 
 # execinfo is a compiler lib on BSD
-unixy_compiler_internal_libs = ('m', 'c', 'pthread', 'dl', 'rt', 'execinfo')
+unixy_compiler_internal_libs = ('m', 'c', 'pthread', 'dl', 'rt', 'execinfo', 'c++', 'stdc++')
 
 # All these are only for C-linkable languages; see `clink_langs` above.
 
@@ -1716,6 +1716,8 @@ class VisualStudioLikeCompiler(metaclass=abc.ABCMeta):
                     i = name + '.lib'
             # -pthread in link flags is only used on Linux
             elif i == '-pthread':
+                continue
+            elif i == '--print-search-dirs':
                 continue
             result.append(i)
         return result

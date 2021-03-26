@@ -39,6 +39,7 @@ import mesonbuild.scripts.conda_gen
 import mesonbuild.scripts.wheel_gen
 import findimports
 from typing import List
+from mesonbuild.mesonlib import is_windows
 
 hadron_package_kwargs = set([
     'version',
@@ -119,6 +120,7 @@ class HadronModule(ExtensionModule):
         super().__init__(*args, **kwargs)
         self.snippets.add('package')
 
+
     @permittedKwargs(hadron_package_kwargs)
     def package(self, interpr, state, args, kwargs):
         if args:
@@ -154,8 +156,8 @@ class HadronModule(ExtensionModule):
         self.python3 = self.python3_inst.method_call('path', [], {})
         self.mir_sources = set()
         self.pyi_targets = []
+        self.cp_cmd = ['powershell', '-Command', 'copy'] if is_windows() else ['cp']
         
-
         py_copy_targets, py_targets = self.gen_copy_trgts()
         cpy_trgts_list = [trgt for _, trgt in py_copy_targets.items()]
         root_targets = self.root_files_targets()
@@ -223,9 +225,9 @@ class HadronModule(ExtensionModule):
         if not isinstance(path, mesonlib.File):
             raise mesonlib.MesonException("Expecting python source file '{}' to be File object".format(path))
 
-        module = f"{self.name}.{os.path.splitext(path.fname)[0].replace('/', '.')}"
+        module = f"{self.name}.{os.path.splitext(path.fname)[0].replace(os.sep, '.')}"
         module_path = os.path.join(self.pkg_dir, '..')
-        test_name = 'doctest_' + os.path.splitext(path.fname)[0].replace('/', '_')
+        test_name = 'doctest_' + os.path.splitext(path.fname)[0].replace(os.sep, '_')
 
         gen_script = textwrap.dedent(f"""\
             import doctest
@@ -254,7 +256,7 @@ class HadronModule(ExtensionModule):
         if isinstance(path, mesonlib.File):
             path = os.path.join(path.subdir, path.fname)
         root, _ = os.path.splitext(path)
-        return f"{prefix}_{root.replace('/', '_')}" + self.name + self.version + self.suffix
+        return f"{prefix}_{root.replace(os.sep, '_')}" + self.name + self.version + self.suffix
 
     def path_to_module(self, path: mesonlib.File) -> str:
         """
@@ -264,7 +266,7 @@ class HadronModule(ExtensionModule):
 
         assert isinstance(path, mesonlib.File)
         filename, _ = os.path.splitext(path.fname)
-        return filename.replace('/', '.')
+        return filename.replace(os.sep, '.')
 
     def gen_copy_trgt(self, path):
         """
@@ -280,7 +282,7 @@ class HadronModule(ExtensionModule):
         custom_kwargs = {
             'input' : path,
             'output' : basename,
-            'command' : ['cp', '@INPUT@', '@OUTPUT@'],
+            'command' : self.cp_cmd + ['@INPUT@', '@OUTPUT@'],
             'build_by_default' : True
         }
         self.sources[os.path.join(self.name, os.path.dirname(path.fname))].append(os.path.join(self.pkg_dir, path.fname))
@@ -292,17 +294,16 @@ class HadronModule(ExtensionModule):
         """
         ret = []
         for t in targets:
-            out_subdir = os.path.join(self.pkg_dir)
             basename = '_mir_wrapper.pyi'
             in_path = os.path.join(self.api_gen_dir, 'python', basename)
             custom_kwargs = {
                 'input' : t,
                 'output' : basename,
-                'command' : ['cp', '@INPUT@', '@OUTPUT@'],
+                'command' : self.cp_cmd + ['@INPUT@', '@OUTPUT@'],
                 'build_by_default' : True,
             }
-            self.sources[self.name].append(os.path.join(out_subdir, basename))
-            ret.append(build.CustomTarget(self.target_name('copy', in_path), out_subdir, self.subproject, custom_kwargs))
+            self.sources[self.name].append(os.path.join(self.pkg_dir, basename))
+            ret.append(build.CustomTarget(self.target_name('copy', in_path), self.pkg_dir, self.subproject, custom_kwargs))
         return ret
 
     def gen_mypy_trgt(self, path: mesonlib.File, in_target, deps) -> build.CustomTarget:
@@ -430,11 +431,11 @@ class HadronModule(ExtensionModule):
         custom_kwargs = {
             'input' : absolute_path,
             'output' : os.path.basename(path.fname),
-            'command' : ['cp', '@INPUT@', '@OUTPUT@'],
+            'command' : self.cp_cmd + ['@INPUT@', '@OUTPUT@'],
             'build_by_default' : True
         }
         self.sources[""].append(os.path.join(self.build_dir, 'package', self.version + self.suffix, os.path.basename(path.fname)))
-        return build.CustomTarget(absolute_path.replace('/', '_'), os.path.join(self.build_dir, 'package', self.version + self.suffix), self.subproject, custom_kwargs)
+        return build.CustomTarget(absolute_path.replace(os.sep, '_'), os.path.join(self.build_dir, 'package', self.version + self.suffix), self.subproject, custom_kwargs)
 
     def root_files_targets(self):
         self.make_pkg_dir()
@@ -447,7 +448,7 @@ class HadronModule(ExtensionModule):
         data_dir = f"{self.name}-{self.version}{self.suffix}.data"
         ret = defaultdict(list)
         for bin_file in self.bin_files:
-            pos = bin_file.find('/')
+            pos = bin_file.find(os.sep)
             if bin_file[:pos] != 'lib':
                 raise mesonlib.MesonException("Invalid path '{0}'. The bin should be under 'lib' directory.".format(bin_file))
             path = os.path.join(self.source_dir, bin_file) 
@@ -500,7 +501,7 @@ class HadronModule(ExtensionModule):
             mir_path = mir_header
         else:
             raise mesonlib.MesonException("Expecting mir header '{}' to be an absolute path or File object".format(mir_header))
-        name = self.make_relpath(mir_path).replace('/', '_') + self.name + self.version + self.suffix
+        name = self.make_relpath(mir_path).replace(os.sep, '_') + self.name + self.version + self.suffix
         if name in self.mir_targets_map:
             return self.mir_targets_map[name]
         cmd = base_cmd + ['-s', mir_path]
@@ -663,6 +664,7 @@ class HadronModule(ExtensionModule):
             'build_by_default': True,
             'depend_files': depend_files
         }
+
         t = build.CustomTarget(name='common_mir_target_'+self.name+self.version+self.suffix,subdir='',subproject=self.subproject,kwargs=custom_kwargs)
         for idx in pyi_target:
             self.pyi_targets.append(t[idx])
@@ -673,12 +675,13 @@ class HadronModule(ExtensionModule):
         return self.parse_mir_gen_output(output)
 
     def run_subprocess(self, cmd):
-        ps = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        cmd_string_view = ' '.join(cmd)
+        try:
+            ps = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        except Exception as e:
+            raise mesonlib.MesonException("Failed to execute '{0}' command line. Error: {1}".format(cmd_string_view, e))
         cout, cerr = ps.communicate()
         if ps.returncode != 0:
-            cmd_string_view = ''
-            for elem in cmd:
-                cmd_string_view += elem + ' '
             raise mesonlib.MesonException("Failed to execute '{0}' command line. Error: {1}".format(cmd_string_view, cerr))
         return str(cout, 'utf-8').strip()
 
@@ -744,11 +747,11 @@ class HadronModule(ExtensionModule):
                 custom_kwargs = {
                     'input': path,
                     'output': extension.fname,
-                    'command': ['cp', '@INPUT@', '@OUTPUT@'],
+                    'command': self.cp_cmd + ['@INPUT@', '@OUTPUT@'],
                     'build_by_default': True
                 }
                 self.sources[self.name].append( os.path.join(self.pkg_dir, extension.fname))
-                targets.append(build.CustomTarget(path.replace('/', '_') + self.name + self.version + self.suffix, os.path.join(self.pkg_dir), self.subproject, custom_kwargs))
+                targets.append(build.CustomTarget(path.replace(os.sep, '_') + self.name + self.version + self.suffix, os.path.join(self.pkg_dir), self.subproject, custom_kwargs))
             elif isinstance(extension, build.BuildTarget):
                 subdir = extension.get_subdir()
                 for output in extension.get_outputs():
@@ -757,7 +760,7 @@ class HadronModule(ExtensionModule):
                 custom_kwargs = {
                     'input': extension,
                     'output': extension.get_outputs(),
-                    'command': ['cp', '@INPUT@', self.pkg_dir],
+                    'command': self.cp_cmd + ['@INPUT@', self.pkg_dir],
                     'depends': extension,
                     'build_by_default' : True
                 }
@@ -768,7 +771,7 @@ class HadronModule(ExtensionModule):
                     custom_kwargs = {
                         'input': extension,
                         'output': name,
-                        'command': ['cp', '@INPUT@', self.pkg_dir],
+                        'command': self.cp_cmd + ['@INPUT@', self.pkg_dir],
                         'build_by_default' : True
                     }
                     self.sources[self.name].append(os.path.join(self.pkg_dir, name))
@@ -795,7 +798,7 @@ class HadronModule(ExtensionModule):
         if init:
             if shlib is not None:
                 deps += [shlib]
-            cmd = ['cp', '@INPUT@', '@OUTPUT@']
+            cmd = self.cp_cmd + ['@INPUT@', '@OUTPUT@']
         elif shlib is not None:
             deps += [shlib]
             cmd = [self.python3, '-c', gen_script]

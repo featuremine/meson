@@ -22,7 +22,7 @@ graph_aliases_Vector2d *c_pr_callback(graph_aliases_Vector2d *point, void *c) {
 
 graph_aliases_Vector2d* graph_aliases_AliasClass_setCallable (struct graph_aliases_AliasClass* self, CALLABLE_ARG(callable,graph_aliases_Vector2d*,graph_aliases_Vector2d *point)) {
   graph_aliases_Vector2d *point =  graph_Point_new_();
-  graph_aliases_Vector2d *ret = callable_func(point, callable_closure);
+  graph_aliases_Vector2d *ret = callable_func( callable_closure,point);
   return ret;
 };
 

@@ -287,7 +287,7 @@ PythonTest* graph_utility_PythonTestClass_test_mthd (struct graph_utility_Python
 }
 
  graph_utility_PythonTestClass_execute_ret graph_utility_PythonTestClass_execute (struct graph_utility_PythonTestClass* self, struct PythonTest *test,CALLABLE_ARG(callable,struct PythonTest*,struct PythonTest *test)){
-  callable_func(test, callable_closure);
+  callable_func(callable_closure,test);
   mir_inc_ref(callable_closure);
   return (graph_utility_PythonTestClass_execute_ret){callable_func,callable_closure};
 }
