@@ -83,7 +83,7 @@ cflags_mapping = {'c': 'CFLAGS',
                   'rust': 'RUSTFLAGS'}
 
 # execinfo is a compiler lib on BSD
-unixy_compiler_internal_libs = ('m', 'c', 'pthread', 'dl', 'rt', 'execinfo', 'c++', 'stdc++')
+unixy_compiler_internal_libs = ('m', 'c', 'pthread', 'dl', 'rt', 'execinfo', 'c++')
 
 # All these are only for C-linkable languages; see `clink_langs` above.
 
