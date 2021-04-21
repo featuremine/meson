@@ -81,8 +81,8 @@ if __name__ == "__main__":
     parser.add_argument('--version', help='Module version', type=str)
     parser.add_argument('--build_dir', help='Build directory', type=str)
     parser.add_argument('--sources', help='Sources', type=json.loads)
-    parser.add_argument('--rigid_dependencies', nargs='*', default=[])
-    parser.add_argument('--flexible_dependencies', nargs='*', default=[])
+    parser.add_argument('--rigid_dependencies', action='append', default=[])
+    parser.add_argument('--flexible_dependencies', action='append', default=[])
     args = parser.parse_args()
 
     major_ver = sys.version_info.major

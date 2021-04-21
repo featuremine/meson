@@ -718,10 +718,10 @@ class HadronModule(ExtensionModule):
                 '--version', "".join([self.version, self.suffix]),
                 '--build_dir', self.build_dir,
                 '--sources', self.get_dictionary_as_str(src_copy)]
-        if self.rigid_dependencies:
-            cmd += ['--rigid_dependencies', " ".join(self.rigid_dependencies)]
-        if self.flexible_dependencies:
-            cmd += ['--flexible_dependencies', " ".join(self.flexible_dependencies)]
+        for rigid_dep in self.rigid_dependencies:
+            cmd += ['--rigid_dependencies', rigid_dep]
+        for flexible_dep in self.flexible_dependencies:
+            cmd += ['--flexible_dependencies', flexible_dep]
 
         wheel_pkg = build.RunTarget('wheel-package'+ self.name + self.version + self.suffix, cmd[0], cmd[1:], [], self.subdir, self.subproject)
         self.interpreter.add_target(wheel_pkg.name, wheel_pkg)
