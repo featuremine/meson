@@ -9,7 +9,12 @@ from shutil import copyfile
 import shutil
 import sys
 import json
+from importlib import import_module
 
+if os.name == 'nt':
+    pkg_os = 'win_amd64'
+else:
+    pkg_os = 'linux_x86_64'
 
 def hashes(file_names):
     return [
@@ -33,7 +38,7 @@ def record_gen(dist_info, module, sources):
         f.write("%s.dist-info/RECORD,,\n" % (module))
 
 
-def metadata_gen(dist_info, module, version):
+def metadata_gen(dist_info, module, version, rigid_deps, flexible_deps):
     with open("%sMETADATA" % (dist_info), 'w') as f:
         f.write("Metadata-Version: 2.1\n")
         f.write("Name: %s\n" % (module))
@@ -42,6 +47,12 @@ def metadata_gen(dist_info, module, version):
         f.write("Home-page: http://www.featuremine.com\n")
         f.write("Maintainer: Featuremine Corporation\n")
         f.write("Maintainer-email: support@featuremine.com\n")
+        for dep in rigid_deps:
+            dep_module = import_module(dep)
+            f.write("Requires-Dist: %s == %s\n" % (dep, dep_module.__version__))
+        for dep in flexible_deps:
+            dep_module = import_module(dep)
+            f.write("Requires-Dist: %s >= %s\n" % (dep, dep_module.__version__))
         f.write("License: UNKNOWN\n")
         f.write("Platform: UNKNOWN\n\n")
         f.write("%s extension.\n" % (module))
@@ -54,9 +65,9 @@ def wheel_gen(dist_info, mayor_ver, minor_ver):
         f.write("Generator: bdist_wheel (0.33.1)\n")
         f.write("Root-Is-Purelib: false\n")
         if major_ver >= 3 and minor_ver>=8:
-            f.write("Tag: cp%s-cp%s-linux_x86_64\n" % (v, v))
+            f.write("Tag: cp%s-cp%s-%s\n" % (v, v, pkg_os))
         else:
-            f.write("Tag: cp%s-cp%sm-linux_x86_64\n" % (v, v))
+            f.write("Tag: cp%s-cp%sm-%\n" % (v, v, pkg_os))
 
 
 def top_level_gen(dist_info, module):
@@ -70,6 +81,8 @@ if __name__ == "__main__":
     parser.add_argument('--version', help='Module version', type=str)
     parser.add_argument('--build_dir', help='Build directory', type=str)
     parser.add_argument('--sources', help='Sources', type=json.loads)
+    parser.add_argument('--rigid_dependencies', nargs='*', default=[])
+    parser.add_argument('--flexible_dependencies', nargs='*', default=[])
     args = parser.parse_args()
 
     major_ver = sys.version_info.major
@@ -87,23 +100,25 @@ if __name__ == "__main__":
 
     wheel_gen(dist_info, major_ver, minor_ver)
     top_level_gen(dist_info, args.module)
-    metadata_gen(dist_info, args.module, args.version)
+    metadata_gen(dist_info, args.module, args.version, args.rigid_dependencies, args.flexible_dependencies)
     record_gen(dist_info, args.module, args.sources)
 
     if major_ver >= 3 and minor_ver>=8:
-        zipname = '%s-%s-cp%s%s-cp%s%s-linux_x86_64.whl' % (args.module,
-                                                            args.version,
-                                                            major_ver,
-                                                            minor_ver,
-                                                            major_ver,
-                                                            minor_ver)
+        zipname = '%s-%s-cp%s%s-cp%s%s-%s.whl' % (args.module,
+                                                  args.version,
+                                                  major_ver,
+                                                  minor_ver,
+                                                  major_ver,
+                                                  minor_ver,
+                                                  pkg_os)
     else:
-        zipname = '%s-%s-cp%s%s-cp%s%sm-linux_x86_64.whl' % (args.module,
-                                                             args.version,
-                                                             major_ver,
-                                                             minor_ver,
-                                                             major_ver,
-                                                             minor_ver)
+        zipname = '%s-%s-cp%s%s-cp%s%sm-%s.whl' % (args.module,
+                                                   args.version,
+                                                   major_ver,
+                                                   minor_ver,
+                                                   major_ver,
+                                                   minor_ver,
+                                                   pkg_os)
 
     module_dir = os.path.join(args.build_dir, 'package', args.module)
     with ZipFile(zipname, 'w') as zip:

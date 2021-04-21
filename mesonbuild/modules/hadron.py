@@ -62,7 +62,9 @@ hadron_package_kwargs = set([
     'documentation',
     'style',
     'cpp_args',
-    'link_language'
+    'link_language',
+    'rigid_dependencies',
+    'flexible_dependencies'
 ])
 
 # these will be removed if not require for shlib
@@ -82,7 +84,9 @@ hadron_special_kwargs = set([
     'samples',
     'tests',
     'documentation',
-    'style'
+    'style',
+    'rigid_dependencies',
+    'flexible_dependencies'
 ])
 
 class colors:
@@ -142,6 +146,8 @@ class HadronModule(ExtensionModule):
         self.samples = kwargs.get('samples', None)
         self.static = kwargs.get('static', False)
         self.tests = kwargs.get('tests', None)
+        self.rigid_dependencies = kwargs.get('rigid_dependencies', [])
+        self.flexible_dependencies = kwargs.get('flexible_dependencies', [])
         self.environment = state.environment
         self.pkg_dir = os.path.join(state.environment.build_dir, 'package', self.version + self.suffix, self.name)
         self.api_gen_dir = os.path.join(state.environment.build_dir, 'api-gen', self.name, self.version + self.suffix)
@@ -712,6 +718,10 @@ class HadronModule(ExtensionModule):
                 '--version', "".join([self.version, self.suffix]),
                 '--build_dir', self.build_dir,
                 '--sources', self.get_dictionary_as_str(src_copy)]
+        if self.rigid_dependencies:
+            cmd += ['--rigid_dependencies', " ".join(self.rigid_dependencies)]
+        if self.flexible_dependencies:
+            cmd += ['--flexible_dependencies', " ".join(self.flexible_dependencies)]
 
         wheel_pkg = build.RunTarget('wheel-package'+ self.name + self.version + self.suffix, cmd[0], cmd[1:], [], self.subdir, self.subproject)
         self.interpreter.add_target(wheel_pkg.name, wheel_pkg)
