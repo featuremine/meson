@@ -67,7 +67,7 @@ def wheel_gen(dist_info, mayor_ver, minor_ver):
         if major_ver >= 3 and minor_ver>=8:
             f.write("Tag: cp%s-cp%s-%s\n" % (v, v, pkg_os))
         else:
-            f.write("Tag: cp%s-cp%sm-%\n" % (v, v, pkg_os))
+            f.write("Tag: cp%s-cp%sm-%s\n" % (v, v, pkg_os))
 
 
 def top_level_gen(dist_info, module):
