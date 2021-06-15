@@ -10,6 +10,7 @@ import shutil
 import sys
 import json
 from importlib import import_module
+from pip._vendor import pkg_resources
 
 if os.name == 'nt':
     pkg_os = 'win_amd64'
@@ -37,6 +38,11 @@ def record_gen(dist_info, module, sources):
                 f.write("%s,sha256=%s,%d\n" % (os.path.join(dir, os.path.basename(file)), sha, sz))
         f.write("%s.dist-info/RECORD,,\n" % (module))
 
+def get_version(package):
+    for p in pkg_resources.working_set:
+        if p.project_name.lower() == package.__name__.lower():
+            return p.version
+    raise RuntimeError("Unable to find version")
 
 def metadata_gen(dist_info, module, version, rigid_deps, flexible_deps):
     with open("%sMETADATA" % (dist_info), 'w') as f:
@@ -52,7 +58,10 @@ def metadata_gen(dist_info, module, version, rigid_deps, flexible_deps):
             f.write("Requires-Dist: %s == %s\n" % (dep, dep_module.__version__))
         for dep in flexible_deps:
             dep_module = import_module(dep)
-            f.write("Requires-Dist: %s >= %s\n" % (dep, dep_module.__version__))
+            if hasattr(dep_module, "__version__") :
+                f.write("Requires-Dist: %s >= %s\n" % (dep, dep_module.__version__))
+            else:
+                f.write("Requires-Dist: %s >= %s\n" % (dep, get_version(dep_module)))
         f.write("License: UNKNOWN\n")
         f.write("Platform: UNKNOWN\n\n")
         f.write("%s extension.\n" % (module))
