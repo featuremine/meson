@@ -5,8 +5,6 @@ import tarfile
 import shutil
 import json
 import time
-import numpy
-import pandas
 import os
 import subprocess
 import sys
@@ -55,9 +53,7 @@ def index_gen(info_dir, module, version, build, python_ver):
         "build": build,
         "build_number": 0,
         "depends": [
-            "python >=%s" % (python_ver),
-            "numpy >=%s" % (numpy.__version__),
-            "pandas >=%s" % (pandas.__version__)
+            "python >=%s" % (python_ver)
         ],
         "license": "MIT",
         "license_family": "MIT",
