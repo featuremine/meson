@@ -639,7 +639,8 @@ class HadronModule(ExtensionModule):
             "link_with": mir_lib,
             "include_directories": [incdirs,
                                     build.IncludeDirs(self.api_gen_dir, ['.'], False),
-                                    build.IncludeDirs(tools_path, ['.'], False)]
+                                    build.IncludeDirs(tools_path, ['.'], False)],
+            "sources": holders
         })
 
         return mir_lib, new_dep
