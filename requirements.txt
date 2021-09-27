@@ -3,5 +3,6 @@ findimports==1.5.2
 mypy==0.790
 pylint==2.5.3
 psutil==5.8.0
+pkgconfig
 pycapnp==1.1.0
 Faker==8.13.2
