@@ -754,14 +754,14 @@ class HadronModule(ExtensionModule):
             if hasattr(extension, 'held_object'):
                 extension = extension.held_object
             if isinstance(extension, mesonlib.File):
-                path = os.path.join(self.source_dir, extension.subdir, extension.fname)
+                path = extension.absolute_path(self.source_dir, self.build_dir)
                 custom_kwargs = {
                     'input': path,
                     'output': extension.fname,
                     'command': self.cp_cmd + ['@INPUT@', '@OUTPUT@'],
                     'build_by_default': True
                 }
-                self.sources[self.name].append( os.path.join(self.pkg_dir, extension.fname))
+                self.sources[os.path.join(self.name, os.path.dirname(extension.fname))].append( os.path.join(self.pkg_dir, extension.fname))
                 targets.append(build.CustomTarget(path.replace(os.sep, '_') + self.name + self.version + self.suffix, os.path.join(self.pkg_dir), self.subproject, custom_kwargs))
             elif isinstance(extension, build.BuildTarget):
                 subdir = extension.get_subdir()
