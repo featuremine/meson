@@ -1213,7 +1213,7 @@ You probably should put it in link_with instead.''')
             stdlib_args = []
             added_languages = set()
             for dl in itertools.chain(self.compilers, dep_langs):
-                if dl != linker.language:
+                if dl != linker.language and linker.language != 'c':
                     stdlib_args += all_compilers[dl].language_stdlib_only_link_flags()
                     added_languages.add(dl)
             return linker, stdlib_args
