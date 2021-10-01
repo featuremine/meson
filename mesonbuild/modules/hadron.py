@@ -140,9 +140,9 @@ class HadronModule(ExtensionModule):
         self.python3_inst = kwargs.get('python', interpr.func_import(None, ['python'], {}).method_call('find_installation', [], {}))
         self.suffix = kwargs.get('suffix', '')
         self.install = kwargs.get('install', False)
-        self.verify = False
-        self.documentation = False
-        self.style = False
+        self.verify = kwargs.get('verify', False)
+        self.documentation = kwargs.get('documentation', False)
+        self.style = kwargs.get('style', False)
         self.samples = kwargs.get('samples', None)
         self.static = kwargs.get('static', False)
         self.tests = kwargs.get('tests', None)
