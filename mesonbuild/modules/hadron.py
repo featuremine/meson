@@ -450,20 +450,29 @@ class HadronModule(ExtensionModule):
             targets.append(self.root_file_target(root_file))
         return targets
 
-    def process_bins(self, wheel):
+    def process_bins(self, wheel, bin_files):
         data_dir = f"{self.name}-{self.version}{self.suffix}.data"
         ret = defaultdict(list)
-        for bin_file in self.bin_files:
-            pos = bin_file.find(os.sep)
-            if bin_file[:pos] != 'lib':
-                raise mesonlib.MesonException("Invalid path '{0}'. The bin should be under 'lib' directory.".format(bin_file))
-            path = os.path.join(self.source_dir, bin_file) 
-            if not os.path.isfile(path):
-                raise mesonlib.MesonException("Bin file '{0}' doesn't exist".format(path))
-            if wheel:
-                ret[os.path.join(data_dir, os.path.dirname(bin_file[pos+1:]))].append(path)
+        for bin_file in bin_files:
+            if isinstance(bin_file, list):
+                self.process_bins(wheel, bin_file)
+            elif isinstance(bin_file, mesonlib.File):
+                path = bin_file.absolute_path(self.source_dir, self.build_dir)
+                if wheel:
+                    ret[os.path.join(data_dir, 'lib', os.path.dirname(bin_file.fname))].append(path)
+                else:
+                    ret[os.path.join('lib', bin_file.fname)].append(path)
             else:
-                ret[bin_file].append(path)
+                pos = bin_file.find(os.sep)
+                if bin_file[:pos] != 'lib':
+                    raise mesonlib.MesonException("Invalid path '{0}'. The bin should be under 'lib' directory.".format(bin_file))
+                path = os.path.join(self.source_dir, bin_file)
+                if not os.path.isfile(path):
+                    raise mesonlib.MesonException("Bin file '{0}' doesn't exist".format(path))
+                if wheel:
+                    ret[os.path.join(data_dir, os.path.dirname(bin_file[pos+1:]))].append(path)
+                else:
+                    ret[bin_file].append(path)
         return ret
 
     def make_pkg_dir(self):
@@ -711,7 +720,7 @@ class HadronModule(ExtensionModule):
         """
 
         src_copy = copy(self.sources)
-        for dir, files in self.process_bins(True).items():
+        for dir, files in self.process_bins(True, self.bin_files).items():
             for file in files:
                 src_copy[dir].append(file)
         cmd = [self.python3, mesonbuild.scripts.wheel_gen.__file__,
@@ -734,7 +743,7 @@ class HadronModule(ExtensionModule):
         """
 
         src_copy = copy(self.sources)
-        for dir, files in self.process_bins(False).items():
+        for dir, files in self.process_bins(False, self.bin_files).items():
             for file in files:
                 src_copy[dir].append(file)
         cmd = [self.python3, mesonbuild.scripts.conda_gen.__file__,
