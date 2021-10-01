@@ -140,9 +140,9 @@ class HadronModule(ExtensionModule):
         self.python3_inst = kwargs.get('python', interpr.func_import(None, ['python'], {}).method_call('find_installation', [], {}))
         self.suffix = kwargs.get('suffix', '')
         self.install = kwargs.get('install', False)
-        self.verify = kwargs.get('verify', False)
-        self.documentation = kwargs.get('documentation', False)
-        self.style = kwargs.get('style', False)
+        self.verify = False
+        self.documentation = False
+        self.style = False
         self.samples = kwargs.get('samples', None)
         self.static = kwargs.get('static', False)
         self.tests = kwargs.get('tests', None)
@@ -459,9 +459,9 @@ class HadronModule(ExtensionModule):
             elif isinstance(bin_file, mesonlib.File):
                 path = bin_file.absolute_path(self.source_dir, self.build_dir)
                 if wheel:
-                    ret[os.path.join(data_dir, 'lib', os.path.dirname(bin_file.fname))].append(path)
+                    ret[os.path.join(data_dir, 'scripts', os.path.dirname(bin_file.fname))].append(path)
                 else:
-                    ret[os.path.join('lib', bin_file.fname)].append(path)
+                    ret[bin_file.fname].append(path)
             else:
                 pos = bin_file.find(os.sep)
                 if bin_file[:pos] != 'lib':
