@@ -10,6 +10,8 @@ import subprocess
 import sys
 import argparse
 
+from mesonbuild import mesonlib
+
 
 def hashes(file_names):
     return [
@@ -91,8 +93,12 @@ if __name__ == "__main__":
     parser.add_argument('--sources', help='Sources', type=json.loads)
     args = parser.parse_args()
 
-    distro_name = run_subprocess(['lsb_release', '-is']).lower()
-    distro_ver = run_subprocess(['lsb_release', '-rs']).lower()
+    if mesonlib.is_linux:
+        distro_name = run_subprocess(['lsb_release', '-is']).lower()
+        distro_ver = run_subprocess(['lsb_release', '-rs']).lower()
+    elif mesonlib.is_osx:
+        distro_name = run_subprocess(['uname', '-s']).lower()
+        distro_ver = run_subprocess(['uname', '-r']).lower()
     major_ver = sys.version_info.major
     minor_ver = sys.version_info.minor
 
