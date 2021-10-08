@@ -9,13 +9,11 @@ from shutil import copyfile
 import shutil
 import sys
 import json
+from distutils import util
 from importlib import import_module
 from pip._vendor import pkg_resources
 
-if os.name == 'nt':
-    pkg_os = 'win_amd64'
-else:
-    pkg_os = 'linux_x86_64'
+pkg_os = util.get_platform().replace('-','_').replace('.','_')
 
 def hashes(file_names):
     return [
