@@ -42,7 +42,7 @@ def get_version(package):
             return p.version
     raise RuntimeError("Unable to find version")
 
-def metadata_gen(dist_info, module, version, rigid_deps, flexible_deps):
+def metadata_gen(dist_info, module, version, rigid_deps, flexible_deps, non_validated_deps):
     with open("%sMETADATA" % (dist_info), 'w') as f:
         f.write("Metadata-Version: 2.1\n")
         f.write("Name: %s\n" % (module))
@@ -60,6 +60,8 @@ def metadata_gen(dist_info, module, version, rigid_deps, flexible_deps):
                 f.write("Requires-Dist: %s >= %s\n" % (dep, dep_module.__version__))
             else:
                 f.write("Requires-Dist: %s >= %s\n" % (dep, get_version(dep_module)))
+        for dep in non_validated_deps:
+            f.write("Requires-Dist: %s\n" % (dep,))
         f.write("License: UNKNOWN\n")
         f.write("Platform: UNKNOWN\n\n")
         f.write("%s extension.\n" % (module))
@@ -90,6 +92,7 @@ if __name__ == "__main__":
     parser.add_argument('--sources', help='Sources', type=json.loads)
     parser.add_argument('--rigid_dependencies', action='append', default=[])
     parser.add_argument('--flexible_dependencies', action='append', default=[])
+    parser.add_argument('--non_validated_dependencies', action='append', default=[])
     args = parser.parse_args()
 
     major_ver = sys.version_info.major
@@ -107,7 +110,7 @@ if __name__ == "__main__":
 
     wheel_gen(dist_info, major_ver, minor_ver)
     top_level_gen(dist_info, args.module)
-    metadata_gen(dist_info, args.module, args.version, args.rigid_dependencies, args.flexible_dependencies)
+    metadata_gen(dist_info, args.module, args.version, args.rigid_dependencies, args.flexible_dependencies, args.non_validated_dependencies)
     record_gen(dist_info, args.module, args.sources)
 
     if major_ver >= 3 and minor_ver>=8:

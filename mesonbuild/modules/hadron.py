@@ -64,7 +64,8 @@ hadron_package_kwargs = set([
     'cpp_args',
     'link_language',
     'rigid_dependencies',
-    'flexible_dependencies'
+    'flexible_dependencies',
+    'non_validated_dependencies'
 ])
 
 # these will be removed if not require for shlib
@@ -86,7 +87,8 @@ hadron_special_kwargs = set([
     'documentation',
     'style',
     'rigid_dependencies',
-    'flexible_dependencies'
+    'flexible_dependencies',
+    'non_validated_dependencies'
 ])
 
 class colors:
@@ -148,6 +150,7 @@ class HadronModule(ExtensionModule):
         self.tests = kwargs.get('tests', None)
         self.rigid_dependencies = kwargs.get('rigid_dependencies', [])
         self.flexible_dependencies = kwargs.get('flexible_dependencies', [])
+        self.non_validated_dependencies = kwargs.get('non_validated_dependencies', [])
         self.environment = state.environment
         self.pkg_dir = os.path.join(state.environment.build_dir, 'package', self.version + self.suffix, self.name)
         self.api_gen_dir = os.path.join(state.environment.build_dir, 'api-gen', self.name, self.version + self.suffix)
@@ -732,6 +735,8 @@ class HadronModule(ExtensionModule):
             cmd += ['--rigid_dependencies', rigid_dep]
         for flexible_dep in self.flexible_dependencies:
             cmd += ['--flexible_dependencies', flexible_dep]
+        for non_validated_dep in self.non_validated_dependencies:
+            cmd += ['--non_validated_dependencies', non_validated_dep]
 
         wheel_pkg = build.RunTarget('wheel-package'+ self.name + self.version + self.suffix, cmd[0], cmd[1:], [], self.subdir, self.subproject)
         self.interpreter.add_target(wheel_pkg.name, wheel_pkg)
