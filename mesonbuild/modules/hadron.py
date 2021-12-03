@@ -166,6 +166,7 @@ class HadronModule(ExtensionModule):
         self.mir_sources = set()
         self.pyi_targets = []
         self.cp_cmd = ['powershell', '-Command', 'copy'] if is_windows() else ['cp']
+        self.cp_link_cmd = ['powershell', '-Command', 'copy'] if is_windows() else ['cp', '-P']
         
         py_copy_targets, py_targets = self.gen_copy_trgts()
         cpy_trgts_list = [trgt for _, trgt in py_copy_targets.items()]
@@ -801,6 +802,28 @@ class HadronModule(ExtensionModule):
                     }
                     self.sources[self.name].append(os.path.join(self.pkg_dir, name))
                     targets.append(build.CustomTarget("_".join(['copy', name]) + self.name + self.version + self.suffix, self.pkg_dir, self.subproject, custom_kwargs))
+            elif isinstance(extension, dependencies.ExternalLibrary):
+                full_lib_path = extension.get_link_args()[0]
+                while os.path.islink(full_lib_path):
+                    name = os.path.basename(full_lib_path)
+                    custom_kwargs = {
+                        'input': full_lib_path,
+                        'output': name,
+                        'command': self.cp_link_cmd + ['@INPUT@', self.pkg_dir],
+                        'build_by_default' : True
+                    }
+                    self.sources[self.name].append(os.path.join(self.pkg_dir, name))
+                    targets.append(build.CustomTarget("_".join(['copy', name]) + self.name + self.version + self.suffix, self.pkg_dir, self.subproject, custom_kwargs))
+                    full_lib_path = os.path.join(os.path.dirname(full_lib_path), os.readlink(full_lib_path))
+                name = os.path.basename(full_lib_path)
+                custom_kwargs = {
+                    'input': full_lib_path,
+                    'output': name,
+                    'command': self.cp_cmd + ['@INPUT@', self.pkg_dir],
+                    'build_by_default' : True
+                }
+                self.sources[self.name].append(os.path.join(self.pkg_dir, name))
+                targets.append(build.CustomTarget("_".join(['copy', name]) + self.name + self.version + self.suffix, self.pkg_dir, self.subproject, custom_kwargs))
             elif isinstance(extension, list):
                 t, d = self.process_extensions(extension)
                 deps += d
