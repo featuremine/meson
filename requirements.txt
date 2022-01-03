@@ -4,3 +4,6 @@ mypy==0.790
 pylint==2.5.3
 psutil==5.8.0
 Faker==8.13.2
+requests
+types_pytz
+types_requests
