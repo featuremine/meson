@@ -1,4 +1,4 @@
-boto3==1.13.11
+boto3==1.28.5
 findimports==1.5.2
 mypy==0.790
 pylint==2.5.3
